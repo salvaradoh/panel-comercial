@@ -1,21 +1,26 @@
-export type Tab = 'metas' | 'cartera' | 'segmentacion' | 'ranking';
+export type Tab = 'metas' | 'cartera' | 'segmentacion' | 'mivista';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'metas', label: 'Desempeño' },
-  { id: 'cartera', label: 'Portafolio' },
+const ALL_TABS: { id: Tab; label: string }[] = [
+  { id: 'mivista',      label: 'Mi Vista' },
+  { id: 'metas',        label: 'Desempeño' },
+  { id: 'cartera',      label: 'Análisis clientes' },
   { id: 'segmentacion', label: 'Clientes' },
-  { id: 'ranking', label: 'Ranking' },
 ];
 
 interface SubNavProps {
   active: Tab;
   onChange: (tab: Tab) => void;
+  visibleTabs?: Tab[];
 }
 
-export function SubNav({ active, onChange }: SubNavProps) {
+export function SubNav({ active, onChange, visibleTabs }: SubNavProps) {
+  const tabs = visibleTabs
+    ? ALL_TABS.filter(t => visibleTabs.includes(t.id))
+    : ALL_TABS.filter(t => t.id !== 'mivista');
+
   return (
     <nav className="bg-white border-b border-slate-200 px-6 flex gap-0" aria-label="Tabs principales">
-      {TABS.map((tab) => (
+      {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
