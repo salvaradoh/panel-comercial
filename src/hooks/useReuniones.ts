@@ -14,6 +14,20 @@ const KAM_NOMBRES: Record<string, string> = {
   AA: 'Alvaro Agliati',    DA: 'Darling Allendes',  LG: 'Laura Galindo',
 };
 
+// Fallback: deriva "msernaque" → "MS" desde los nombres conocidos
+// Patrón: primera_letra_nombre + apellido  (ej. Magda Sernaque → msernaque)
+function nameToPrefix(nombre: string): string {
+  const norm = nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const parts = norm.split(/\s+/).filter(p => p.length > 2 && !p.endsWith('.'));
+  if (parts.length < 2) return '';
+  return parts[0][0] + parts[parts.length - 1];
+}
+const PREFIX_FALLBACK: Record<string, string> = {};
+for (const [kamId, nombre] of Object.entries(KAM_NOMBRES)) {
+  const prefix = nameToPrefix(nombre);
+  if (prefix && !PREFIX_FALLBACK[prefix]) PREFIX_FALLBACK[prefix] = kamId;
+}
+
 export interface SellerReuniones {
   sellerEmail: string;
   nombre: string;
@@ -82,8 +96,10 @@ export function useReuniones(anio: number, mes: number) {
 
       return Object.entries(agg).map(([sellerEmail, c]) => {
         const info   = emailMap[sellerEmail];
-        const kamId  = info?.kamId ?? '';
-        const nombre = KAM_NOMBRES[kamId] ?? (info ? kamId : sellerEmail.split('@')[0]);
+        // Fallback: si no está en Jerarquias, derivar kamId desde el prefix del email
+        const prefix = sellerEmail.split('@')[0];
+        const kamId  = info?.kamId ?? PREFIX_FALLBACK[prefix] ?? '';
+        const nombre = KAM_NOMBRES[kamId] ?? (kamId || prefix);
         return {
           sellerEmail,
           nombre,
