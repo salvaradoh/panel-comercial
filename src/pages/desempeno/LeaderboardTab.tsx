@@ -25,7 +25,7 @@ const MEDAL_COLOR  = ['#B45309', '#6B7280', '#C2622A'];
 
 type LeaderTab = 'avances' | 'ranking' | 'reuniones';
 type RolFilter = 'Todos' | 'KAM' | 'Full Cycle' | 'BDM';
-interface LeaderboardTabProps { anio: number; mes: number; defaultSemana?: number }
+interface LeaderboardTabProps { anio: number; mes: number; defaultSemana?: number; filterPais?: string }
 const WEEK_OPTS = [{ v: 0, l: 'Mes' }, { v: 1, l: 'S1' }, { v: 2, l: 'S2' }, { v: 3, l: 'S3' }, { v: 4, l: 'S4' }];
 const ROL_OPTS: RolFilter[] = ['Todos', 'KAM', 'Full Cycle', 'BDM'];
 
@@ -121,8 +121,8 @@ const PodiumCard = React.memo(function PodiumCard({ kam, rankIdx, photos }: { ka
   return (
     <div className={`flex-1 flex flex-col items-center rounded-2xl px-4 pt-8 pb-5 gap-2 relative ${isFirst ? 'shadow-lg' : 'shadow-sm'}`}
       style={{ background: MEDAL_BG[rankIdx], border: `1.5px solid ${MEDAL_BORDER[rankIdx]}`, marginTop: isFirst ? 0 : 16 }}>
-      {/* Medal — big, top-right corner */}
-      <span className="absolute top-2 right-3 select-none" style={{ fontSize: isFirst ? 30 : 24, lineHeight: 1 }}>
+      {/* Medal */}
+      <span className="absolute top-2 right-3 select-none" style={{ fontSize: isFirst ? 44 : 34, lineHeight: 1 }}>
         {MEDALS[rankIdx]}
       </span>
 
@@ -139,8 +139,6 @@ const PodiumCard = React.memo(function PodiumCard({ kam, rankIdx, photos }: { ka
           </div>
         )}
       </div>
-
-      <p className="text-sm font-bold tabular-nums text-slate-700">{fmtFull(kam.avance)}</p>
 
       <div className="flex flex-wrap items-center justify-center gap-1.5">
         <PctBadge pct={kam.pct} />
@@ -218,6 +216,14 @@ const CountrySection = React.memo(function CountrySection({ paisData, kams }: {
   const barW = Math.min(pct * 100, 100);
   const sorted = [...kams].sort((a, b) => b.pct - a.pct);
 
+  // El total del país sale de la facturación completa; las filas son sólo de
+  // ejecutivos. La diferencia es lo facturado por clientes sin ejecutivo asignado
+  // (etiquetados 'Otros', 'País', '-' o en blanco según el país). Se muestra el
+  // monto real en vez de una nota genérica, para que el descuadre sea explicable
+  // y no parezca un error de cálculo.
+  const avanceKams = sorted.reduce((s, k) => s + k.avance, 0);
+  const sinAsignar = Math.round(avance - avanceKams);
+
   return (
     <div className="rounded-2xl border border-slate-100 shadow-sm overflow-hidden bg-white">
       <button
@@ -240,13 +246,19 @@ const CountrySection = React.memo(function CountrySection({ paisData, kams }: {
 
         <div className="flex items-center gap-2.5 ml-auto flex-shrink-0">
           {proyeccionSem && proyeccionSem > 0 && (
-            <div className="text-right hidden md:block">
+            <div className="text-right hidden md:block cursor-help"
+                 title="Proyección de cierre del mes, calculada con el ritmo del mismo mes del año pasado.">
               <span className="text-[10px] text-slate-400">Proy </span>
               <span className="text-xs font-semibold tabular-nums text-slate-500">{fmtFull(proyeccionSem)}</span>
             </div>
           )}
+          {/* La cifra sola no decía contra qué compara: se rotula explícitamente */}
           {varYoY !== undefined && varYoY !== 0 && (
-            <div className="hidden md:block"><VarYoYChip v={varYoY} /></div>
+            <div className="hidden md:flex items-center gap-1 cursor-help"
+                 title="Diferencia contra el mismo período del año anterior: lo vendido este mes vs. lo vendido a esta misma altura del mismo mes del año pasado.">
+              <span className="text-[10px] text-slate-400 normal-case tracking-normal">vs 2025</span>
+              <VarYoYChip v={varYoY} />
+            </div>
           )}
           <div className="text-right hidden sm:block">
             <span className="text-sm font-bold tabular-nums text-slate-700">{fmtUSD(avance)}</span>
@@ -263,20 +275,43 @@ const CountrySection = React.memo(function CountrySection({ paisData, kams }: {
 
       {open && (
         <div className="border-t border-slate-100 divide-y divide-slate-50">
-          {/* Cabecera columnas */}
+          {/* Cabecera columnas — los title explican contra qué se compara cada cifra */}
           <div className="flex items-center gap-2.5 px-4 py-2 bg-slate-50 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
             <span className="w-5" />
             <span className="flex-1">Ejecutivo</span>
             <span className="w-20 text-right hidden sm:block">Meta</span>
             <span className="w-20 text-right">Avance</span>
-            <span className="w-20 text-right hidden md:block">Proy</span>
-            <span className="w-20 text-right hidden md:block">vs Año ant</span>
+            <span className="w-20 text-right hidden md:block cursor-help"
+                  title="Proyección de cierre del mes. Se calcula con el ritmo del mismo mes del año pasado: cuánto de ese mes quedaba por vender a esta misma altura.">
+              Proy
+            </span>
+            <span className="w-20 text-right hidden md:block cursor-help"
+                  title="Diferencia contra el mismo período del año anterior: lo vendido este mes vs. lo que el ejecutivo había vendido a esta misma altura del mismo mes del año pasado. No compara contra el mes completo.">
+              vs Año ant
+            </span>
             <span className="w-14 text-right">%</span>
           </div>
           {sorted.length === 0
             ? <p className="text-slate-400 text-sm text-center py-6">Sin datos de ejecutivos</p>
             : sorted.map((k, i) => <AvancesRow key={k.nombre} kam={k} rank={i + 1} />)
           }
+
+          {/* Aclara por qué las filas no suman el total del país.
+              Requiere al menos un ejecutivo: Ecuador no tiene estructura de KAMs,
+              así que ahí el 100% no es "sin asignar" sino que no aplica. */}
+          {sorted.length > 0 && sinAsignar > 500 && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50/70 text-[11px] text-slate-400">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                   className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
+              </svg>
+              <span>
+                Esta vista muestra sólo ejecutivos. El total de {pais} incluye{' '}
+                <strong className="text-slate-500 tabular-nums">{fmtFull(sinAsignar)}</strong>{' '}
+                de clientes sin ejecutivo asignado, por eso las filas no suman el total.
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -398,7 +433,7 @@ const ReunionesList = React.memo(function ReunionesList({
 });
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export function LeaderboardTab({ anio, mes, defaultSemana = 0 }: LeaderboardTabProps) {
+export function LeaderboardTab({ anio, mes, defaultSemana = 0, filterPais }: LeaderboardTabProps) {
   const [activeTab, setActiveTab]             = useState<LeaderTab>('avances');
   const [avancesSemana, setAvancesSemana]     = useState(defaultSemana > 0 ? defaultSemana : 0);
   const [reunionesSemana, setReunionesSemana] = useState(0);
@@ -418,23 +453,53 @@ export function LeaderboardTab({ anio, mes, defaultSemana = 0 }: LeaderboardTabP
                   : mesLoading;
 
   // [P5] useMemo para derivaciones costosas
+  // Podium y Ranking: siempre global (sin filtro de país)
   const allMes = useMemo(() => (kamsMes ?? []).filter(k => !EXCLUDED.has(k.pais)), [kamsMes]);
   const top3   = useMemo(() => [...allMes].sort((a, b) => b.pct - a.pct).slice(0, 3), [allMes]);
   const podium = useMemo(() => top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3, [top3]);
   const rankingList = useMemo(() => [...allMes].sort((a, b) => b.pct - a.pct), [allMes]);
+  // Avances: filtrado por país cuando aplica
   const avByPais = useMemo(() => {
     const map: Record<string, KamReporte[]> = {};
     for (const k of kamsAv ?? []) {
       if (EXCLUDED.has(k.pais)) continue;
+      if (filterPais && k.pais !== filterPais) continue;
       if (!map[k.pais]) map[k.pais] = [];
       map[k.pais].push(k);
     }
     return map;
-  }, [kamsAv]);
+  }, [kamsAv, filterPais]);
   const paisesAv = useMemo(
-    () => [...(metasAv?.paises ?? [])].filter(p => !EXCLUDED.has(p.pais)).sort((a, b) => b.pct - a.pct),
-    [metasAv],
+    () => {
+      const base = [...(metasAv?.paises ?? [])].filter(p => !EXCLUDED.has(p.pais));
+      return (filterPais ? base.filter(p => p.pais === filterPais) : base).sort((a, b) => b.pct - a.pct);
+    },
+    [metasAv, filterPais],
   );
+
+  // Agrega "Otros" por país: diferencia entre total real del país y suma de KAMs nombrados.
+  // Los KAMs que ya resuelven a "Otros" (AA, EC, etc.) se excluyen del desglose para que
+  // solo aparezca UNA fila "Otros" = country_total - named_KAMs (incluye los anónimos).
+  const avByPaisWithOtros = useMemo(() => {
+    const result: Record<string, KamReporte[]> = {};
+    for (const [pais, kams] of Object.entries(avByPais)) {
+      result[pais] = kams.filter(k => k.nombre !== 'Otros');
+    }
+    for (const p of paisesAv) {
+      const namedKams = result[p.pais] ?? [];
+      const namedSum  = namedKams.reduce((s, k) => s + k.avance, 0);
+      const otros     = Math.round((p.avance - namedSum) * 100) / 100;
+      if (otros > 1) {
+        result[p.pais] = [
+          ...namedKams,
+          { pais: p.pais, nombre: 'Otros', meta: 0, avance: otros, proy: 0, ant: 0, pct: 0, varYoY: 0, consistencia: 0 },
+        ];
+      }
+    }
+    return result;
+  }, [avByPais, paisesAv]);
+  // Reuniones: siempre global (sin filtro de país)
+  const reunionesFiltered = reunionesData;
 
   const mesNombre = new Date(anio, mes - 1).toLocaleString('es', { month: 'long', year: 'numeric' });
 
@@ -537,7 +602,7 @@ export function LeaderboardTab({ anio, mes, defaultSemana = 0 }: LeaderboardTabP
               <p className="text-slate-400 text-sm text-center py-12">Sin datos para esta semana</p>
             )}
             {paisesAv.map(p => (
-              <CountrySection key={p.pais} paisData={p} kams={avByPais[p.pais] ?? []} />
+              <CountrySection key={p.pais} paisData={p} kams={avByPaisWithOtros[p.pais] ?? []} />
             ))}
           </div>
         )}
@@ -563,8 +628,8 @@ export function LeaderboardTab({ anio, mes, defaultSemana = 0 }: LeaderboardTabP
 
         {/* Reuniones tab */}
         {activeTab === 'reuniones' && (
-          reunionesData && reunionesData.length > 0
-            ? <ReunionesList sellers={reunionesData} semana={reunionesSemana} rol={reunionesRol} photos={photos} />
+          reunionesFiltered && reunionesFiltered.length > 0
+            ? <ReunionesList sellers={reunionesFiltered} semana={reunionesSemana} rol={reunionesRol} photos={photos} />
             : !reunionesLoading
               ? <p className="text-slate-400 text-sm text-center py-12">Sin datos de reuniones</p>
               : null

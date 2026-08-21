@@ -4,11 +4,14 @@ export interface PaisData {
   meta: number;
   pct: number;
   serie: { semana: number; avance: number; meta: number }[];
-  // Nuevos campos comparativos (opcionales — el backend los incluye progresivamente)
+  // Campos comparativos
   mesAnterior?: number;
   avanceYoY?: number;
   varYoY?: number;
   varYoYPct?: number;
+  // Proyecciones precomputadas por el GAS (cols 8 y 9 del Cache_Reporte)
+  proyeccionSem?: number;  // Proy. semanal lineal (días)
+  proyeccionMes?: number;  // Proy. mensual YoY
 }
 
 export interface MetasResponse {
@@ -44,6 +47,16 @@ export interface ClienteChurn {
   score: number;
   segmento: 'A+' | 'A' | 'B' | 'C';
   catPrincipal?: string;
+  scoreVNT?: number;
+  fE?: number;
+  fN?: number;
+  fT?: number;
+  npsRaw?: number | null;
+  caida?: number | null;
+  señalesEng?: string[];
+  ctxE?: string;
+  /** USD de dotación (solo Colombia). Marca para el filtro; no afecta montos. */
+  dot?: number;
 }
 
 export interface KamEstacional {
@@ -64,7 +77,7 @@ export interface KamEstacional {
     primera_compra: { base: number; ret: number; churn: number; volumen: number; factPerd: number };
   };
   clientesChurn: ClienteChurn[];
-  clientesRetenidos: { empresa: string; volumen: number; subSeg: string; score: number; segmento: string }[];
+  clientesRetenidos: { empresa: string; volumen: number; subSeg: string; score: number; segmento: string; scoreVNT?: number; ultimaCompra?: string; diasSinCompra?: number; fE?: number; fN?: number; fT?: number; npsRaw?: number | null; caida?: number | null; señalesEng?: string[]; ctxE?: string; dot?: number }[];
 }
 
 export interface PaisEstacional {
@@ -76,12 +89,24 @@ export interface PaisEstacional {
 }
 
 export interface ClienteRec {
+  /** USD de dotación (solo Colombia). Marca para el filtro; no afecta montos. */
+  dot?: number;
   empresa: string;
   score: number;
   segmento: string;
   diasSinCompra: number;
+  ultimaCompra?: string;
   volumen: number;
   tipo?: string;
+  fR?: number;
+  fE?: number;
+  fN?: number;
+  fT?: number;
+  npsRaw?: number | null;
+  monto6m?: number | null;
+  monto6mAnt?: number | null;
+  detalleEngagement?: string;
+  ctxE?: string;
 }
 
 export interface KamRecurrente {
@@ -111,15 +136,68 @@ export interface CarteraRichResponse {
   _placeholder?: boolean;
 }
 
+export interface ClienteSegmentacion {
+  /** USD de dotación (solo Colombia). Marca para el filtro; no afecta score. */
+  dot?: number;
+  cliente: string;
+  segmento: 'A+' | 'A' | 'B' | 'C';
+  score: number;
+  vol: number;
+  meses?: number;
+  // Factores de RECURRENTES (Cache_Segmentacion18): vol 50% · meses 20% · usuarios 20% · fee 10%
+  ptVol?: number;
+  ptMeses?: number;
+  ptUsrInc?: number;
+  ptFee?: number;
+  // Factores de ESTACIONALES (Cache_Churn → scoreEstacional). Pesos distintos a los
+  // de recurrentes: vol 50% · producto dominante 25% · meses 12.5% · margen de mix 12.5%
+  fVol?: number;
+  fProd?: number;
+  fMeses?: number;
+  fMargen?: number;
+  /** 'estacional' | 'primera_compra' — se muestra en la columna Tipo */
+  subSeg?: string;
+}
+
+export interface KamSegmentacion {
+  kam: string;
+  total: number;
+  aPlus: number;
+  a: number;
+  b: number;
+  c: number;
+  vol: number;
+  clientes: ClienteSegmentacion[];
+}
+
+export interface PaisSegmentacion {
+  pais: string;
+  total: number;
+  aPlus: number;
+  a: number;
+  b: number;
+  c: number;
+  vol: number;
+  kams: KamSegmentacion[];
+}
+
 export interface SegmentacionResponse {
-  clientes: { cliente: string; kam: string; segmento: 'A+' | 'A' | 'B' | 'C'; score: number; vol: number }[];
+  clientes: {
+    cliente: string; kam: string; pais: string;
+    segmento: 'A+' | 'A' | 'B' | 'C'; score: number; vol: number;
+    ptVol?: number; ptMeses?: number; ptUsrInc?: number; ptFee?: number;
+  }[];
   conteos: Record<'A+' | 'A' | 'B' | 'C', number>;
+  globales: { total: number; vol: number };
+  paises: PaisSegmentacion[];
+  fechaCalculo: string;
 }
 
 export interface KamRanking {
   nombre: string;
   pais: string;
   metaAnualUSD: number;
+  metaYTDUSD?: number;
   avanceAnualUSD: number;
   cumplimiento: number;
 }

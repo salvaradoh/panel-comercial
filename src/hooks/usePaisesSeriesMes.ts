@@ -1,25 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../api/client';
-import type { SeriesResponse, SeriePoint } from './useSeries';
-
-const PAISES = ['Chile', 'Perú', 'Colombia', 'México'];
+import { useCacheSeries } from './useCacheSeries';
+import type { SeriePoint } from './useSeries';
 
 export function usePaisesSeriesMes(anio: number) {
+  const { data: cache, isLoading, error } = useCacheSeries();
+
   return useQuery({
     queryKey: ['series-paises-mes', anio],
-    queryFn: async () => {
-      const results = await Promise.all(
-        PAISES.map(pais => {
-          const params = new URLSearchParams({ anio: String(anio), granularidad: 'mes', pais });
-          return apiFetch<SeriesResponse>(`/api/series?${params}`)
-            .then(r => ({ pais, series: r.series }))
-            .catch(() => ({ pais, series: [] as SeriePoint[] }));
-        })
-      );
+    queryFn: () => {
+      const paises = cache?.series?.[String(anio)]?.paises ?? {};
       const map: Record<string, SeriePoint[]> = {};
-      results.forEach(r => { map[r.pais] = r.series; });
+      for (const [pais, pts] of Object.entries(paises)) {
+        map[pais] = pts.map(pt => ({ ...pt, meta: 0 }));
+      }
       return map;
     },
+    enabled: !!cache && !isLoading && !error,
     staleTime: 15 * 60 * 1000,
   });
 }

@@ -1,11 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../api/client';
+import { useCacheSheet } from './useCacheSheet';
 import type { RankingResponse } from './types';
 
-export function useRanking(anio: number) {
-  return useQuery<RankingResponse>({
-    queryKey: ['ranking', anio],
-    queryFn: () => apiFetch<RankingResponse>(`/api/ranking?anio=${anio}`),
-    staleTime: 10 * 60 * 1000,
-  });
+// Lee Cache_Ranking (escrito por GAS escribirCacheRanking) directamente via Sheets API.
+// Elimina la dependencia del backend Cloud Run para esta ruta.
+export function useRanking(_anio: number) {
+  return useCacheSheet<RankingResponse>('Cache_Ranking');
 }

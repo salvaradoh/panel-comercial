@@ -1,11 +1,9 @@
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/Card';
-import { useRanking } from '../../hooks/useRanking';
+import { useMetas } from '../../hooks/useMetas';
 
 const META_ANUAL_USD = 70_000_000;
 const MESES_NOMBRE = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
-
-const EXCLUDED = new Set(['Otros', 'País', 'Pais', 'Ecuador']);
 
 function fmtUSDFull(v: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v);
@@ -17,94 +15,287 @@ function fmtUSDShort(v: number): string {
   return `$${v.toFixed(0)}`;
 }
 
+function semanaActual(): number {
+  return Math.min(4, Math.ceil(new Date().getDate() / 7));
+}
+
 interface AnnualMetricsPanelProps {
   ytdActual: number;
   anio: number;
+  mes: number;
   proyeccionYoY?: number | null;
+  horizontal?: boolean;
 }
 
-export function AnnualMetricsPanel({ ytdActual, anio, proyeccionYoY }: AnnualMetricsPanelProps) {
-  const { data: rankingData } = useRanking(anio);
+function ProgressBar({
+  cumpl, color, proyPct,
+}: {
+  cumpl: number; color: string; proyPct?: number | null;
+}) {
+  return (
+    <div className="relative w-full bg-slate-100 rounded-full h-1.5 overflow-hidden my-1.5">
+      <div
+        className="absolute inset-y-0 left-0 rounded-full transition-all"
+        style={{ width: `${Math.min(cumpl * 100, 100)}%`, background: color }}
+      />
+      {proyPct != null && proyPct > cumpl && (
+        <div
+          className="absolute top-0 bottom-0 w-px bg-slate-500 opacity-50"
+          style={{ left: `${Math.min(proyPct * 100, 100)}%` }}
+        />
+      )}
+    </div>
+  );
+}
 
-  const mesActual = new Date().getMonth() + 1;
-  const pctHacia70M = Math.min(ytdActual / META_ANUAL_USD, 1);
-  const proyLineal = mesActual > 0 ? (ytdActual / mesActual) * 12 : 0;
-  const proyeccion = proyeccionYoY ?? proyLineal;
-  const tieneYoY = proyeccionYoY != null && proyeccionYoY > 0;
-  const pctProyeccion = proyeccion / META_ANUAL_USD;
+function AvanceCombinedCard({
+  mes, anio, semana, semanasDisponibles, onSemanaChange,
+  mesAvance, mesMeta,
+  semAvance, semMeta,
+  mesAvanceAnt,
+  mesLoading, semLoading,
+  compact = false,
+  className,
+}: {
+  mes: number; anio: number; semana: number;
+  semanasDisponibles: number[]; onSemanaChange: (s: number) => void;
+  mesAvance: number; mesMeta: number; proyeccionMes: number | null;
+  semAvance: number; semMeta: number; proyeccionSem: number | null;
+  mesAvanceAnt: number;
+  mesLoading: boolean; semLoading: boolean;
+  compact?: boolean;
+  className?: string;
+}) {
+  const mesCumpl  = mesMeta > 0 ? mesAvance / mesMeta : 0;
+  const semCumpl  = semMeta > 0 ? semAvance / semMeta : 0;
+  const mesColor  = mesCumpl >= 1 ? '#10b981' : mesCumpl >= 0.8 ? '#f59e0b' : '#ef4444';
+  const semColor  = semCumpl >= 1 ? '#10b981' : semCumpl >= 0.8 ? '#f59e0b' : '#ef4444';
+  const yoy       = !compact && mesAvanceAnt > 0 ? ((mesAvance - mesAvanceAnt) / mesAvanceAnt) * 100 : null;
+  const mesGap    = mesMeta - mesAvance;
+  const semGap    = semMeta - semAvance;
 
-  // Métricas desde ranking
-  const kams = (rankingData?.kams ?? []).filter(k => !EXCLUDED.has(k.nombre));
-  const sobreMeta = kams.filter(k => k.cumplimiento >= 1).length;
-  const brecha = META_ANUAL_USD - ytdActual;
-  const topKam = [...kams].sort((a, b) => b.cumplimiento - a.cumplimiento)[0];
-  const topPais = (rankingData?.paises ?? [])[0];
-  const avgCumpl = kams.length > 0
-    ? kams.reduce((s, k) => s + k.cumplimiento, 0) / kams.length
-    : 0;
+  const cardCls = compact ? `${className} !p-3` : className;
 
   return (
-    <div className="flex flex-col gap-3">
+    <Card className={cardCls}>
+      <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+        Avance {MESES_NOMBRE[mes]} {anio}
+      </p>
 
-      {/* Card: Meta $70M — compacta */}
-      <Card>
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Meta Global {anio}</p>
-          <span className="text-[10px] text-slate-300">$70M</span>
+      <div className="grid grid-cols-2 gap-x-3">
+        {/* ── Mensual ── */}
+        <div className="border-r border-slate-100 pr-3">
+          <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wide mb-0.5">Mensual</p>
+          {mesLoading ? (
+            <div className="h-10 bg-slate-100 rounded animate-pulse" />
+          ) : (
+            <>
+              <span className="text-sm font-bold tabular-nums leading-tight" style={{ color: '#0097A7' }}>
+                {fmtUSDFull(mesAvance)}
+              </span>
+              {mesMeta > 0 && (
+                <p className="text-[9px] text-slate-400 leading-none">Meta {fmtUSDShort(mesMeta)}</p>
+              )}
+              <ProgressBar cumpl={mesCumpl} color={mesColor} />
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-bold tabular-nums" style={{ color: mesColor }}>
+                  {(mesCumpl * 100).toFixed(1)}%
+                </span>
+                {mesMeta > 0 && (
+                  <span className={`text-[9px] tabular-nums ${mesGap <= 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {mesGap <= 0 ? `▲${fmtUSDShort(Math.abs(mesGap))}` : `${fmtUSDShort(mesGap)} rest.`}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </div>
-        <div className="flex items-baseline gap-1.5 mb-0.5">
-          <span className="text-xl font-bold tabular-nums text-[#0097A7]">{fmtUSDFull(ytdActual)}</span>
-          <span className="text-xs text-slate-400">/ $70M</span>
+
+        {/* ── Semanal ── */}
+        <div>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wide">Semana</p>
+            <select
+              value={semana}
+              onChange={e => onSemanaChange(Number(e.target.value))}
+              className="text-[9px] font-semibold text-slate-600 bg-slate-100 border-0 rounded px-1 py-px cursor-pointer outline-none hover:bg-slate-200 transition-colors"
+            >
+              {(semanasDisponibles.length > 0 ? semanasDisponibles : [1, 2, 3, 4]).map(s => (
+                <option key={s} value={s}>S{s}</option>
+              ))}
+            </select>
+          </div>
+          {semLoading ? (
+            <div className="h-10 bg-slate-100 rounded animate-pulse" />
+          ) : (
+            <>
+              <span className="text-sm font-bold tabular-nums leading-tight" style={{ color: '#0097A7' }}>
+                {fmtUSDFull(semAvance)}
+              </span>
+              {semMeta > 0 && (
+                <p className="text-[9px] text-slate-400 leading-none">Meta {fmtUSDShort(semMeta)}</p>
+              )}
+              <ProgressBar cumpl={semCumpl} color={semColor} />
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-bold tabular-nums" style={{ color: semColor }}>
+                  {(semCumpl * 100).toFixed(1)}%
+                </span>
+                {semMeta > 0 && (
+                  <span className={`text-[9px] tabular-nums ${semGap <= 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {semGap <= 0 ? `▲${fmtUSDShort(Math.abs(semGap))}` : `${fmtUSDShort(semGap)} rest.`}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </div>
-        <div className="relative w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-1">
+      </div>
+
+      {yoy !== null && (
+        <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-slate-100">
+          <span className="text-[9px] text-slate-400">
+            Cierre {anio - 1}: {fmtUSDShort(mesAvanceAnt)}
+          </span>
+          <span className={`text-[9px] font-bold tabular-nums ${yoy >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+            {yoy >= 0 ? '▲' : '▼'} {Math.abs(yoy).toFixed(1)}% vs {anio - 1}
+          </span>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function AnnualMetricsPanel({ ytdActual, anio, mes, proyeccionYoY, horizontal = false }: AnnualMetricsPanelProps) {
+  const mesActual = new Date().getMonth() + 1;
+  const [semana, setSemana] = useState<number>(semanaActual());
+
+  const { data: mesMetas,    isFetching: mesLoading } = useMetas(anio,      mes, 0);
+  const { data: semMetas,    isFetching: semLoading } = useMetas(anio,      mes, semana);
+
+  // Auto-seleccionar la última semana disponible cuando carguen los datos
+  useEffect(() => {
+    const disponibles = mesMetas?.semanasDisponibles ?? [];
+    if (disponibles.length > 0) {
+      setSemana(Math.max(...disponibles));
+    }
+  }, [mesMetas]);
+  const { data: mesMetasAnt }                         = useMetas(anio - 1,  mes, 0);
+  // Semanas individuales del año anterior para acumulado correcto
+  const { data: semMetasAntW1 } = useMetas(anio - 1, mes, 1);
+  const { data: semMetasAntW2 } = useMetas(anio - 1, mes, 2);
+  const { data: semMetasAntW3 } = useMetas(anio - 1, mes, 3);
+  const { data: semMetasAntW4 } = useMetas(anio - 1, mes, 4);
+
+  const sum = (d: typeof mesMetas, field: 'avance' | 'meta') =>
+    (d ?? { paises: [] }).paises.reduce((s, p) => s + p[field], 0);
+
+  const sumProy = (d: typeof semMetas, field: 'proyeccionSem' | 'proyeccionMes') =>
+    (d ?? { paises: [] }).paises.reduce((s, p) => s + ((p[field] as number | undefined) || 0), 0);
+
+  const mesAvance    = sum(mesMetas,    'avance');
+  const mesMeta      = sum(mesMetas,    'meta');
+  const semAvance    = sum(semMetas,    'avance');
+  const semMeta      = sum(semMetas,    'meta');
+  const mesAvanceAnt = sum(mesMetasAnt, 'avance');
+
+  // Proyecciones precomputadas por GAS (cols 8 y 9 del Cache_Reporte) — fuente primaria
+  const proyeccionMesGAS = sumProy(semMetas, 'proyeccionMes');
+  const proyeccionSemGAS = sumProy(semMetas, 'proyeccionSem');
+
+  // Fallback: cálculo propio si GAS no tiene valores
+  const allWeeksAnt = [semMetasAntW1, semMetasAntW2, semMetasAntW3, semMetasAntW4];
+  const semAvanceAntCum = allWeeksAnt
+    .slice(0, semana)
+    .reduce((acc, d) => acc + sum(d, 'avance'), 0);
+
+  const semAvanceAntFallback = sum(allWeeksAnt[semana - 1], 'avance');
+  const denominadorYoY = semAvanceAntCum > 0
+    ? semAvanceAntCum
+    : semAvanceAntFallback > 0
+      ? semAvanceAntFallback
+      : mesAvanceAnt > 0 ? mesAvanceAnt * (semana / 4.33) : 0;
+
+  const factorYoYMes          = denominadorYoY > 0 ? mesAvanceAnt / denominadorYoY : 0;
+  const proyeccionMesFallback = factorYoYMes > 0 ? mesAvance * factorYoYMes : null;
+
+  const _today       = new Date().getDate();
+  const _semStart    = (semana - 1) * 7 + 1;
+  const _semEnd      = semana * 7;
+  const _diasElapsed = _today >= _semStart && _today <= _semEnd
+    ? _today - _semStart + 1
+    : _today > _semEnd ? 7 : 1;
+  const proyeccionSemFallback = semAvance > 0 ? (semAvance / _diasElapsed) * 7 : null;
+
+  // Usar GAS como fuente primaria; fallback a cálculo propio
+  const proyeccionMes = proyeccionMesGAS > 0 ? proyeccionMesGAS : proyeccionMesFallback;
+  const proyeccionSem = proyeccionSemGAS > 0 ? proyeccionSemGAS : proyeccionSemFallback;
+
+  const pctHacia70M   = Math.min(ytdActual / META_ANUAL_USD, 1);
+  const proyLineal    = mesActual > 0 ? (ytdActual / mesActual) * 12 : 0;
+  const proyeccion    = proyeccionYoY ?? proyLineal;
+  const tieneYoY      = proyeccionYoY != null && proyeccionYoY > 0;
+  const pctProyeccion = proyeccion / META_ANUAL_USD;
+
+  return (
+    <div className={`flex gap-3 ${horizontal ? 'flex-row items-stretch' : 'flex-col'}`}>
+
+      {/* Card: Meta $70M */}
+      <Card className={horizontal ? 'flex-1 min-w-0 flex flex-col !p-3' : ''}>
+        <div className="flex items-center justify-between mb-0.5">
+          <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wide">Meta Global {anio}</p>
+          <span className="text-[9px] text-slate-300">$70M</span>
+        </div>
+        <div className="flex items-baseline gap-1 mb-0.5">
+          <span className={`font-bold tabular-nums text-[#0097A7] ${horizontal ? 'text-base' : 'text-xl'}`}>{fmtUSDFull(ytdActual)}</span>
+          <span className="text-[10px] text-slate-400">/ $70M</span>
+        </div>
+        <div className="relative w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mb-0.5">
           <div className="absolute inset-y-0 left-0 rounded-full bg-[#0097A7] opacity-20"
             style={{ width: `${Math.min(pctProyeccion * 100, 100)}%` }} />
           <div className="absolute inset-y-0 left-0 rounded-full bg-[#0097A7]"
             style={{ width: `${Math.min(pctHacia70M * 100, 100)}%` }} />
         </div>
-        <p className="text-[10px] text-slate-400 mb-2">{(pctHacia70M * 100).toFixed(1)}% alcanzado</p>
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+        <p className="text-[9px] text-slate-400 mb-1.5">{(pctHacia70M * 100).toFixed(1)}% alcanzado</p>
+        <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
           <div>
-            <p className="text-[10px] text-slate-400">Proyección al cierre</p>
-            <p className={`text-sm font-bold tabular-nums ${proyeccion >= META_ANUAL_USD ? 'text-emerald-600' : 'text-amber-500'}`}>
+            <p className="text-[9px] text-slate-400">Proyección al cierre</p>
+            <p className={`text-xs font-bold tabular-nums ${proyeccion >= META_ANUAL_USD ? 'text-emerald-600' : 'text-amber-500'}`}>
               {fmtUSDFull(proyeccion)}
             </p>
-            <p className={`text-[10px] font-medium ${proyeccion >= META_ANUAL_USD ? 'text-emerald-600' : 'text-red-500'}`}>
-              {proyeccion >= META_ANUAL_USD ? `▲ ${fmtUSDShort(proyeccion - META_ANUAL_USD)} sobre` : `▼ ${fmtUSDShort(META_ANUAL_USD - proyeccion)} bajo`}
+            <p className={`text-[9px] font-medium ${proyeccion >= META_ANUAL_USD ? 'text-emerald-600' : 'text-red-500'}`}>
+              {proyeccion >= META_ANUAL_USD
+                ? `▲ ${fmtUSDShort(proyeccion - META_ANUAL_USD)} sobre`
+                : `▼ ${fmtUSDShort(META_ANUAL_USD - proyeccion)} bajo`}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-slate-400">{tieneYoY ? 'Factor YoY' : 'Lineal'}</p>
-            <p className="text-[10px] text-slate-400">{MESES_NOMBRE[mesActual]}→Dic</p>
+            <p className="text-[9px] text-slate-400">{tieneYoY ? 'Factor YoY' : 'Lineal'}</p>
+            <p className="text-[9px] text-slate-400">{MESES_NOMBRE[mesActual]}→Dic</p>
           </div>
         </div>
       </Card>
 
-      {/* Card: KPIs compactos */}
-      <Card>
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Indicadores del Año</p>
-        <div className="grid grid-cols-2 gap-1.5">
-          {[
-            { label: 'KAMs sobre meta', value: `${sobreMeta}/${kams.length}`, color: 'text-[#0097A7]' },
-            { label: 'Cumpl. promedio', value: `${(avgCumpl * 100).toFixed(0)}%`, color: avgCumpl >= 1 ? 'text-emerald-600' : avgCumpl >= 0.8 ? 'text-amber-500' : 'text-red-500' },
-            { label: 'Brecha a $70M', value: fmtUSDShort(Math.abs(brecha)), color: brecha <= 0 ? 'text-emerald-600' : 'text-red-500' },
-            { label: 'País líder', value: topPais?.nombre ?? '—', color: 'text-slate-700', sub: topPais ? `${(topPais.cumplimiento * 100).toFixed(1)}%` : '' },
-          ].map(item => (
-            <div key={item.label} className="bg-slate-50 rounded-lg px-2 py-1.5">
-              <p className="text-[9px] text-slate-400 leading-tight">{item.label}</p>
-              <p className={`text-sm font-bold tabular-nums leading-tight ${item.color}`}>{item.value}</p>
-              {item.sub && <p className="text-[9px] text-amber-500 font-semibold">{item.sub}</p>}
-            </div>
-          ))}
-        </div>
-        {topKam && (
-          <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center gap-1.5">
-            <span className="text-xs">🏆</span>
-            <p className="text-xs font-semibold text-slate-700 flex-1 truncate">{topKam.nombre}</p>
-            <p className="text-xs font-bold text-emerald-600 tabular-nums flex-shrink-0">{(topKam.cumplimiento * 100).toFixed(0)}% · {fmtUSDShort(topKam.avanceAnualUSD)}</p>
-          </div>
-        )}
-      </Card>
+      {/* Card combinada: Avance Mensual + Semanal */}
+      <div className={horizontal ? 'flex-1 min-w-0 flex flex-col' : ''}>
+        <AvanceCombinedCard
+          mes={mes}
+          anio={anio}
+          semana={semana}
+          semanasDisponibles={mesMetas?.semanasDisponibles ?? []}
+          onSemanaChange={setSemana}
+          mesAvance={mesAvance}
+          mesMeta={mesMeta}
+          proyeccionMes={proyeccionMes}
+          semAvance={semAvance}
+          semMeta={semMeta}
+          proyeccionSem={proyeccionSem}
+          mesAvanceAnt={mesAvanceAnt}
+          mesLoading={mesLoading}
+          semLoading={semLoading}
+          compact={horizontal}
+          className={horizontal ? 'flex-1' : ''}
+        />
+      </div>
 
     </div>
   );

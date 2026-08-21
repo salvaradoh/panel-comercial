@@ -7,6 +7,7 @@ const FLAG_CC: Record<string, string> = {
 interface PaisResumenTableProps {
   paises: PaisData[];
   onSelectPais?: (pais: string) => void;
+  noClickPaises?: string[];
 }
 
 function fmtUSD(v: number): string {
@@ -35,21 +36,25 @@ function VarBadge({ value, pct }: { value: number; pct: number | null | undefine
   );
 }
 
-export function PaisResumenTable({ paises, onSelectPais }: PaisResumenTableProps) {
-  const totalMeta   = paises.reduce((s, p) => s + p.meta, 0);
-  const totalAvance = paises.reduce((s, p) => s + p.avance, 0);
-  const totalAnt    = paises.reduce((s, p) => s + (p.mesAnterior ?? 0), 0);
-  const totalYoY    = paises.reduce((s, p) => s + (p.avanceYoY ?? 0), 0);
-  const totalVar    = totalAvance - totalYoY;
-  const totalVarPct = totalYoY > 0 ? (totalVar / totalYoY) * 100 : null;
+export function PaisResumenTable({ paises, onSelectPais, noClickPaises }: PaisResumenTableProps) {
+  const noClickSet = new Set(noClickPaises ?? []);
+
+  // Ordenar por cumplimiento desc (todos los países, incluido Ecuador)
+  const sorted = [...paises].sort((a, b) => b.pct - a.pct);
+
+  // Totales incluyen todos los países
+  const totalMeta   = sorted.reduce((s, p) => s + p.meta, 0);
+  const totalAvance = sorted.reduce((s, p) => s + p.avance, 0);
+  const totalAnt    = sorted.reduce((s, p) => s + (p.avanceYoY ?? 0), 0);
+  const totalVar    = totalAvance - totalAnt;
+  const totalVarPct = totalAnt > 0 ? (totalVar / totalAnt) * 100 : null;
   const totalPct    = totalMeta > 0 ? totalAvance / totalMeta : 0;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+      <div className="px-5 py-4 border-b border-slate-100">
         <h3 className="text-sm font-semibold text-slate-700">Resumen por Región</h3>
-        <span className="text-xs text-slate-400">período seleccionado</span>
       </div>
 
       <div className="overflow-x-auto">
@@ -59,23 +64,22 @@ export function PaisResumenTable({ paises, onSelectPais }: PaisResumenTableProps
               <th className="text-left px-5 py-3 font-medium">País</th>
               <th className="text-right px-4 py-3 font-medium tabular-nums">Meta</th>
               <th className="text-right px-4 py-3 font-medium tabular-nums">Avance</th>
-              <th className="text-right px-4 py-3 font-medium tabular-nums">Proy. YoY</th>
               <th className="text-right px-4 py-3 font-medium tabular-nums">Mes A. Ant.</th>
               <th className="text-right px-4 py-3 font-medium tabular-nums">Var. YoY</th>
-              <th className="text-right px-5 py-3 font-medium tabular-nums">Cumpl.</th>
+              <th className="text-right px-5 py-3 font-medium tabular-nums">Cumpl. ↓</th>
             </tr>
           </thead>
           <tbody>
-            {paises.map((p) => {
+            {sorted.map((p) => {
               const cc = FLAG_CC[p.pais];
               const pct = p.pct;
               const cumplColor = pct >= 1 ? 'text-emerald-600' : pct >= 0.8 ? 'text-amber-500' : 'text-red-500';
-              const isClickable = !!onSelectPais;
+              const isClickable = !!onSelectPais && !noClickSet.has(p.pais);
               return (
                 <tr
                   key={p.pais}
                   className={`border-b border-slate-50 transition-colors ${isClickable ? 'hover:bg-slate-50 cursor-pointer' : ''}`}
-                  onClick={() => onSelectPais?.(p.pais)}
+                  onClick={() => isClickable && onSelectPais?.(p.pais)}
                 >
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
@@ -88,10 +92,7 @@ export function PaisResumenTable({ paises, onSelectPais }: PaisResumenTableProps
                   <td className="px-4 py-3.5 text-right tabular-nums text-slate-400 text-sm">{fmtUSD(p.meta)}</td>
                   <td className="px-4 py-3.5 text-right tabular-nums text-sm font-semibold text-slate-800">{fmtUSD(p.avance)}</td>
                   <td className="px-4 py-3.5 text-right tabular-nums text-sm text-slate-400">
-                    {p.avanceYoY != null && p.avanceYoY > 0 ? fmtUSD(p.avanceYoY) : '—'}
-                  </td>
-                  <td className="px-4 py-3.5 text-right tabular-nums text-sm text-slate-400">
-                    {p.mesAnterior != null ? fmtUSD(p.mesAnterior) : '—'}
+                    {(p.avanceYoY ?? 0) > 0 ? fmtUSD(p.avanceYoY!) : '—'}
                   </td>
                   <td className="px-4 py-3.5">
                     {p.varYoY != null
@@ -101,13 +102,13 @@ export function PaisResumenTable({ paises, onSelectPais }: PaisResumenTableProps
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center justify-end gap-2">
-                      <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
                         <div
-                          className={`h-1.5 rounded-full transition-all ${pct >= 1 ? 'bg-emerald-500' : pct >= 0.8 ? 'bg-amber-400' : 'bg-red-400'}`}
+                          className={`h-2 rounded-full transition-all ${pct >= 1 ? 'bg-emerald-500' : pct >= 0.8 ? 'bg-amber-400' : 'bg-red-400'}`}
                           style={{ width: `${Math.min(pct * 100, 100)}%` }}
                         />
                       </div>
-                      <span className={`text-sm font-bold tabular-nums ${cumplColor}`}>
+                      <span className={`text-sm font-bold tabular-nums w-12 text-right ${cumplColor}`}>
                         {(pct * 100).toFixed(1)}%
                       </span>
                     </div>
@@ -122,8 +123,7 @@ export function PaisResumenTable({ paises, onSelectPais }: PaisResumenTableProps
               <td className="px-5 py-3.5 text-sm font-bold text-slate-700">Total LATAM</td>
               <td className="px-4 py-3.5 text-right tabular-nums text-sm font-semibold text-slate-500">{fmtUSD(totalMeta)}</td>
               <td className="px-4 py-3.5 text-right tabular-nums text-sm font-bold text-slate-800">{fmtUSD(totalAvance)}</td>
-              <td className="px-4 py-3.5 text-right tabular-nums text-sm text-slate-500">{totalYoY > 0 ? fmtUSD(totalYoY) : '—'}</td>
-              <td className="px-4 py-3.5 text-right tabular-nums text-sm text-slate-500">{fmtUSD(totalAnt)}</td>
+              <td className="px-4 py-3.5 text-right tabular-nums text-sm text-slate-500">{totalAnt > 0 ? fmtUSD(totalAnt) : '—'}</td>
               <td className="px-4 py-3.5">
                 <VarBadge value={totalVar} pct={totalVarPct} />
               </td>

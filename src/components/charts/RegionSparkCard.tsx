@@ -1,3 +1,4 @@
+import React from 'react';
 import { AreaChart, Area, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 
@@ -95,12 +96,16 @@ function CountrySilhouette({ pais }: { pais: string }) {
 
 export interface RowData {
   pais: string;
+  label?: string;  // texto mostrado en lugar de pais (el flag/silueta siguen usando pais)
   avance: number;
   meta: number;
   pct: number;
   varYoYPct?: number | null;
   serie: { time: string; value: number }[];
   prevYearSerie?: { time: string; value: number }[];  // serie del año anterior (mensual)
+  // Avance mensual correcto por mes (fuente Tabla_Avance_Total_Pais vía Cache_Reporte).
+  // Clave: "YYYY-M" con M 0-indexed (compatible con getMonthKey). Override de monthlySums en tooltip.
+  mesAvances?: Record<string, number>;
 }
 
 function getCurrentMonth(): number {
@@ -125,10 +130,31 @@ function getMonthLabels(serie: { time: string }[]): string[] {
   return labels;
 }
 
-function MiniSparkline({ data, prevYearSerie }: { data: { time: string; value: number }[]; prevYearSerie?: { time: string; value: number }[] }) {
+// Etiquetas del eje X para datos semanales: solo muestra el mes en la primera semana
+function getWeekAxisLabels(serie: { time: string }[]): string[] {
+  const seen = new Set<string>();
+  return serie.map(pt => {
+    const d = new Date(pt.time + 'T12:00:00');
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      return MESES_SHORT[d.getMonth() + 1] || '';
+    }
+    return '';
+  });
+}
+
+function weekKey(timeStr: string): string {
+  const d = new Date(timeStr + 'T12:00:00');
+  const day = d.getDate();
+  const sem = day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : 4;
+  return `${d.getMonth() + 1}-${sem}`;
+}
+
+function MiniSparkline({ data, prevYearSerie, isSemanal = false, stretch = false, mesAvances }: { data: { time: string; value: number }[]; prevYearSerie?: { time: string; value: number }[]; isSemanal?: boolean; stretch?: boolean; mesAvances?: Record<string, number> }) {
   if (data.length < 2) {
     return (
-      <div className="flex-1 h-14 flex items-center justify-center">
+      <div className={stretch ? 'flex-1 self-stretch flex items-center justify-center' : 'flex-1 h-14 flex items-center justify-center'}>
         <span className="text-xs text-slate-300">Sin datos</span>
       </div>
     );
@@ -138,10 +164,11 @@ function MiniSparkline({ data, prevYearSerie }: { data: { time: string; value: n
   const maxIdx = values.indexOf(Math.max(...values));
   const minIdx = values.indexOf(Math.min(...values));
 
-  // Excluir el mes actual (no cerrado) para calcular min/max
+  // Solo meses cerrados (< mes actual) con datos reales (value > 0)
   const currentMonth = getCurrentMonth();
-  // Excluir mes actual Y futuros (solo meses cerrados < currentMonth)
-  const closedIndices = data.map((d, i) => getPointMonth(d.time) < currentMonth ? i : -1).filter(i => i >= 0);
+  const closedIndices = data.map((d, i) =>
+    getPointMonth(d.time) < currentMonth && d.value > 0 ? i : -1
+  ).filter(i => i >= 0);
   const closedValues = closedIndices.map(i => values[i]);
 
   const maxClosedIdx = closedValues.length > 0 ? closedIndices[closedValues.indexOf(Math.max(...closedValues))] : maxIdx;
@@ -154,57 +181,100 @@ function MiniSparkline({ data, prevYearSerie }: { data: { time: string; value: n
     monthlySums[key] = (monthlySums[key] || 0) + d.value;
   });
 
-  const chartData = data.map((d, i) => ({
-    time: d.time,
-    mes: getMes(d.time),
-    weekLabel: getWeekLabel(d.time),
-    mesTotal: monthlySums[getMonthKey(d.time)],
-    value: d.value,
-    isMax: i === maxClosedIdx,
-    isMin: i === minClosedIdx,
-  }));
+  // Detectar si prevYearSerie es mensual (día siempre 1) o semanal
+  const isPrevMonthly = (prevYearSerie ?? []).length > 0 &&
+    (prevYearSerie ?? []).every(p => new Date(p.time + 'T12:00:00').getDate() === 1);
+
+  // Indexar año anterior
+  const prevByWeek: Record<string, number> = {};
+  const prevByMes: Record<number, number> = {};
+  (prevYearSerie ?? []).forEach(p => {
+    const m = new Date(p.time + 'T12:00:00').getMonth() + 1;
+    if (isPrevMonthly) {
+      // Mismo valor en las 4 semanas del mes — monotone lo aplana dentro del mes
+      // y suaviza la transición entre meses, sin escalones ni líneas largas
+      const weekly = p.value / 4;
+      for (let s = 1; s <= 4; s++) prevByWeek[`${m}-${s}`] = weekly;
+      prevByMes[m] = p.value;
+    } else {
+      prevByWeek[weekKey(p.time)] = p.value;
+      prevByMes[m] = (prevByMes[m] || 0) + p.value;
+    }
+  });
+
+  const chartData = data.map((d, i) => {
+    const monthKey = getMonthKey(d.time);
+    return {
+      time: d.time,
+      mes: getMes(d.time),
+      weekLabel: getWeekLabel(d.time),
+      mesTotal: mesAvances?.[monthKey] ?? monthlySums[monthKey],
+      value: d.value,
+      prevValue: prevByWeek[weekKey(d.time)] ?? 0,
+      prevWeekValue: i > 0 ? data[i - 1].value : null, // semana anterior del mismo año
+      isMax: i === maxClosedIdx,
+      isMin: i === minClosedIdx,
+    };
+  });
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload?.length) {
       const pt = payload[0].payload;
-
-      // Buscar el mes correspondiente en el año anterior
       const mesNum = new Date(pt.time + 'T12:00:00').getMonth() + 1;
-      const prevMonthEntry = prevYearSerie?.find(p => {
-        const m = new Date(p.time + 'T12:00:00').getMonth() + 1;
-        return m === mesNum;
-      });
-      const prevMonthTotal = prevMonthEntry?.value ?? null;
+      const prevMonthTotal = prevByMes[mesNum] ?? null;
 
-      const variacion = prevMonthTotal && prevMonthTotal > 0
+      // % semana actual vs semana anterior
+      const varSem = pt.prevWeekValue && pt.prevWeekValue > 0
+        ? ((pt.value - pt.prevWeekValue) / pt.prevWeekValue) * 100
+        : null;
+      // % mes actual vs mes año anterior
+      const varMes = prevMonthTotal && prevMonthTotal > 0
         ? ((pt.mesTotal - prevMonthTotal) / prevMonthTotal) * 100
         : null;
 
-      return (
-        <div className="bg-white border border-slate-100 rounded-xl px-3 py-2.5 shadow-md text-xs min-w-[160px]">
-          {/* Semana + Mes */}
-          <p className="font-bold text-slate-700 text-sm">{pt.weekLabel}</p>
-          <p className="text-[10px] text-slate-400 mb-1">{pt.mes}</p>
+      const varColor = (v: number) => v >= 0 ? 'text-emerald-600' : 'text-red-500';
 
-          {/* Variación */}
-          {variacion !== null && (
-            <p className={`font-bold tabular-nums mb-2 ${variacion >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-              {variacion >= 0 ? '▲' : '▼'}{Math.abs(variacion).toFixed(2)}%
-            </p>
+      return (
+        <div className="bg-white border border-slate-100 rounded-xl px-3 py-2.5 shadow-md text-xs min-w-[172px]">
+          <p className="font-bold text-slate-700 text-sm mb-0.5">{isSemanal ? pt.weekLabel : pt.mes}</p>
+
+          {/* Semana actual */}
+          <div className="flex justify-between gap-4 mt-1">
+            <span className="text-slate-500">Esta semana</span>
+            <span className="font-semibold tabular-nums text-slate-700">{fmtUSD(pt.value)}</span>
+          </div>
+          {/* vs semana anterior */}
+          {varSem !== null && (
+            <div className="flex justify-between gap-4 mb-1">
+              <span className="text-slate-400">vs sem. ant.</span>
+              <span className={`tabular-nums font-semibold ${varColor(varSem)}`}>
+                {varSem >= 0 ? '▲' : '▼'}{Math.abs(varSem).toFixed(1)}%
+              </span>
+            </div>
           )}
+
+          <div className="border-t border-slate-100 my-1.5" />
 
           {/* Mes actual */}
           <div className="flex justify-between gap-4 mb-0.5">
             <span className="text-slate-500">Mes actual</span>
             <span className="font-semibold tabular-nums text-slate-700">{fmtUSD(pt.mesTotal)}</span>
           </div>
-
-          {/* Año anterior */}
-          {prevMonthTotal !== null && (
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-400">Año anterior</span>
-              <span className="tabular-nums text-slate-400">{fmtUSD(prevMonthTotal)}</span>
-            </div>
+          {/* vs mes año anterior */}
+          {prevMonthTotal !== null && prevMonthTotal > 0 && (
+            <>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400">Mes año ant.</span>
+                <span className="tabular-nums text-slate-400">{fmtUSD(prevMonthTotal)}</span>
+              </div>
+              {varMes !== null && (
+                <div className="flex justify-end">
+                  <span className={`tabular-nums font-semibold text-[10px] ${varColor(varMes)}`}>
+                    {varMes >= 0 ? '▲' : '▼'}{Math.abs(varMes).toFixed(1)}%
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </div>
       );
@@ -219,17 +289,37 @@ function MiniSparkline({ data, prevYearSerie }: { data: { time: string; value: n
     return <g key={index} />;
   };
 
+  // Dominio Y compartido entre año actual y anterior
+  const allValues = chartData.flatMap(d => [d.value, d.prevValue]).filter(v => v > 0);
+  const yMax = allValues.length > 0 ? Math.max(...allValues) * 1.1 : 1;
+  const hasPrev = Object.keys(prevByMes).length > 0;
+
   return (
-    <div className="flex-1" style={{ height: 72 }}>
-      <ResponsiveContainer width="100%" height={72}>
+    <div className={stretch ? 'flex-1 self-stretch min-h-0' : 'flex-1'} style={stretch ? undefined : { height: 72 }}>
+      <ResponsiveContainer width="100%" height={stretch ? '100%' : 72}>
         <AreaChart data={chartData} margin={{ top: 6, right: 6, left: 6, bottom: 2 }}>
-          <YAxis domain={['dataMin * 0.85', 'dataMax * 1.08']} hide />
+          <YAxis domain={[0, yMax]} hide />
           <Tooltip
             content={<CustomTooltip />}
             cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }}
             allowEscapeViewBox={{ x: true, y: true }}
             wrapperStyle={{ zIndex: 50 }}
           />
+          {/* Año anterior — monotone: plano dentro del mes, suave entre meses */}
+          {hasPrev && (
+            <Area
+              type="monotone"
+              dataKey="prevValue"
+              stroke="rgba(99,102,241,0.45)"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+              fill="rgba(99,102,241,0.07)"
+              dot={false}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+          )}
+          {/* Año actual — encima, slate */}
           <Area
             type="linear"
             dataKey="value"
@@ -246,14 +336,14 @@ function MiniSparkline({ data, prevYearSerie }: { data: { time: string; value: n
   );
 }
 
-function SparkRow({ row, onClick, isLast, stretch }: { row: RowData; onClick?: () => void; isLast: boolean; stretch?: boolean }) {
+function SparkRow({ row, onClick, isLast, stretch, isSemanal = false }: { row: RowData; onClick?: () => void; isLast: boolean; stretch?: boolean; isSemanal?: boolean }) {
   const cc = FLAG_CC[row.pais];
   const hasYoY = row.varYoYPct != null && row.varYoYPct !== 0;
   const positive = (row.varYoYPct ?? 0) >= 0;
 
   return (
     <button
-      className={`group flex items-center w-full hover:bg-slate-50 transition-colors text-left ${!isLast ? 'border-b border-slate-100' : ''} ${stretch ? 'flex-1' : ''}`}
+      className={`group flex ${stretch ? 'items-stretch' : 'items-center'} w-full hover:bg-slate-50 transition-colors text-left ${!isLast ? 'border-b border-slate-100' : ''} ${stretch ? 'flex-1' : ''}`}
       onClick={onClick}
       aria-label={`Ver detalle de ${row.pais}`}
     >
@@ -262,7 +352,7 @@ function SparkRow({ row, onClick, isLast, stretch }: { row: RowData; onClick?: (
         <CountrySilhouette pais={row.pais} />
         <div className="relative z-10 flex items-center gap-1.5">
           {cc && <img src={`https://flagcdn.com/24x18/${cc}.png`} width={16} height={12} alt={row.pais} className="rounded-sm" />}
-          <span className="text-xs text-slate-500">{row.pais}</span>
+          <span className="text-xs text-slate-500">{row.label ?? row.pais}</span>
         </div>
         <p className="relative z-10 text-sm font-bold tabular-nums text-slate-800">{fmtUSD(row.avance)}</p>
       </div>
@@ -278,7 +368,7 @@ function SparkRow({ row, onClick, isLast, stretch }: { row: RowData; onClick?: (
       )}
 
       {/* Sparkline */}
-      <MiniSparkline data={row.serie} prevYearSerie={row.prevYearSerie} />
+      <MiniSparkline data={row.serie} prevYearSerie={row.prevYearSerie} isSemanal={isSemanal} stretch={stretch} mesAvances={row.mesAvances} />
     </button>
   );
 }
@@ -286,30 +376,38 @@ function SparkRow({ row, onClick, isLast, stretch }: { row: RowData; onClick?: (
 interface RegionPanelProps {
   rows: RowData[];
   onSelectPais?: (pais: string) => void;
+  semana?: number; // 0 = mensual, 1-4 = semanal
+  title?: string;  // título del panel (default: "Venta por Región")
 }
 
-export function RegionPanel({ rows, onSelectPais }: RegionPanelProps) {
+export function RegionPanel({ rows, onSelectPais, semana = 0, title, headerSlot }: RegionPanelProps & { headerSlot?: React.ReactNode }) {
+  const isSemanal = semana > 0;
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm"
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col"
       style={{ flex: '1 1 380px', maxWidth: 520, minWidth: 280 }}>
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Revenue por Región</span>
+      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100 flex-shrink-0">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{title ?? 'Venta por Región'}</span>
         <div className="flex items-center gap-3 text-[10px] text-slate-400">
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#0097A7] inline-block" /> Máx mes</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-slate-300 inline-block" /> Mín mes</span>
+          {headerSlot}
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{background:'rgba(99,102,241,0.5)'}} /> Año ant.</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#0097A7] inline-block" /> Máx</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-slate-300 inline-block" /> Mín</span>
         </div>
       </div>
       {rows.map((row, i) => (
-        <SparkRow key={row.pais} row={row} onClick={() => onSelectPais?.(row.pais)} isLast={i === rows.length - 1} />
+        <SparkRow key={row.pais} row={row} onClick={() => onSelectPais?.(row.pais)} isLast={i === rows.length - 1} stretch={rows.length === 1} isSemanal={isSemanal} />
       ))}
       {rows.length > 0 && rows[0].serie.length > 0 && (() => {
-        const meses = getMonthLabels(rows[0].serie);
+        const labels = isSemanal
+          ? getWeekAxisLabels(rows[0].serie)
+          : getMonthLabels(rows[0].serie);
         return (
           <div className="flex items-center border-t border-slate-100 px-2 py-1.5">
             <div style={{ width: 112, flexShrink: 0 }} />
             <div style={{ width: 80, flexShrink: 0 }} />
             <div className="flex-1 flex justify-between px-1">
-              {meses.map((m, j) => (
+              {labels.map((m, j) => (
                 <span key={j} className="text-[9px] text-slate-300 tabular-nums">{m}</span>
               ))}
             </div>

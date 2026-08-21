@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../api/client';
+import { useCacheSeries } from './useCacheSeries';
+import { getMetaMes } from '../lib/metas';
 
 export type Granularidad = 'semana' | 'mes' | 'trimestre';
 
@@ -16,15 +17,25 @@ export interface SeriesResponse {
   pais: string | null;
 }
 
-export function useSeries(anio: number, granularidad: Granularidad, pais?: string, mes?: number) {
+export function useSeries(anio: number, _granularidad: Granularidad, pais?: string) {
+  const { data: cache, isLoading, error } = useCacheSeries();
+
   return useQuery<SeriesResponse>({
-    queryKey: ['series', anio, granularidad, pais ?? 'all', mes ?? 'all'],
+    queryKey: ['series', anio, pais ?? 'global'],
     queryFn: () => {
-      const params = new URLSearchParams({ anio: String(anio), granularidad });
-      if (pais) params.set('pais', pais);
-      if (mes && granularidad === 'semana') params.set('mes', String(mes));
-      return apiFetch<SeriesResponse>(`/api/series?${params}`);
+      const anioData = cache?.series?.[String(anio)];
+      const paisSinAcento = pais?.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const raw = pais
+        ? (anioData?.paises?.[pais] ?? anioData?.paises?.[paisSinAcento!] ?? [])
+        : (anioData?.global ?? []);
+      const series: SeriePoint[] = raw.map(pt => {
+        const mes = new Date(pt.time + 'T12:00:00').getMonth() + 1;
+        const meta = pais ? getMetaMes(pais, mes) : 0;
+        return { time: pt.time, value: pt.value, meta };
+      });
+      return { series, granularidad: 'mes', anio, pais: pais ?? null };
     },
+    enabled: !!cache && !isLoading && !error,
     staleTime: 10 * 60 * 1000,
   });
 }

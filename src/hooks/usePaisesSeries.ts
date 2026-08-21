@@ -1,25 +1,31 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../api/client';
-import type { SeriesResponse } from './useSeries';
+import { useCacheSeries } from './useCacheSeries';
 
-const PAISES = ['Chile', 'Perú', 'Colombia', 'México'];
+// semana=0 → series mensuales; semana=1-4 → puntos semanales de ese número de semana
+export function usePaisesSeries(anio: number, semana: number = 0) {
+  const { data: cache, isLoading, error } = useCacheSeries();
 
-export function usePaisesSeries(anio: number) {
   return useQuery({
-    queryKey: ['series-paises-semana', anio],
-    queryFn: async () => {
-      const results = await Promise.all(
-        PAISES.map(pais => {
-          const params = new URLSearchParams({ anio: String(anio), granularidad: 'semana', pais });
-          return apiFetch<SeriesResponse>(`/api/series?${params}`)
-            .then(r => ({ pais, series: r.series }))
-            .catch(() => ({ pais, series: [] }));
-        })
-      );
+    queryKey: ['series-paises', anio, semana],
+    queryFn: () => {
       const map: Record<string, { time: string; value: number }[]> = {};
-      results.forEach(r => { map[r.pais] = r.series.map(s => ({ time: s.time, value: s.value })); });
+
+      if (semana > 0) {
+        // Datos semanales: todos los puntos de todas las semanas del año
+        const paises = cache?.semanas?.[String(anio)]?.paises ?? {};
+        for (const [pais, pts] of Object.entries(paises)) {
+          map[pais] = pts; // cada punto tiene { time, semana, mes, value }
+        }
+      } else {
+        // Datos mensuales (default)
+        const paises = cache?.series?.[String(anio)]?.paises ?? {};
+        for (const [pais, pts] of Object.entries(paises)) {
+          map[pais] = pts;
+        }
+      }
       return map;
     },
+    enabled: !!cache && !isLoading && !error,
     staleTime: 15 * 60 * 1000,
   });
 }

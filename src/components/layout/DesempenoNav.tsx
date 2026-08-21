@@ -1,20 +1,22 @@
-export type DesempenoTab = 'overview' | 'pais' | 'ejecutivo';
+export type DesempenoTab = 'overview' | 'leaderboard' | 'ejecutivo';
 
 const TABS: { id: DesempenoTab; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'pais', label: 'Por País' },
-  { id: 'ejecutivo', label: 'Por Ejecutivo' },
+  { id: 'overview',     label: 'Overview' },
+  { id: 'leaderboard',  label: 'Leaderboard' },
+  { id: 'ejecutivo',    label: 'Por Ejecutivo' },
 ];
 
 interface DesempenoNavProps {
   active: DesempenoTab;
   onChange: (t: DesempenoTab) => void;
+  hiddenTabs?: DesempenoTab[];
 }
 
-export function DesempenoNav({ active, onChange }: DesempenoNavProps) {
+export function DesempenoNav({ active, onChange, hiddenTabs }: DesempenoNavProps) {
+  const visible = hiddenTabs?.length ? TABS.filter(t => !hiddenTabs.includes(t.id)) : TABS;
   return (
     <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-      {TABS.map((tab) => (
+      {visible.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}

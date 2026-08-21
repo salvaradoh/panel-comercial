@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { setAuthToken, clearAuthToken } from '../api/client';
 import { jwtDecode } from 'jwt-decode';
+import { registerLogout } from './authStore';
 
 const SESSION_KEY = 'apprecio_auth';
 
@@ -20,7 +21,7 @@ interface StoredAuth {
 interface AuthContextValue {
   user: User | null;
   token: string | null;
-  login: (token: string, user: User) => void;
+  login: (token: string, user: User, expiresAt?: number) => void;
   logout: () => void;
 }
 
@@ -56,18 +57,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  function login(idToken: string, u: User) {
-    // Extraer expiración del JWT
-    let exp = Math.floor(Date.now() / 1000) + 3600; // default 1h
-    try {
-      const decoded = jwtDecode<{ exp?: number }>(idToken);
-      if (decoded.exp) exp = decoded.exp;
-    } catch {}
+  // Registrar logout globalmente para que el QueryCache pueda llamarlo
+  useEffect(() => {
+    registerLogout(logout);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const stored: StoredAuth = { token: idToken, user: u, exp };
+  function login(accessToken: string, u: User, expiresAt?: number) {
+    // expiresAt en ms; si no viene, intentar decodificar JWT o usar default 1h
+    let exp: number;
+    if (expiresAt) {
+      exp = Math.floor(expiresAt / 1000);
+    } else {
+      exp = Math.floor(Date.now() / 1000) + 3600;
+      try {
+        const decoded = jwtDecode<{ exp?: number }>(accessToken);
+        if (decoded.exp) exp = decoded.exp;
+      } catch {}
+    }
+
+    const stored: StoredAuth = { token: accessToken, user: u, exp };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(stored));
-    setAuthToken(idToken);
-    setToken(idToken);
+    setAuthToken(accessToken);
+    setToken(accessToken);
     setUser(u);
   }
 

@@ -1,11 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../api/client';
+import { useCacheSheet } from './useCacheSheet';
 import type { CarteraRichResponse } from './types';
 
-export function useCartera(anio: number) {
-  return useQuery<CarteraRichResponse>({
-    queryKey: ['cartera-rich-v2', anio],
-    queryFn: () => apiFetch<CarteraRichResponse>(`/api/cartera?anio=${anio}`),
-    staleTime: 10 * 60 * 1000,
-  });
+// Lee Cache_Churn directamente desde Sheets (sin backend Cloud Run).
+export function useCartera(_anio: number) {
+  return useCacheSheet<CarteraRichResponse>('Cache_Churn');
 }

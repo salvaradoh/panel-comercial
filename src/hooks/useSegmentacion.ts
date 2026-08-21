@@ -1,10 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../api/client';
+import { useCacheSheet } from './useCacheSheet';
 import type { SegmentacionResponse } from './types';
 
+// Lee Cache_Segmentacion18 directamente desde Sheets (sin backend Cloud Run).
 export function useSegmentacion() {
-  return useQuery<SegmentacionResponse>({
-    queryKey: ['segmentacion'],
-    queryFn: () => apiFetch<SegmentacionResponse>('/api/segmentacion'),
-  });
+  return useCacheSheet<SegmentacionResponse>('Cache_Segmentacion18');
 }
