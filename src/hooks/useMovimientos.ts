@@ -80,6 +80,21 @@ export interface ChurnQTrimestre {
   pctChurn: number | null;
   /** La historia del país no alcanza para armar la referencia: no es comparable. */
   coberturaParcial: boolean;
+  /** Trimestre en curso: cuenta como perdidos a clientes que todavía pueden
+   *  comprar antes del cierre. Se muestra aparte y fuera de los promedios. */
+  ventanaAbierta: boolean;
+}
+
+/** Una celda de la matriz trimestre × país del resumen. */
+export interface ChurnQPais {
+  trimestreId: string;
+  pais: string;
+  churn: number;
+  cartera: number;
+  pctChurn: number | null;
+  /** Sin cobertura: la historia del país no llega. Se muestra 'n/d', no 0. */
+  coberturaParcial: boolean;
+  ventanaAbierta: boolean;
 }
 
 export interface ChurnQKam {
@@ -109,6 +124,13 @@ export interface ClienteChurnQ {
   refDe?: string;
   refA?: string;
   silDe?: string;
+  /** En cuántos meses del trimestre de referencia compró: 1 es una compra
+   *  aislada, 3 es cadencia. Ausente en el payload anterior al 2026-08-25. */
+  mesesRef?: number;
+  /** Facturación de los 12 meses previos al cierre de la referencia. */
+  usd12m?: number;
+  /** El trimestre todavía no cerró: es un candidato, no una pérdida firme. */
+  abierta?: boolean;
 }
 
 export interface MovimientosResponse {
@@ -117,6 +139,7 @@ export interface MovimientosResponse {
   total: MovAgregado;
   /** Vista trimestral. Independiente del año: se publican los últimos 8 cerrados. */
   churnQ: ChurnQTrimestre[];
+  churnQPaises: ChurnQPais[];
   churnQKams: ChurnQKam[];
   clientesQ: ClienteChurnQ[];
   ultimoQ: string | null;
@@ -136,6 +159,9 @@ interface FilaQ {
   pais: string; kam: string;
   churn: number; churnRec: number; churnEst: number; usdChurn: number;
   cartera: number; coberturaParcial: boolean;
+  /** Trimestre en curso: la ventana de silencio no cerró. Ausente en el
+   *  payload anterior al 2026-08-25, donde solo iban trimestres cerrados. */
+  ventanaAbierta?: boolean;
 }
 
 interface CacheMovimientos {
@@ -248,6 +274,7 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
           anio: Number(f.anio) || 0, trimestre: Number(f.trimestre) || 0,
           churn: 0, churnRec: 0, churnEst: 0, usdChurn: 0,
           cartera: 0, pctChurn: null, coberturaParcial: false,
+          ventanaAbierta: false,
         };
         porQ.set(f.trimestreId, d);
       }
@@ -257,6 +284,7 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
       d.usdChurn += Number(f.usdChurn) || 0;
       d.cartera  += Number(f.cartera) || 0;
       if (f.coberturaParcial) d.coberturaParcial = true;
+      if (f.ventanaAbierta) d.ventanaAbierta = true;
     }
     const churnQ = [...porQ.values()]
       .sort((a, b) => a.trimestreId.localeCompare(b.trimestreId))
@@ -267,7 +295,11 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
 
     // Por ejecutivo, solo el último trimestre cerrado: es un evento del trimestre,
     // no un stock, pero sumar 8 trimestres mezclaría reactivaciones con pérdidas.
-    const ultimoQ = raw.ultimoQ ?? (churnQ.length ? churnQ[churnQ.length - 1].trimestreId : null);
+    // Si el GAS no publicó ultimoQ (payload viejo), se cae al último CERRADO y no
+    // al último a secas: con el trimestre en curso publicado, ese sería el abierto.
+    const cerradosQ = churnQ.filter(q => !q.ventanaAbierta);
+    const ultimoQ = raw.ultimoQ
+      ?? (cerradosQ.length ? cerradosQ[cerradosQ.length - 1].trimestreId : null);
     const porKamQ = new Map<string, ChurnQKam>();
     for (const f of filasQ.filter(x => x.trimestreId === ultimoQ)) {
       const k = `${f.pais}||${f.kam}`;
@@ -287,6 +319,27 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
       }))
       .sort((a, b) => b.churn - a.churn);
 
+    // Matriz trimestre × país para el resumen. Va aparte de churnQ porque ahí el
+    // país se colapsa, y el resumen necesita justamente esa dimensión.
+    const porPaisQ = new Map<string, ChurnQPais>();
+    for (const f of filasQ) {
+      const k = `${f.trimestreId}||${f.pais}`;
+      let d = porPaisQ.get(k);
+      if (!d) {
+        d = { trimestreId: f.trimestreId, pais: f.pais, churn: 0, cartera: 0,
+              pctChurn: null, coberturaParcial: false, ventanaAbierta: false };
+        porPaisQ.set(k, d);
+      }
+      d.churn   += Number(f.churn) || 0;
+      d.cartera += Number(f.cartera) || 0;
+      if (f.coberturaParcial) d.coberturaParcial = true;
+      if (f.ventanaAbierta) d.ventanaAbierta = true;
+    }
+    const churnQPaises = [...porPaisQ.values()].map(d => ({
+      ...d,
+      pctChurn: d.cartera > 0 ? Math.round((100 * d.churn / d.cartera) * 10) / 10 : null,
+    }));
+
     // Los clientes vienen de todos los trimestres; el componente elige cuál abre.
     // Al payload viejo se le pone el trimestreId del último, que es de donde salía.
     const crudos = raw.clientesQ
@@ -297,7 +350,7 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
     return {
       meses, kams,
       total: cerrar({ ...ultimo }),
-      churnQ, churnQKams, clientesQ, ultimoQ,
+      churnQ, churnQPaises, churnQKams, clientesQ, ultimoQ,
       anio: raw.anio ?? anio,
       pais: pais ?? null,
       kam:  kam  ?? null,

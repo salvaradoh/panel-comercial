@@ -5,8 +5,7 @@ import {
 import { Card } from '../../components/ui/Card';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import type {
-  MovMes, MovAgregado, MovimientosResponse, ChurnQTrimestre, ClienteChurnQ,
-} from '../../hooks/useMovimientos';
+  MovMes, MovAgregado, MovimientosResponse, ChurnQTrimestre, ClienteChurnQ, ChurnQPais} from '../../hooks/useMovimientos';
 import { useTrack } from '../../hooks/useTrack';
 
 /**
@@ -398,6 +397,12 @@ const COLS_CSV: [string, (c: ClienteChurnQ) => string | number][] = [
   ['Compró hasta',      c => c.refA ?? ''],
   ['Sin comprar desde', c => c.silDe ?? ''],
   ['USD referencia',    c => Math.round(c.usdReferencia)],
+  // Meses con compra en la referencia: 1 es una compra aislada, 3 es cadencia
+  // cortada. Es la diferencia entre una activación que no prendió y un cliente
+  // que se perdió, y no se puede deducir del monto.
+  ['Meses con compra',  c => c.mesesRef ?? ''],
+  ['USD 12m al cierre', c => (c.usd12m != null ? Math.round(c.usd12m) : '')],
+  ['Trimestre cerrado', c => (c.abierta ? 'No · ventana sin cerrar' : 'Sí')],
 ];
 
 /**
@@ -453,6 +458,316 @@ function BotonCsv({ filas, base, children }: {
   );
 }
 
+/**
+ * Orden de países del resumen. Fijo y no por volumen para que las columnas no se
+ * muevan entre semanas: la tabla se lee comparando con la de la semana anterior.
+ * Cualquier país que aparezca y no esté acá se agrega al final.
+ */
+const ORDEN_PAISES = ['México', 'Chile', 'Colombia', 'Perú'];
+
+function ordenarPaises(ps: string[]): string[] {
+  const conocidos = ORDEN_PAISES.filter(p => ps.includes(p));
+  return [...conocidos, ...ps.filter(p => !ORDEN_PAISES.includes(p)).sort()];
+}
+
+/**
+ * Resumen trimestre × país: el conteo de churn y su porcentaje sobre la cartera
+ * congelada al cierre de cada trimestre.
+ *
+ * Tres decisiones que no son cosméticas:
+ *
+ *  - Donde no hay cobertura va "n/d", no 0. México arranca en 2024-01 y su rama
+ *    estacional necesita 15 meses previos, así que en los trimestres viejos el 0
+ *    no significa "no perdimos a nadie" sino "no se puede calcular".
+ *  - El trimestre en curso va en su propia fila, en gris y fuera de los promedios.
+ *    Su ventana de silencio no cerró: cuenta como perdidos a clientes que todavía
+ *    pueden comprar antes del cierre, así que da una tasa mucho más alta que no es
+ *    comparable con el resto de la serie.
+ *  - El promedio anual se calcula sobre el total de churn y el total de cartera del
+ *    año, no promediando las tasas trimestrales. Promediar tasas de bases distintas
+ *    da un número que no corresponde a ninguna población.
+ */
+function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
+  celdas: ChurnQPais[];
+  serie: ChurnQTrimestre[];
+  enCurso: ChurnQTrimestre | null;
+  /** Abre el detalle de clientes de ese trimestre. Sin esto la etiqueta iría con
+   *  color de enlace sin serlo, que es prometer una interacción que no existe. */
+  onElegir?: (trimestreId: string) => void;
+  /** Trimestre abierto en el detalle de clientes, para resaltar su fila. */
+  seleccion?: string;
+}) {
+  // Una medida por celda, no las dos apiladas. Con conteo y porcentaje juntos la
+  // celda tiene dos números y hay que elegir cuál mirar en cada una; con el
+  // selector se compara una sola magnitud entre países de un barrido de ojo, que
+  // es para lo que sirve una matriz.
+  const [medida, setMedida] = useState<'clientes' | 'pct'>('clientes');
+  const paises = ordenarPaises([...new Set(celdas.map(c => c.pais))]);
+  const buscar = (tid: string, pais: string) =>
+    celdas.find(c => c.trimestreId === tid && c.pais === pais) ?? null;
+
+  const trimestres = serie.map(d => d.trimestreId);
+  const ultimo = trimestres.length ? trimestres[trimestres.length - 1] : null;
+  const base = paises.map(p => (ultimo ? (buscar(ultimo, p)?.cartera ?? 0) : 0));
+  const baseTotal = base.reduce((a, b) => a + b, 0);
+
+  const anios = [...new Set(serie.map(d => d.anio))].sort();
+  const promedio = (anio: number, pais?: string) => {
+    const filas = celdas.filter(c =>
+      !c.ventanaAbierta && Number(c.trimestreId.slice(0, 4)) === anio &&
+      !c.coberturaParcial && (!pais || c.pais === pais));
+    const ch = filas.reduce((a, b) => a + b.churn, 0);
+    const ca = filas.reduce((a, b) => a + b.cartera, 0);
+    if (ca === 0) return null;
+    // En porcentaje: sobre los totales del año, nunca promediando las tasas
+    // trimestrales — son tasas de bases distintas y su promedio no corresponde a
+    // ninguna población. En clientes: por trimestre, contando los trimestres
+    // distintos y no las filas, que en la columna Total son país × trimestre.
+    if (medida === 'pct') return Math.round((100 * ch / ca) * 10) / 10;
+    const nQ = new Set(filas.map(f => f.trimestreId)).size;
+    return nQ > 0 ? ch / nQ : null;
+  };
+
+  const total = (tid: string) => {
+    const cs = paises.map(p => buscar(tid, p))
+      .filter((c): c is ChurnQPais => c != null && !c.coberturaParcial);
+    const ch = cs.reduce((a, b) => a + b.churn, 0);
+    const ca = cs.reduce((a, b) => a + b.cartera, 0);
+    return medida === 'pct' ? (ca > 0 ? Math.round((100 * ch / ca) * 10) / 10 : null) : ch;
+  };
+
+  const fmt = (v: number | null) =>
+    v == null ? '—' : medida === 'pct' ? `${v.toFixed(1)}%` : nf.format(Math.round(v));
+
+  const valor = (c: ChurnQPais | null) => {
+    if (!c) return null;
+    return medida === 'pct' ? c.pctChurn : c.churn;
+  };
+
+  const th = 'text-right font-medium text-xs text-[#0097A7] pb-3 px-2';
+  const td = 'text-right py-3 px-2 tabular-nums text-slate-700';
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-700">Resumen por país</h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            Sobre la cartera de cada país congelada al cierre de cada trimestre.
+          </p>
+        </div>
+        <div className="flex gap-1 bg-slate-100 rounded-lg p-1" role="group" aria-label="Medida de la tabla">
+          {([['clientes', 'Clientes'], ['pct', '% de la base']] as const).map(([id, etq]) => (
+            <button
+              key={id}
+              onClick={() => setMedida(id)}
+              aria-pressed={medida === id}
+              className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-all active:scale-95 ${
+                medida === id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {etq}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto -mx-2">
+        <table className="w-full text-sm min-w-[440px]">
+          <caption className="sr-only">
+            {medida === 'pct' ? 'Porcentaje de churn' : 'Clientes en churn'} por trimestre y país
+          </caption>
+          <thead>
+            <tr className="border-b border-slate-200">
+              <th scope="col" className="text-left font-medium text-xs text-[#0097A7] pb-3 px-2">Trimestre</th>
+              {paises.map(p => <th key={p} scope="col" className={th}>{p}</th>)}
+              <th scope="col" className={`${th} text-slate-500`}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-slate-100">
+              <th scope="row" className="text-left font-normal text-[11px] text-slate-400 py-2.5 px-2">
+                Clientes en la base
+              </th>
+              {base.map((n, i) => (
+                <td key={paises[i]} className="text-right py-2.5 px-2 tabular-nums text-[11px] text-slate-400">
+                  {nf.format(n)}
+                </td>
+              ))}
+              <td className="text-right py-2.5 px-2 tabular-nums text-[11px] text-slate-500 font-semibold">
+                {nf.format(baseTotal)}
+              </td>
+            </tr>
+
+            {trimestres.map(tid => (
+              <tr key={tid} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                <th scope="row" className="text-left py-3 px-2 whitespace-nowrap">
+                  {onElegir ? (
+                    <button
+                      onClick={() => onElegir(tid)}
+                      className="font-medium text-[#0097A7] hover:underline focus-visible:underline"
+                      title={`Ver las empresas de ${etiquetaQ(tid)}`}
+                    >
+                      {etiquetaQ(tid)}
+                    </button>
+                  ) : (
+                    <span className="font-medium text-slate-600">{etiquetaQ(tid)}</span>
+                  )}
+                </th>
+                {paises.map(p => {
+                  const c = buscar(tid, p);
+                  if (!c || c.coberturaParcial) {
+                    return (
+                      <td key={p} className="text-right py-3 px-2 text-slate-300 text-xs"
+                          title="Sin cobertura: la historia del país no alcanza para armar la referencia">
+                        n/d
+                      </td>
+                    );
+                  }
+                  return <td key={p} className={td}>{fmt(valor(c))}</td>;
+                })}
+                <td className={`${td} font-semibold text-slate-800`}>{fmt(total(tid))}</td>
+              </tr>
+            ))}
+
+            {anios.map(a => (
+              <tr key={`prom-${a}`} className="border-b border-slate-100 bg-slate-50/50">
+                <th scope="row" className="text-left font-normal text-xs text-slate-500 py-2.5 px-2 whitespace-nowrap">
+                  Promedio {a}
+                </th>
+                {paises.map(p => (
+                  <td key={p} className="text-right py-2.5 px-2 tabular-nums text-xs text-slate-500">
+                    {(() => { const v = promedio(a, p); return v != null ? fmt(v) : 'n/d'; })()}
+                  </td>
+                ))}
+                <td className="text-right py-2.5 px-2 tabular-nums text-xs text-slate-600 font-semibold">
+                  {(() => { const v = promedio(a); return v != null ? fmt(v) : 'n/d'; })()}
+                </td>
+              </tr>
+            ))}
+
+            {enCurso && (
+              <tr className="border-t-2 border-slate-200">
+                <th scope="row" className="text-left font-normal text-xs text-slate-400 py-3 px-2 whitespace-nowrap">
+                  {etiquetaQ(enCurso.trimestreId)}
+                  <span className="block text-[10px]">en curso</span>
+                </th>
+                {paises.map(p => (
+                  <td key={p} className="text-right py-3 px-2 tabular-nums text-slate-400">
+                    {fmt(valor(buscar(enCurso.trimestreId, p)))}
+                  </td>
+                ))}
+                <td className="text-right py-3 px-2 tabular-nums text-slate-500 font-semibold">
+                  {fmt(total(enCurso.trimestreId))}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Detalle por trimestre. Vive en esta card y no en una propia porque es la
+          misma tabla vista de otro lado —los mismos trimestres, abiertos por rama
+          y con la cartera— y separarlas dejaba media pantalla vacía. */}
+      <div className="mt-6 pt-5 border-t border-slate-100">
+        <h4 className="text-sm font-semibold text-slate-700">Detalle por trimestre</h4>
+        <p className="text-[11px] text-slate-400 mt-0.5 mb-2">
+          Tocá un trimestre para ver y descargar sus empresas.
+        </p>
+        <div className="overflow-x-auto -mx-2">
+          <table className="w-full text-sm min-w-[420px]">
+            <caption className="sr-only">Clientes en churn por rama, cartera y porcentaje</caption>
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th scope="col" className="text-left font-medium text-xs text-[#0097A7] pb-3 px-2">Trimestre</th>
+                <th scope="col" className={th}>Churn</th>
+                <th scope="col" className={th}>Rec.</th>
+                <th scope="col" className={th}>Est.</th>
+                <th scope="col" className={th}>Cartera</th>
+                <th scope="col" className={`${th} text-slate-500`}>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...serie].reverse().map(d => (
+                <tr key={d.trimestreId}
+                    className={`border-b border-slate-100 transition-colors ${
+                      d.trimestreId === seleccion ? 'bg-slate-50' : 'hover:bg-slate-50/70'}`}>
+                  <th scope="row" className="text-left py-3 px-2 whitespace-nowrap">
+                    {onElegir ? (
+                      <button
+                        onClick={() => onElegir(d.trimestreId)}
+                        aria-pressed={d.trimestreId === seleccion}
+                        className={`text-[#0097A7] hover:underline focus-visible:underline ${
+                          d.trimestreId === seleccion ? 'font-semibold' : 'font-medium'}`}
+                      >
+                        {etiquetaQ(d.trimestreId)}
+                      </button>
+                    ) : (
+                      <span className="font-medium text-slate-600">{etiquetaQ(d.trimestreId)}</span>
+                    )}
+                    {d.coberturaParcial && (
+                      <span className="ml-1.5 text-[10px] text-amber-600">parcial</span>
+                    )}
+                  </th>
+                  <td className={`${td} font-semibold text-slate-800`}>{nf.format(d.churn)}</td>
+                  <td className={`${td} text-slate-500`}>{nf.format(d.churnRec)}</td>
+                  <td className={`${td} text-slate-500`}>{nf.format(d.churnEst)}</td>
+                  <td className={`${td} text-slate-500`}>{nf.format(d.cartera)}</td>
+                  <td className={`${td} font-medium`}>
+                    {d.pctChurn != null ? `${d.pctChurn.toFixed(1)}%` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {enCurso && (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">
+          <strong>{etiquetaQ(enCurso.trimestreId)} todavía no cerró.</strong> Su ventana
+          de silencio sigue abierta, así que cuenta como perdidos a clientes que aún
+          pueden comprar antes del cierre y da una tasa más alta de lo que va a quedar.
+          No entra en los promedios ni es comparable con los trimestres cerrados.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * CSV del resumen, en formato largo (una fila por trimestre y país) y no como la
+ * matriz que se ve en pantalla: en largo se pivotea en Excel en dos clics y se
+ * puede filtrar, mientras que la matriz solo sirve para mirarla.
+ */
+function descargarResumenCsv(celdas: ChurnQPais[], archivo: string) {
+  const cols: [string, (c: ChurnQPais) => string | number][] = [
+    ['Trimestre',        c => c.trimestreId],
+    ['País',             c => c.pais],
+    ['Clientes perdidos', c => c.churn],
+    ['Clientes en la base', c => c.cartera],
+    ['% de churn',       c => (c.pctChurn != null ? String(c.pctChurn).replace('.', ',') : '')],
+    ['Comparable',       c => (c.coberturaParcial ? 'No · sin cobertura'
+                              : c.ventanaAbierta ? 'No · ventana sin cerrar' : 'Sí')],
+  ];
+  const esc = (v: string | number) => {
+    const t = String(v ?? '');
+    return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const texto = [cols.map(c => c[0]).join(';')]
+    .concat(celdas
+      .slice()
+      .sort((a, b) => a.trimestreId.localeCompare(b.trimestreId) || a.pais.localeCompare(b.pais))
+      .map(f => cols.map(([, get]) => esc(get(f))).join(';')))
+    .join('\r\n');
+  const url = URL.createObjectURL(
+    new Blob(['\ufeff' + texto], { type: 'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = archivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function TooltipQ({ active, payload }: { active?: boolean; payload?: { payload: ChurnQTrimestre }[] }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
@@ -498,7 +813,12 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
   // desalinee cuando entra un trimestre nuevo y el arreglo se corre.
   const [qSel, setQSel] = useState<string | null>(null);
   const { track } = useTrack();
-  const serie = data.churnQ;
+  // El trimestre en curso se separa de la serie: su ventana de silencio no cerró,
+  // así que cuenta como perdidos a clientes que todavía pueden comprar. Si entrara
+  // a `serie` se convertiría en "el" trimestre de las tarjetas y del delta, y el
+  // número que se compara sería el provisional.
+  const serie = data.churnQ.filter(d => !d.ventanaAbierta);
+  const enCurso = data.churnQ.find(d => d.ventanaAbierta) ?? null;
   const propio = Boolean(kam);
 
   if (serie.length === 0) {
@@ -516,7 +836,7 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
   const ant = serie.length > 1 ? serie[serie.length - 2] : null;
 
   // Trimestre abierto en el detalle. Si el seleccionado ya no existe se cae al último.
-  const qAbierto = serie.find(d => d.trimestreId === qSel) ?? ult;
+  const qAbierto = data.churnQ.find(d => d.trimestreId === qSel) ?? ult;
   const clientes = data.clientesQ.filter(c => c.trimestreId === qAbierto.trimestreId);
   const elegir = (id: string) => {
     setQSel(id);
@@ -617,57 +937,16 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
         </p>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">Detalle por trimestre</h3>
-          <p className="text-[11px] text-slate-400 mb-3">
-            Tocá un trimestre para ver y descargar sus empresas.
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <caption className="sr-only">Clientes en churn, cartera y porcentaje por trimestre</caption>
-              <thead>
-                <tr className="text-slate-400 border-b border-slate-200 text-xs">
-                  <th scope="col" className="text-left font-medium py-2">Trimestre</th>
-                  <th scope="col" className="text-right font-medium">Churn</th>
-                  <th scope="col" className="text-right font-medium">Rec.</th>
-                  <th scope="col" className="text-right font-medium">Est.</th>
-                  <th scope="col" className="text-right font-medium">Cartera</th>
-                  <th scope="col" className="text-right font-medium">%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...serie].reverse().map(d => (
-                  <tr key={d.trimestreId}
-                      className={`border-b border-slate-100 ${
-                        d.trimestreId === qAbierto.trimestreId ? 'bg-slate-50' : ''}`}>
-                    <td className="py-2 text-slate-700">
-                      <button
-                        onClick={() => elegir(d.trimestreId)}
-                        aria-pressed={d.trimestreId === qAbierto.trimestreId}
-                        className={`rounded px-1 -mx-1 hover:text-[#0097A7] transition-colors ${
-                          d.trimestreId === qAbierto.trimestreId
-                            ? 'font-semibold text-[#0097A7]' : ''}`}
-                      >
-                        Q{d.trimestre} {d.anio}
-                      </button>
-                      {d.coberturaParcial && (
-                        <span className="ml-1.5 text-[11px] text-amber-600">parcial</span>
-                      )}
-                    </td>
-                    <td className="text-right tabular-nums font-medium text-slate-800">{nf.format(d.churn)}</td>
-                    <td className="text-right tabular-nums text-slate-500">{nf.format(d.churnRec)}</td>
-                    <td className="text-right tabular-nums text-slate-500">{nf.format(d.churnEst)}</td>
-                    <td className="text-right tabular-nums text-slate-500">{nf.format(d.cartera)}</td>
-                    <td className="text-right tabular-nums font-medium text-slate-700">
-                      {d.pctChurn != null ? `${d.pctChurn.toFixed(1)}%` : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Resumen (2/3) + Por ejecutivo (1/3). El detalle por trimestre pasó adentro
+          del resumen: eran dos cards con la misma tabla vista distinto y la de la
+          izquierda quedaba con media pantalla en blanco. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {data.churnQPaises.length > 0 && (
+          <div className="lg:col-span-2">
+            <ResumenPorPais celdas={data.churnQPaises} serie={serie} enCurso={enCurso}
+                            onElegir={elegir} seleccion={qAbierto.trimestreId} />
           </div>
-        </Card>
+        )}
 
         {!propio && data.churnQKams.length > 1 && (
           <Card>
@@ -728,6 +1007,17 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
                 <BotonCsv filas={data.clientesQ} base="churn-trimestral">
                   Descargar todo
                 </BotonCsv>
+              )}
+              {data.churnQPaises.length > 0 && (
+                <button
+                  onClick={() => {
+                    track('analisis:movimientos:csv', 'resumen-pais');
+                    descargarResumenCsv(data.churnQPaises, `churn-resumen-pais-${hoyISO()}.csv`);
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-[#0097A7] hover:text-[#0097A7] transition-colors active:scale-95"
+                >
+                  Descargar resumen por país
+                </button>
               )}
             </div>
           </div>
@@ -794,15 +1084,18 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Churn trimestral va primero y es la vista por defecto: es la definición de
+// negocio del PDF y la que se reporta al C-level. El semáforo es la lectura
+// operativa del día a día y queda segundo.
 const VISTAS = [
-  { id: 'semaforo' as const, label: 'Semáforo' },
   { id: 'churnq'   as const, label: 'Churn trimestral' },
+  { id: 'semaforo' as const, label: 'Semáforo' },
 ];
 
 export function MovimientosTab({ pais, kam }: Props) {
   const anio = new Date().getFullYear();
   const { data, isLoading, error } = useMovimientos(anio, pais, kam);
-  const [vista, setVista] = useState<'semaforo' | 'churnq'>('semaforo');
+  const [vista, setVista] = useState<'semaforo' | 'churnq'>('churnq');
   const { track } = useTrack();
 
   if (isLoading) {
