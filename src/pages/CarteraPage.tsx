@@ -8,6 +8,7 @@ import { SaludTab } from './portafolio/SaludTab';
 import { SegmentacionTab } from './portafolio/SegmentacionTab';
 import { ComparadorTab } from './portafolio/ComparadorTab';
 import { MovimientosTab } from './portafolio/MovimientosTab';
+import { IPCTab } from './portafolio/IPCTab';
 import { useTrack } from '../hooks/useTrack';
 
 interface CarteraPageProps {
@@ -56,10 +57,10 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
     // agrega un cliente. Contar visitas acá inflaba el uso con gente que entra,
     // mira y se va.
     if (t === 'cuentas-clave') return;
-    // Movimientos y Overview quedan fuera del selector Estacionales/Recurrentes, así
-    // que no llevan el tipo en el evento: `analisis:estacionales:movimientos` daba a
-    // entender un filtro que esa vista no aplica y partía la serie en dos.
-    track(t === 'movimientos' ? 'analisis:movimientos'
+    // Movimientos, IPC y Overview quedan fuera del selector Estacionales/Recurrentes,
+    // así que no llevan el tipo en el evento: `analisis:estacionales:movimientos` daba
+    // a entender un filtro que esa vista no aplica y partía la serie en dos.
+    track(t === 'movimientos' || t === 'ipc' ? `analisis:${t}`
         : `analisis:${portafolioTab}:${t}`);
   }
 
@@ -74,7 +75,8 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
       {/* Movimientos queda fuera del selector Estacionales/Recurrentes: mide entradas
           y salidas de la cartera completa, y filtrarlo por tipo daría una serie que
           no cierra — un cliente puede cambiar de tipo entre dos meses. */}
-      {subActivo !== 'overview' && subActivo !== 'cuentas-clave' && subActivo !== 'movimientos' && (
+      {subActivo !== 'overview' && subActivo !== 'cuentas-clave' && subActivo !== 'movimientos'
+        && subActivo !== 'ipc' && (
         <div className="flex items-center justify-between flex-wrap gap-3 -mt-1">
           <PortafolioNav active={portafolioTab} onChange={handlePortafolioTab} />
         </div>
@@ -83,6 +85,7 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
       {subActivo === 'overview'      && <OverviewTab pais={filterPais} onVerCambios={onVerCambios} />}
       {subActivo === 'salud'         && <SaludTab tipo={portafolioTab} anio={anio} />}
       {subActivo === 'segmentacion'  && <SegmentacionTab tipo={portafolioTab} />}
+      {subActivo === 'ipc'           && <IPCTab filterPais={filterPais} />}
       {subActivo === 'cuentas-clave' && <ComparadorTab filterPais={filterPais} filterKam={filterKam} />}
       {subActivo === 'movimientos' && <MovimientosTab pais={filterPais} kam={filterKam} />}
     </div>

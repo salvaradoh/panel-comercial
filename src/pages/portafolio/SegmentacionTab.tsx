@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useCacheSegmentacion } from '../../hooks/useCacheSegmentacion';
 import { useCacheChurn } from '../../hooks/useCacheChurn';
+import { useSaludPorPanel, clavePanel } from '../../hooks/useSaludPorPanel';
+import type { SaludPorPanel } from '../../hooks/useSaludPorPanel';
 import { Card } from '../../components/ui/Card';
 import { SaludPaisAccordion, FilterChips, FilterDivider, fmtUSD, FLAG_CC, SegInfoModal } from '../../components/salud';
 import type { KamSegmentacion, ClienteSegmentacion, PaisSegmentacion, SegmentacionResponse } from '../../hooks/types';
@@ -100,11 +102,22 @@ const TIPO_LABEL: Record<string, string> = {
 
 // ── Fila de cliente expandida ─────────────────────────────────────────────────
 
-function ClienteRow({ c, esEstacional }: { c: ClienteSegmentacion; esEstacional: boolean }) {
+function ClienteRow({ c, esEstacional, pais, salud }: {
+  c: ClienteSegmentacion; esEstacional: boolean; pais: string; salud: SaludPorPanel;
+}) {
+  // La columna Score muestra la SALUD (RENT/VENT), no el score de segmentación.
+  // El de segmentación ya está representado por la letra de la columna Segmento,
+  // así que repetirlo como número no agregaba nada, y confundía: son dos escalas
+  // distintas del mismo cliente.
+  // Estacionales traen el score en el propio objeto; recurrentes se resuelven
+  // por panel_id contra Cache_Churn.
+  const saludScore = c.saludScore ?? salud.get(clavePanel(pais, c.panelId))?.score;
   const cfg = SEG_CFG[c.segmento];
   const factores = esEstacional ? FACTORES_EST : FACTORES_REC;
   const tieneFactores = factores.some(f => c[f.campo] != null);
-  const sb = scoreBadgeStyle(c.score);
+  // El color del badge sigue al score de SALUD, que es el que ahora se muestra.
+  // Colorearlo con el de segmentación daría un verde sobre un número rojo.
+  const sbSalud = scoreBadgeStyle(saludScore ?? 0);
 
   // Sin desglose: se muestran guiones, igual que el GAS, en vez de ocultar la fila
   if (!tieneFactores) {
@@ -132,9 +145,12 @@ function ClienteRow({ c, esEstacional }: { c: ClienteSegmentacion; esEstacional:
         </span>
       </td>
       <td className="px-2 py-1.5 text-center">
-        <span className="inline-block px-2 py-0.5 rounded-[10px] text-[11px] font-bold tabular-nums min-w-[34px]" style={sb}>
-          {c.score}
-        </span>
+        {saludScore != null
+          ? <span className="inline-block px-2 py-0.5 rounded-[10px] text-[11px] font-bold tabular-nums min-w-[34px]"
+                  style={sbSalud} title={`Salud ${esEstacional ? 'VENT' : 'RENT'}: ${saludScore.toFixed(2)}`}>
+              {saludScore.toFixed(2)}
+            </span>
+          : <span className="text-slate-300 text-[11px]" title="Sin score de salud en Análisis de Clientes">—</span>}
       </td>
       <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">{fmtUSD(c.vol)}</td>
       {esEstacional && (
@@ -158,7 +174,7 @@ function ClienteRow({ c, esEstacional }: { c: ClienteSegmentacion; esEstacional:
 
 // ── Fila de KAM con detalle expandible ───────────────────────────────────────
 
-function KamSegRow({ k, segFiltro, dotacionFiltro, esEstacional }: { k: KamSegmentacion; segFiltro: SegFiltro; dotacionFiltro: 'todos' | 'con' | 'sin'; esEstacional: boolean }) {
+function KamSegRow({ k, segFiltro, dotacionFiltro, esEstacional, pais, salud }: { k: KamSegmentacion; segFiltro: SegFiltro; dotacionFiltro: 'todos' | 'con' | 'sin'; esEstacional: boolean; pais: string; salud: SaludPorPanel }) {
   const [open, setOpen] = useState(false);
   const clientes = (segFiltro === 'todos' ? k.clientes : k.clientes.filter(c => c.segmento === segFiltro))
     // Filtro de vista: acota la lista, no toca score ni volumen.
@@ -211,7 +227,7 @@ function KamSegRow({ k, segFiltro, dotacionFiltro, esEstacional }: { k: KamSegme
                   </tr>
                 </thead>
                 <tbody>
-                  {clientes.map((c, i) => <ClienteRow key={i} c={c} esEstacional={esEstacional} />)}
+                  {clientes.map((c, i) => <ClienteRow key={i} c={c} esEstacional={esEstacional} pais={pais} salud={salud} />)}
                 </tbody>
               </table>
             </div>
@@ -224,7 +240,7 @@ function KamSegRow({ k, segFiltro, dotacionFiltro, esEstacional }: { k: KamSegme
 
 // ── Tabla por país ────────────────────────────────────────────────────────────
 
-function PaisSegTable({ p, segFiltro, dotacionFiltro, esEstacional }: { p: PaisSegmentacion; segFiltro: SegFiltro; dotacionFiltro: 'todos' | 'con' | 'sin'; esEstacional: boolean }) {
+function PaisSegTable({ p, segFiltro, dotacionFiltro, esEstacional, salud }: { p: PaisSegmentacion; segFiltro: SegFiltro; dotacionFiltro: 'todos' | 'con' | 'sin'; esEstacional: boolean; salud: SaludPorPanel }) {
   const kams = segFiltro === 'todos'
     ? p.kams
     : p.kams.filter(k => k.clientes.some(c => c.segmento === segFiltro));
@@ -249,7 +265,7 @@ function PaisSegTable({ p, segFiltro, dotacionFiltro, esEstacional }: { p: PaisS
         </tr>
       </thead>
       <tbody>
-        {kams.map((k, i) => <KamSegRow key={i} k={k} segFiltro={segFiltro} dotacionFiltro={dotacionFiltro} esEstacional={esEstacional} />)}
+        {kams.map((k, i) => <KamSegRow key={i} k={k} segFiltro={segFiltro} dotacionFiltro={dotacionFiltro} esEstacional={esEstacional} pais={p.pais} salud={salud} />)}
       </tbody>
       <tfoot>
         <tr className="border-t-2 border-slate-200 bg-slate-50 font-bold text-sm">
@@ -270,6 +286,18 @@ function PaisSegTable({ p, segFiltro, dotacionFiltro, esEstacional }: { p: PaisS
 // ── Transformar estacionales (Cache_Churn) → forma SegmentacionResponse ────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+/**
+ * Lee el score del `scoreVNT` del caché. El GAS lo guarda como objeto completo en
+ * los arrays de estacionales y como número suelto en otros, así que se toleran
+ * las dos formas.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function leerVNT(v: any): number | undefined {
+  if (typeof v === 'number') return v > 0 ? v : undefined;
+  if (v && typeof v === 'object' && typeof v.score === 'number') return v.score > 0 ? v.score : undefined;
+  return undefined;
+}
+
 function estacionalesAsSeg(churnData: any): SegmentacionResponse {
   const conteos: Record<Seg, number> = { 'A+': 0, A: 0, B: 0, C: 0 };
   const clientes: SegmentacionResponse['clientes'] = [];
@@ -292,7 +320,11 @@ function estacionalesAsSeg(churnData: any): SegmentacionResponse {
         pVol += vol;
         clientes.push({ cliente: c.empresa ?? '', kam: k.kam ?? '', pais: p.pais ?? '', segmento: seg, score, vol });
         return {
-          cliente: c.empresa ?? '', segmento: seg, score, vol,
+          // En estacionales `empresa` es la razón social, NO el panel: este objeto
+          // no trae panel_id. Pero no hace falta cruzar nada, porque el score de
+          // salud viene acá mismo en `scoreVNT` (objeto con .score en 1.471 de
+          // 1.472 clientes).
+          cliente: c.empresa ?? '', saludScore: leerVNT(c.scoreVNT), segmento: seg, score, vol,
           subSeg: c.subSeg ?? undefined,
           fVol:    c.segFVol    != null ? Number(c.segFVol)    : undefined,
           fProd:   c.segFProd   != null ? Number(c.segFProd)   : undefined,
@@ -324,6 +356,9 @@ export function SegmentacionTab({ tipo = 'recurrentes' }: { tipo?: 'recurrentes'
 
   const rec  = useCacheSegmentacion(!esEstacional);
   const churn = useCacheChurn();
+  // Score de salud por país+nombre. Reusa la query de Cache_Churn, así que no
+  // agrega ningún fetch: esa hoja ya viene en caché.
+  const { salud } = useSaludPorPanel();
 
   const isLoading = esEstacional ? churn.isLoading : rec.isLoading;
   const isError   = esEstacional ? churn.isError   : rec.isError;
@@ -470,7 +505,7 @@ export function SegmentacionTab({ tipo = 'recurrentes' }: { tipo?: 'recurrentes'
             scoreLabel=""
             defaultOpen={p.pais === 'Chile'}
           >
-            <PaisSegTable p={p} segFiltro={segFiltro} dotacionFiltro={dotacionFiltro} esEstacional={esEstacional} />
+            <PaisSegTable p={p} segFiltro={segFiltro} dotacionFiltro={dotacionFiltro} esEstacional={esEstacional} salud={salud} />
           </SaludPaisAccordion>
         );
       })}

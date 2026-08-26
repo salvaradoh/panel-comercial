@@ -140,6 +140,14 @@ export interface ClienteSegmentacion {
   /** USD de dotación (solo Colombia). Marca para el filtro; no afecta score. */
   dot?: number;
   cliente: string;
+  /** panel_id (campo `empresa` del caché). Llave para cruzar con el score de salud. */
+  panelId?: string;
+  /**
+   * Score de salud (RENT/VENT) ya resuelto. En estacionales viene en el mismo
+   * objeto del caché (`scoreVNT.score`), así que no hace falta cruzar nada; en
+   * recurrentes queda undefined y se resuelve por panel_id.
+   */
+  saludScore?: number;
   segmento: 'A+' | 'A' | 'B' | 'C';
   score: number;
   vol: number;

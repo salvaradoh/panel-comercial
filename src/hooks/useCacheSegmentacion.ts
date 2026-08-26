@@ -13,6 +13,7 @@ function transformRaw(data: any): SegmentacionResponse {
         if (conteos[seg] !== undefined) conteos[seg]++;
         const entry = {
           cliente: c.nombre || c.empresa || '',
+          panelId: c.empresa || '',
           kam: k.kam || '',
           pais: p.pais || '',
           segmento: seg,
@@ -26,6 +27,7 @@ function transformRaw(data: any): SegmentacionResponse {
         clientes.push(entry);
         return {
           cliente: entry.cliente,
+          panelId: entry.panelId,
           segmento: seg,
           score: entry.score,
           vol: entry.vol,

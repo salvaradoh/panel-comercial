@@ -20,6 +20,7 @@ const MiVistaPage      = React.lazy(() => import('./pages/MiVistaPage').then((m)
 const HerramientasPage = React.lazy(() => import('./pages/HerramientasPage').then((m) => ({ default: m.HerramientasPage })));
 const NovedadesPage    = React.lazy(() => import('./pages/NovedadesPage').then((m) => ({ default: m.NovedadesPage })));
 const CampanasPage     = React.lazy(() => import('./pages/CampanasPage').then((m) => ({ default: m.CampanasPage })));
+const ProyectosPage    = React.lazy(() => import('./pages/ProyectosPage').then((m) => ({ default: m.ProyectosPage })));
 
 class ErrorBoundary extends Component<
   { children: ReactNode; fallback?: (err: Error) => ReactNode },
@@ -112,7 +113,11 @@ const C_LEVEL_TABS: Tab[]  = ['metas', 'cartera', 'segmentacion', 'herramientas'
 const EXEC_TABS: Tab[]      = ['mivista', 'metas', 'cartera', 'herramientas', 'novedades'];
 // Campañas consume tokens de la API de Claude, así que va solo para Admin. Ocultar el
 // tab no es el control de acceso: el backend exige requireAdmin en /api/campanas.
-const ADMIN_TABS: Tab[]     = [...C_LEVEL_TABS, 'campanas'];
+// Proyectos (CBS) también arranca solo para Admin, mientras se validan las cifras
+// contra el tablero de Looker Studio del que viene. La hoja fuente está
+// compartida con todo el dominio, así que ocultarlo NO es control de acceso:
+// es un tablero en revisión, no información restringida.
+const ADMIN_TABS: Tab[]     = [...C_LEVEL_TABS, 'proyectos', 'campanas'];
 
 function Dashboard() {
   const { user, logout } = useAuth();
@@ -166,6 +171,7 @@ function Dashboard() {
     metas:        'desempeno:overview',
     herramientas: 'herramientas',
     novedades:    'novedades',
+    proyectos:    'proyectos:cbs',
     campanas:     'campanas',
   };
 
@@ -190,7 +196,7 @@ function Dashboard() {
   }
 
   const showPeriod = activeTab !== 'cartera' && activeTab !== 'herramientas'
-    && activeTab !== 'novedades' && activeTab !== 'campanas';
+    && activeTab !== 'novedades' && activeTab !== 'campanas' && activeTab !== 'proyectos';
 
   return (
     <div className="flex flex-col h-screen">
@@ -272,6 +278,13 @@ function Dashboard() {
             <ErrorBoundary>
               <React.Suspense fallback={tabSuspenseFallback}>
                 <NovedadesPage isAdmin={isAdmin} />
+              </React.Suspense>
+            </ErrorBoundary>
+          )}
+          {activeTab === 'proyectos' && (
+            <ErrorBoundary>
+              <React.Suspense fallback={tabSuspenseFallback}>
+                <ProyectosPage />
               </React.Suspense>
             </ErrorBoundary>
           )}

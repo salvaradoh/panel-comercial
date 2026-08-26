@@ -141,6 +141,29 @@ function fmtFecha(s: string): string {
   return `${parseInt(d)} ${MESES[parseInt(m)] ?? m} ${y.slice(-2)}`;
 }
 
+// La tabla necesita fechas cortas porque compiten con seis columnas más, pero en
+// el encabezado de la ficha hay lugar y "11/12/2025" se lee peor que el mes con
+// nombre: es el dato que el ejecutivo cita en la llamada.
+const MESES_LARGOS = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+function fmtFechaLarga(s: string): string {
+  const str = String(s ?? '');
+  if (!str.includes('/')) return str;
+  const [d, m, y] = str.split('/');
+  const mes = MESES_LARGOS[parseInt(m)];
+  if (!d || !mes || !y) return str;
+  return `${parseInt(d)} de ${mes} del ${y}`;
+}
+
+// El corte de rojo es 60%, definido por negocio el 2026-08-21. El comparador
+// sigue usando 50% para el tono de su hallazgo de texto.
+function tonoFuga(pct: number): string {
+  if (pct >= 60) return 'text-red-600';
+  if (pct >= 25) return 'text-amber-600';
+  return 'text-slate-700';
+}
+
 function SortTh({ k, cur, dir, onSort, align, className, children }: {
   k: SortKey; cur: SortKey; dir: 'asc' | 'desc';
   onSort: (k: SortKey) => void;
@@ -773,39 +796,79 @@ function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; histo
                   <span className="text-[10px] text-slate-400 font-mono">{c.idTributario}</span>
                 </>
               )}
+              {/* Última compra en el encabezado. Los días sin comprar ya están más
+                  abajo, pero son una cuenta relativa: "250d" no dice desde cuándo,
+                  y para llamar a un cliente la fecha concreta es lo que se cita. */}
+              {c.ultimaCompra && (
+                <>
+                  <span className="text-slate-300 select-none">·</span>
+                  <span className="text-[10px] text-slate-500">
+                    últ. compra <span className="font-semibold">{fmtFechaLarga(c.ultimaCompra)}</span>
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Segmento */}
-          <div
-            className="w-12 h-12 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
-            style={{ background: `${color}22`, border: `1.5px solid ${color}55` }}
-          >
-            {/* Solo la letra: el score de segmentación no se muestra fuera de
-                la vista de Segmentación. El número que importa acá es el churn. */}
-            <span className="text-xl font-extrabold leading-none" style={{ color }}>{c.segmento}</span>
-            <span className="text-[6px] font-bold uppercase tracking-wide leading-none mt-0.5" style={{ color, opacity: 0.75 }}>
-              segmento
-            </span>
-          </div>
-
-          {/* Estado + score de churn */}
-          <div className="min-w-0 flex-shrink-0">
-            <p className="text-[9px] text-slate-500 uppercase tracking-wide font-semibold whitespace-nowrap">
-              Estado · Score {c.tipo === 'estacional' || c.tipo === 'primera_compra' ? 'VENT' : 'RENT'}
-            </p>
-            <div className="mt-1 flex items-center gap-2">
-              <RiesgoPill status={c.status} />
-              {getScoreChurn(c, scores) !== null
-                ? <span className="text-sm font-bold tabular-nums text-slate-700">{getScoreChurn(c, scores)!.toFixed(2)}</span>
-                : <span className="text-[10px] text-slate-400">sin score</span>}
+          {/* Bloque derecho: un solo strip de indicadores en vez de tres cajas
+              sueltas. Con la prob. de fuga sumada eran cuatro bloques de anchos
+              distintos y el encabezado se veía desalineado; ahora cada celda
+              comparte la misma estructura (rótulo arriba, valor abajo) y se
+              separan con una línea, así el ojo las lee como una fila. */}
+          <div className="flex items-start gap-3 flex-shrink-0">
+            {/* Segmento */}
+            <div
+              className="w-11 h-11 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
+              style={{ background: `${color}22`, border: `1.5px solid ${color}55` }}
+            >
+              {/* Solo la letra: el score de segmentación no se muestra fuera de
+                  la vista de Segmentación. El número que importa acá es el churn. */}
+              <span className="text-lg font-extrabold leading-none" style={{ color }}>{c.segmento}</span>
+              <span className="text-[6px] font-bold uppercase tracking-wide leading-none mt-0.5" style={{ color, opacity: 0.75 }}>
+                segmento
+              </span>
             </div>
-          </div>
 
-          {/* Ejecutivo */}
-          <div className="min-w-0 max-w-[130px] flex-shrink-0">
-            <p className="text-[9px] text-slate-500 uppercase tracking-wide font-semibold">Ejecutivo</p>
-            <p className="text-sm font-semibold text-slate-700 mt-0.5 truncate" title={c.kam}>{c.kam || '—'}</p>
+            {/* Estado + score de churn */}
+            <div className="min-w-0 flex-shrink-0 border-l border-slate-200 pl-3">
+              <p className="text-[9px] text-slate-500 uppercase tracking-wide font-semibold whitespace-nowrap">
+                Estado · Score {c.tipo === 'estacional' || c.tipo === 'primera_compra' ? 'VENT' : 'RENT'}
+              </p>
+              <div className="mt-1.5 flex items-center gap-2">
+                <RiesgoPill status={c.status} />
+                {getScoreChurn(c, scores) !== null
+                  ? <span className="text-sm font-bold tabular-nums text-slate-700">{getScoreChurn(c, scores)!.toFixed(2)}</span>
+                  : <span className="text-[10px] text-slate-400">sin score</span>}
+              </div>
+            </div>
+
+            {/* Prob. de fuga (modelo ML). Solo existe para parte de la cartera, así
+                que el caso "sin dato" tiene que ser explícito: en blanco parecería
+                riesgo cero, que es lo contrario de no haber sido evaluado. */}
+            <div className="min-w-0 flex-shrink-0 border-l border-slate-200 pl-3">
+              <p className="text-[9px] text-slate-500 uppercase tracking-wide font-semibold whitespace-nowrap">
+                Prob. Fuga
+              </p>
+              <div className="mt-1.5">
+                {c.probRiesgo == null
+                  ? <span className="text-[10px] text-slate-400" title="El modelo de fuga no calculó este cliente">sin dato</span>
+                  : (() => {
+                      const pct = Math.round(c.probRiesgo * 100);
+                      return (
+                        <span className={`text-sm font-bold tabular-nums ${tonoFuga(pct)}`}
+                              title={`Probabilidad de fuga estimada por el modelo ML${c.tipoPrediccion ? ` (${c.tipoPrediccion})` : ''}`}>
+                          {pct}%
+                        </span>
+                      );
+                    })()}
+              </div>
+            </div>
+
+            {/* Ejecutivo */}
+            <div className="min-w-0 max-w-[130px] flex-shrink-0 border-l border-slate-200 pl-3">
+              <p className="text-[9px] text-slate-500 uppercase tracking-wide font-semibold">Ejecutivo</p>
+              <p className="text-sm font-semibold text-slate-700 mt-1.5 truncate leading-tight" title={c.kam}>{c.kam || '—'}</p>
+            </div>
           </div>
 
           <button onClick={onClose}

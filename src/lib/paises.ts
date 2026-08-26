@@ -22,3 +22,12 @@ export function clavePais(p: string | undefined | null): string {
 export function mismoPais(a: string | undefined | null, b: string | undefined | null): boolean {
   return clavePais(a) === clavePais(b);
 }
+
+/**
+ * Países con operación, en el orden en que se ofrecen en los selectores.
+ *
+ * Con tildes, que es la forma que usan las hojas de caché y las de IPC. Para
+ * compararlos contra la hoja de roles —que escribe `Peru`/`Mexico`— va siempre
+ * `mismoPais`, nunca `===`.
+ */
+export const PAISES = ['Chile', 'Colombia', 'México', 'Perú'] as const;

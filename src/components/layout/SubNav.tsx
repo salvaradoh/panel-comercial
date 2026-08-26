@@ -1,4 +1,4 @@
-export type Tab = 'metas' | 'cartera' | 'segmentacion' | 'mivista' | 'herramientas' | 'novedades' | 'campanas';
+export type Tab = 'metas' | 'cartera' | 'segmentacion' | 'mivista' | 'herramientas' | 'novedades' | 'proyectos' | 'campanas';
 
 const ACENTO_DEFECTO = '#0097A7';
 
@@ -10,6 +10,8 @@ const ALL_TABS: { id: Tab; label: string; acento?: string }[] = [
   { id: 'segmentacion',  label: 'Clientes' },
   { id: 'herramientas',  label: 'Herramientas' },
   { id: 'novedades',     label: 'Novedades', acento: '#D97706' },
+  // Solo Admin por ahora (ADMIN_TABS en App.tsx), hasta validar las cifras con el equipo.
+  { id: 'proyectos',     label: 'Proyectos', acento: '#E11D48' },
   // Solo Admin (ADMIN_TABS en App.tsx); el backend además exige requireAdmin.
   { id: 'campanas',      label: 'Campañas', acento: '#7C3AED' },
 ];

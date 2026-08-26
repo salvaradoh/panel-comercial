@@ -9,3 +9,5 @@ export { PortafolioNav } from './PortafolioNav';
 export type { PortafolioTab } from './PortafolioNav';
 export { ClientesSubNav } from './ClientesSubNav';
 export type { ClientesSubTab } from './ClientesSubNav';
+export { ProyectosSubNav } from './ProyectosSubNav';
+export type { ProyectoTab } from './ProyectosSubNav';

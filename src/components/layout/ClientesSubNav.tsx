@@ -1,12 +1,13 @@
 // El id 'cuentas-clave' se conserva a propósito aunque la etiqueta ahora diga
 // "Priorización": alimenta los eventos de analítica (`analisis:cuentas-clave:*`)
 // ya registrados en Firestore, y renombrarlo partiría la serie histórica.
-export type ClientesSubTab = 'overview' | 'salud' | 'segmentacion' | 'cuentas-clave' | 'movimientos';
+export type ClientesSubTab = 'overview' | 'salud' | 'segmentacion' | 'ipc' | 'cuentas-clave' | 'movimientos';
 
 const TABS: { id: ClientesSubTab; label: string }[] = [
   { id: 'overview',      label: 'Overview' },
   { id: 'salud',         label: 'Salud del Cliente' },
   { id: 'segmentacion',  label: 'Segmentación' },
+  { id: 'ipc',           label: 'Análisis IPC' },
   { id: 'cuentas-clave', label: 'Priorización' },
   { id: 'movimientos',   label: 'Movimientos' },
 ];
