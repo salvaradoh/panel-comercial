@@ -7,6 +7,7 @@ import { inicialesKam } from '../../lib/kams';
 import { useKamPhotos, findKamPhoto } from '../../hooks/useKamPhotos';
 import { useReuniones } from '../../hooks/useReuniones';
 import type { SellerReuniones } from '../../hooks/useReuniones';
+import { mismoPais } from '../../lib/paises';
 
 const EXCLUDED = new Set(['Ecuador', 'ecuador']);
 
@@ -463,7 +464,11 @@ export function LeaderboardTab({ anio, mes, defaultSemana = 0, filterPais }: Lea
     const map: Record<string, KamReporte[]> = {};
     for (const k of kamsAv ?? []) {
       if (EXCLUDED.has(k.pais)) continue;
-      if (filterPais && k.pais !== filterPais) continue;
+      // mismoPais y no !==: filterPais sale de la hoja de roles, que escribe
+      // "Mexico" y "Peru" sin tilde, mientras k.pais ya pasó por normPais y dice
+      // "México" y "Perú". Con === el leaderboard quedaba VACÍO para cualquiera
+      // restringido a esos dos países.
+      if (filterPais && !mismoPais(k.pais, filterPais)) continue;
       if (!map[k.pais]) map[k.pais] = [];
       map[k.pais].push(k);
     }
@@ -472,7 +477,7 @@ export function LeaderboardTab({ anio, mes, defaultSemana = 0, filterPais }: Lea
   const paisesAv = useMemo(
     () => {
       const base = [...(metasAv?.paises ?? [])].filter(p => !EXCLUDED.has(p.pais));
-      return (filterPais ? base.filter(p => p.pais === filterPais) : base).sort((a, b) => b.pct - a.pct);
+      return (filterPais ? base.filter(p => mismoPais(p.pais, filterPais)) : base).sort((a, b) => b.pct - a.pct);
     },
     [metasAv, filterPais],
   );

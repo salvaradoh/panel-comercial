@@ -3,8 +3,10 @@ import { useCacheChurn } from '../../hooks/useCacheChurn';
 import { useOverview } from '../../hooks/useOverview';
 import type { OverviewProbFuga, OverviewProductoMix } from '../../hooks/useOverview';
 import { useReuniones } from '../../hooks/useReuniones';
+import { useTablaClientes } from '../../hooks/useTablaClientes';
 import { EXEC_BY_PAIS } from '../../hooks/useUserRole';
 import { Card } from '../../components/ui/Card';
+import { mismoPais } from '../../lib/paises';
 
 // ── Metas Q3 2026 (fuente: propuesta-objetivos-agente-retencion.md) ───────────
 const META_Q3: Record<string, { pctSaludable: number; score: number; pctRetencion: number; probFuga: number }> = {
@@ -337,6 +339,44 @@ function ProductMixPanel({ data }: { data: OverviewProductoMix[] }) {
   );
 }
 
+// ── Mix de Industria ────────────────────────────────────────────────────────────
+// Ranking, no identidad: una sola tonalidad (el acento del dashboard) con la barra
+// como magnitud — no hace falta paleta categórica para 24 industrias posibles.
+const INDUSTRIA_ACENTO = '#0097A7';
+const TOP_N_INDUSTRIAS = 7;
+
+interface IndustriaRow { nombre: string; count: number; pct: number }
+
+function IndustryMixPanel({ rows, total }: { rows: IndustriaRow[]; total: number }) {
+  if (!total) return null;
+  return (
+    <Card>
+      <div className="mb-3">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Mix de Industria</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">
+          Distribución de la cartera activa por industria. Top {TOP_N_INDUSTRIAS}, el resto agrupado en "Otras".
+        </p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {rows.map(r => (
+          <div key={r.nombre} className="flex items-center gap-2" title={`${r.nombre}: ${r.count} clientes (${fmtPct(r.pct)})`}>
+            <span className="text-[10px] text-slate-600 w-24 flex-shrink-0 truncate">{r.nombre}</span>
+            <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(r.pct, 1.5)}%`, background: INDUSTRIA_ACENTO }}
+              />
+            </div>
+            <span className="text-[10px] font-semibold tabular-nums text-slate-500 w-9 flex-shrink-0 text-right">
+              {Math.round(r.pct)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 // ── Probabilidad de fuga (ML) ──────────────────────────────────────────────────
 // Umbrales relativos a la meta Q3 (23%):
 //   ≤ meta           → en camino (verde)
@@ -379,8 +419,32 @@ export function OverviewTab({ pais: filterPais, onVerCambios }: {
 } = {}) {
   const { data: churnData, isLoading: churnLoading } = useCacheChurn();
   const { data: overview, isLoading: overviewLoading } = useOverview();
+  const { data: clientesTabla } = useTablaClientes();
   const now = new Date();
   const { data: reuniones } = useReuniones(now.getFullYear(), now.getMonth() + 1);
+
+  // Mix de Industria: directo de la hoja maestra (useTablaClientes), no del
+  // caché de overview — así no depende de que el backend/GAS lo publiquen.
+  const industriaRows: IndustriaRow[] = useMemo(() => {
+    if (!clientesTabla) return [];
+    const activos = clientesTabla.filter(c =>
+      (c.tipo === 'recurrente' || c.tipo === 'estacional') &&
+      (!filterPais || mismoPais(c.pais, filterPais)) &&
+      c.industria
+    );
+    if (!activos.length) return [];
+
+    const counts = new Map<string, number>();
+    activos.forEach(c => counts.set(c.industria, (counts.get(c.industria) ?? 0) + 1));
+
+    const ordenado = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const top = ordenado.slice(0, TOP_N_INDUSTRIAS);
+    const resto = ordenado.slice(TOP_N_INDUSTRIAS).reduce((s, [, n]) => s + n, 0);
+    const filas: [string, number][] = resto > 0 ? [...top, ['Otras', resto]] : top;
+
+    return filas.map(([nombre, count]) => ({ nombre, count, pct: (count / activos.length) * 100 }));
+  }, [clientesTabla, filterPais]);
+  const industriaTotal = industriaRows.reduce((s, r) => s + r.count, 0);
 
   // Usa p.resumen (fuente de verdad del GAS) en vez de sumar por KAM,
   // porque el array kams[] excluye "Otros" y causaría discrepancia.
@@ -399,7 +463,9 @@ export function OverviewTab({ pais: filterPais, onVerCambios }: {
 
   // Cuando hay filtro de país usamos los datos de ese país; si no, los globales
   const paises = useMemo(
-    () => filterPais ? allPaises.filter(p => p.pais === filterPais) : allPaises,
+    // mismoPais: filterPais viene sin tilde desde la hoja de roles y estos datos
+    // ya vienen normalizados con tilde. Ver lib/paises.ts.
+    () => filterPais ? allPaises.filter(p => mismoPais(p.pais, filterPais)) : allPaises,
     [allPaises, filterPais]
   );
 
@@ -453,16 +519,16 @@ export function OverviewTab({ pais: filterPais, onVerCambios }: {
 
   // Datos de overview filtrados por país si aplica
   const facturacion = filterPais
-    ? overview?.facturacion.filter(f => f.pais === filterPais) ?? []
+    ? overview?.facturacion.filter(f => mismoPais(f.pais, filterPais)) ?? []
     : overview?.facturacion ?? [];
   const recuperacion = filterPais
-    ? overview?.recuperacion.filter(r => r.pais === filterPais) ?? []
+    ? overview?.recuperacion.filter(r => mismoPais(r.pais, filterPais)) ?? []
     : overview?.recuperacion ?? [];
   const probFuga = filterPais
-    ? overview?.probFuga.filter(p => p.pais === filterPais) ?? []
+    ? overview?.probFuga.filter(p => mismoPais(p.pais, filterPais)) ?? []
     : overview?.probFuga ?? [];
   const productosMix = filterPais
-    ? overview?.productosMix?.filter(p => p.pais === filterPais) ?? []
+    ? overview?.productosMix?.filter(p => mismoPais(p.pais, filterPais)) ?? []
     : overview?.productosMix ?? [];
 
   const scopeLabel = filterPais ?? 'Global';
@@ -523,26 +589,26 @@ export function OverviewTab({ pais: filterPais, onVerCambios }: {
         )}
       </div>
 
-      {/* Distribución por status + Mix de Productos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Distribución por status + Mix de Productos + Mix de Industria */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <div className="mb-3">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Distribución por status — {scopeLabel}
             </p>
-            <p className="text-[10px] text-slate-400 mt-0.5">Cómo está segmentada la cartera recurrente. Cada cliente tiene un status basado en su score semanal.</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Cómo está segmentada la cartera recurrente.</p>
           </div>
           <StackedBar counts={{ saludables, monitorear, enRiesgo, criticos }} total={total} />
-          <div className="flex flex-wrap gap-4 mt-3">
+          <div className="flex flex-col gap-1.5 mt-3">
             {STATUS.map(s => {
               const count = { saludables, monitorear, enRiesgo, criticos }[s.key];
               const pct   = total > 0 ? (count / total) * 100 : 0;
               return (
                 <div key={s.key} className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: s.color }} />
-                  <span className="text-xs text-slate-600">{s.label}</span>
+                  <span className="text-xs text-slate-600 flex-1">{s.label}</span>
                   <span className="text-xs font-bold tabular-nums text-slate-800">{fmtPct(pct)}</span>
-                  <span className="text-[10px] text-slate-400">({count})</span>
+                  <span className="text-[10px] text-slate-400 w-9 text-right">({count})</span>
                 </div>
               );
             })}
@@ -550,6 +616,8 @@ export function OverviewTab({ pais: filterPais, onVerCambios }: {
         </Card>
 
         <ProductMixPanel data={productosMix} />
+
+        <IndustryMixPanel rows={industriaRows} total={industriaTotal} />
       </div>
 
       {/* Cards por país — Salud (solo si hay más de uno o no hay filtro) */}

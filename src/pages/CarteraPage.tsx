@@ -9,6 +9,7 @@ import { SegmentacionTab } from './portafolio/SegmentacionTab';
 import { ComparadorTab } from './portafolio/ComparadorTab';
 import { MovimientosTab } from './portafolio/MovimientosTab';
 import { IPCTab } from './portafolio/IPCTab';
+import { IndustriaPaisTab } from './portafolio/IndustriaPaisTab';
 import { useTrack } from '../hooks/useTrack';
 
 interface CarteraPageProps {
@@ -38,6 +39,7 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
   // cartera completa del país y ordena a los ejecutivos por cartera enfriándose.
   // Para el ejecutivo el tab ni se dibuja; esto cubre el caso de que el rol se
   // resuelva DESPUÉS de un clic, que si no dejaría el área en blanco.
+  // Industria por País, en cambio, es visible para todos sin restricción de rol.
   const subActivo: ClientesSubTab =
     esEjecutivo && subTab === 'movimientos' ? 'overview' : subTab;
 
@@ -57,10 +59,11 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
     // agrega un cliente. Contar visitas acá inflaba el uso con gente que entra,
     // mira y se va.
     if (t === 'cuentas-clave') return;
-    // Movimientos, IPC y Overview quedan fuera del selector Estacionales/Recurrentes,
-    // así que no llevan el tipo en el evento: `analisis:estacionales:movimientos` daba
-    // a entender un filtro que esa vista no aplica y partía la serie en dos.
-    track(t === 'movimientos' || t === 'ipc' ? `analisis:${t}`
+    // Movimientos, IPC, Industria por País y Overview quedan fuera del selector
+    // Estacionales/Recurrentes, así que no llevan el tipo en el evento:
+    // `analisis:estacionales:movimientos` daba a entender un filtro que esa
+    // vista no aplica y partía la serie en dos.
+    track(t === 'movimientos' || t === 'ipc' || t === 'industria' ? `analisis:${t}`
         : `analisis:${portafolioTab}:${t}`);
   }
 
@@ -76,7 +79,7 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
           y salidas de la cartera completa, y filtrarlo por tipo daría una serie que
           no cierra — un cliente puede cambiar de tipo entre dos meses. */}
       {subActivo !== 'overview' && subActivo !== 'cuentas-clave' && subActivo !== 'movimientos'
-        && subActivo !== 'ipc' && (
+        && subActivo !== 'ipc' && subActivo !== 'industria' && (
         <div className="flex items-center justify-between flex-wrap gap-3 -mt-1">
           <PortafolioNav active={portafolioTab} onChange={handlePortafolioTab} />
         </div>
@@ -87,6 +90,7 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
       {subActivo === 'segmentacion'  && <SegmentacionTab tipo={portafolioTab} />}
       {subActivo === 'ipc'           && <IPCTab filterPais={filterPais} />}
       {subActivo === 'cuentas-clave' && <ComparadorTab filterPais={filterPais} filterKam={filterKam} />}
+      {subActivo === 'industria'     && <IndustriaPaisTab pais={filterPais} />}
       {subActivo === 'movimientos' && <MovimientosTab pais={filterPais} kam={filterKam} />}
     </div>
   );

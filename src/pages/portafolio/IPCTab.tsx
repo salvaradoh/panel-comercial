@@ -4,6 +4,7 @@ import { BanderaPais } from '../../components/ui/BanderaPais';
 import { useIPC } from '../../hooks/useIPC';
 import type { AlertaIPC, ClienteIPC } from '../../hooks/useIPC';
 import { PAISES } from '../../lib/paises';
+import { descargarExcelIPC } from './exportIPCExcel';
 
 const POR_PAGINA = 12;
 
@@ -138,6 +139,8 @@ export function IPCTab({ filterPais }: Props) {
   // checkbox: son los que se enfriaron, y verlos es opcional.
   const [verNoAtendidos, setVerNoAtendidos] = useState(false);
   const [pagina, setPagina] = useState(0);
+  const [descargando, setDescargando] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
   // Por defecto se ordena como venía del backend: alerta más urgente y, dentro de
   // ella, el IPC más bajo. Es lo que hay que atender primero.
   const [sortKey, setSortKey] = useState<SortKey>('alerta');
@@ -233,6 +236,21 @@ export function IPCTab({ filterPais }: Props) {
   const paginaActual = Math.min(pagina, totalPaginas - 1);
   const visibles = clientes.slice(paginaActual * POR_PAGINA, (paginaActual + 1) * POR_PAGINA);
 
+  async function handleDescargar() {
+    if (!data) return;
+    setDescargando(true);
+    setErrorDescarga(null);
+    try {
+      await descargarExcelIPC(data);
+    } catch (e) {
+      // Sin esto el botón volvía a "Descargar Excel" como si hubiera funcionado:
+      // exceljs se carga por import dinámico y un chunk que no baja falla acá.
+      setErrorDescarga(e instanceof Error ? e.message : 'No se pudo generar el archivo');
+    } finally {
+      setDescargando(false);
+    }
+  }
+
   function cambiar<T>(set: (v: T) => void) {
     return (v: T) => { set(v); setPagina(0); };
   }
@@ -315,6 +333,28 @@ export function IPCTab({ filterPais }: Props) {
             ? `Trimestre cerrado · ${periodo.dias} días`
             : `Día ${periodo.transcurridos} de ${periodo.dias} · ${periodo.restantes} restantes`}
         </span>
+
+        <button
+          type="button"
+          onClick={handleDescargar}
+          disabled={descargando}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200
+                     text-slate-600 hover:border-[#0097A7] hover:text-[#0097A7] transition-colors disabled:opacity-50
+                     disabled:cursor-wait flex-shrink-0"
+          title="Excel con tres hojas: Resumen de esta vista, Clientes con todas las columnas e Interacciones fila por fila. El detalle va sin los filtros de pantalla, para armar tablas dinámicas."
+        >
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path d="M8 1.5v9M8 10.5 4.5 7M8 10.5 11.5 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2.5 12.5v1.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+          {descargando ? 'Generando…' : 'Descargar Excel'}
+        </button>
+
+        {errorDescarga && (
+          <span role="alert" className="w-full text-rose-600">
+            No se pudo generar el Excel: {errorDescarga}
+          </span>
+        )}
       </div>
 
       <h2 className="text-xs uppercase tracking-wider text-slate-400 font-semibold -mb-2">

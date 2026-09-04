@@ -128,8 +128,6 @@ export const EXEC_LIST: UserRoleData[] = [
   // Country Managers
   { nombre: 'Alvaro Agliati',       kamId: '-', pais: 'Chile',    rol: 'Country Manager' },
   { nombre: 'Daniel Indaburu',      kamId: '-', pais: 'Colombia', rol: 'Country Manager' },
-  { nombre: 'Juan Camilo Valencia', kamId: '-', pais: 'México',   rol: 'Country Manager' },
-  { nombre: 'Katia Li',             kamId: '-', pais: 'Perú',     rol: 'Country Manager' },
 ];
 
 const STATIC_ROLES: Record<string, UserRoleData> = {
@@ -142,11 +140,12 @@ const STATIC_ROLES: Record<string, UserRoleData> = {
   'sgajardo@dcanje.com':    { nombre: 'Sebastián Gajardo',  kamId: '-', pais: '', rol: 'C-level' },
   'srojas@apprecio.com':    { nombre: 'Sebastián Rojas',    kamId: '-', pais: '', rol: 'C-level' },
   'srojas@dcanje.com':      { nombre: 'Sebastián Rojas',    kamId: '-', pais: '', rol: 'C-level' },
-  // Country Managers
-  'kli@apprecio.com':           { nombre: 'Katia Li',             kamId: '-', pais: 'Perú',     rol: 'Country Manager' },
-  'kli@dcanje.com':             { nombre: 'Katia Li',             kamId: '-', pais: 'Perú',     rol: 'Country Manager' },
-  'jvalencia@apprecio.com':     { nombre: 'Juan Camilo Valencia', kamId: '-', pais: 'México',   rol: 'Country Manager' },
-  'jvalencia@dcanje.com':       { nombre: 'Juan Camilo Valencia', kamId: '-', pais: 'México',   rol: 'Country Manager' },
+  // Country Managers.
+  // Katia Li y Juan Camilo Valencia salieron el 2026-09-03: ya no tienen rol
+  // comercial. Tampoco están en 'Codigos Vendedores', así que caen al camino de
+  // fallo cerrado, que es lo correcto. No reponerlos sin confirmarlo: este
+  // fallback es el camino NORMAL, no la excepción — la hoja está compartida con
+  // 5 personas, no con el dominio, así que casi nadie logra leerla.
   'dindaburu@apprecio.com':     { nombre: 'Daniel Indaburu',      kamId: '-', pais: 'Colombia', rol: 'Country Manager' },
   'dindaburu@dcanje.com':       { nombre: 'Daniel Indaburu',      kamId: '-', pais: 'Colombia', rol: 'Country Manager' },
   'alvaroagliati@apprecio.com': { nombre: 'Alvaro Agliati',       kamId: '-', pais: 'Chile',    rol: 'Country Manager' },

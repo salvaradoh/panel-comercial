@@ -1,78 +1,13 @@
 import { useMemo, useState } from 'react';
-import { useBriefCampanas } from '../hooks/useCampanas';
-
-const ACENTO = '#7C3AED';
-
-/* --------------------------------------------------------------- markdown
-
-   El brief viene en Markdown acotado (encabezados, viñetas, negritas, código
-   inline). Se renderiza a elementos de React en vez de inyectar HTML: nada de
-   innerHTML con texto que se generó fuera de la app. Lo que no reconoce cae a
-   párrafo plano. */
-
-function inline(texto: string, key: string) {
-  const partes = texto.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
-  return partes.map((p, i) => {
-    if (p.startsWith('**') && p.endsWith('**')) {
-      return <strong key={`${key}-${i}`} className="font-semibold text-slate-900">{p.slice(2, -2)}</strong>;
-    }
-    if (p.startsWith('`') && p.endsWith('`')) {
-      return (
-        <code key={`${key}-${i}`} className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.85em] text-slate-700">
-          {p.slice(1, -1)}
-        </code>
-      );
-    }
-    return <span key={`${key}-${i}`}>{p}</span>;
-  });
-}
-
-function Markdown({ texto }: { texto: string }) {
-  const bloques = useMemo(() => {
-    const out: React.ReactNode[] = [];
-    let lista: string[] = [];
-
-    const cerrarLista = () => {
-      if (!lista.length) return;
-      out.push(
-        <ul key={`ul-${out.length}`} className="my-2 space-y-1.5 pl-5">
-          {lista.map((li, i) => (
-            <li key={i} className="relative text-[13.5px] leading-relaxed text-slate-700">
-              <span className="absolute -left-4 top-[0.55em] h-1.5 w-1.5 rounded-full" style={{ background: ACENTO }} aria-hidden="true" />
-              {inline(li, `li-${out.length}-${i}`)}
-            </li>
-          ))}
-        </ul>,
-      );
-      lista = [];
-    };
-
-    texto.split('\n').forEach((linea, idx) => {
-      const l = linea.trim();
-      if (!l) { cerrarLista(); return; }
-
-      const item = l.match(/^[-*]\s+(.*)$/);
-      if (item) { lista.push(item[1]); return; }
-      cerrarLista();
-
-      if (l.startsWith('### ')) {
-        out.push(<h4 key={idx} className="mt-4 mb-1 text-[13px] font-semibold tracking-tight text-slate-800">{inline(l.slice(4), `h4-${idx}`)}</h4>);
-      } else if (l.startsWith('## ')) {
-        out.push(<h3 key={idx} className="mt-5 mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{inline(l.slice(3), `h3-${idx}`)}</h3>);
-      } else if (l.startsWith('# ')) {
-        out.push(<h2 key={idx} className="mt-5 mb-2 text-base font-semibold tracking-tight text-slate-900">{inline(l.slice(2), `h2-${idx}`)}</h2>);
-      } else if (/^[-—_]{3,}$/.test(l)) {
-        out.push(<hr key={idx} className="my-4 border-slate-200" />);
-      } else {
-        out.push(<p key={idx} className="my-2 text-[13.5px] leading-relaxed text-slate-700">{inline(l, `p-${idx}`)}</p>);
-      }
-    });
-    cerrarLista();
-    return out;
-  }, [texto]);
-
-  return <div>{bloques}</div>;
-}
+import { motion } from 'motion/react';
+import { useBriefCampanas, useSeguimientos, type Campana, type EstadoCampana } from '../hooks/useCampanas';
+import { useTrack } from '../hooks/useTrack';
+import { Markdown } from './campanas/Markdown';
+import { CambiosCartera } from './campanas/CambiosCartera';
+import { CampanaCard } from './campanas/CampanaCard';
+import { PanelSeguimientoAnimado } from './campanas/PanelSeguimiento';
+import { VistaEquipo } from './campanas/VistaEquipo';
+import { ACENTO, vinietasDeCambios } from './campanas/formato';
 
 /* ------------------------------------------------------------------ piezas */
 
@@ -83,11 +18,11 @@ function Pregunta({ pregunta, respuesta }: { pregunta: string; respuesta: string
       <button
         onClick={() => setAbierta((v) => !v)}
         aria-expanded={abierta}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
       >
         <span className="text-[13.5px] font-medium text-slate-800">{pregunta}</span>
         <span
-          className="shrink-0 text-slate-400 transition-transform duration-200"
+          className="shrink-0 text-slate-500 transition-transform duration-150"
           style={{ transform: abierta ? 'rotate(90deg)' : 'none' }}
           aria-hidden="true"
         >
@@ -111,36 +46,83 @@ function Vacio({ motivo }: { motivo?: string }) {
         El brief se genera con el comando <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[12px]">/campanas</code>{' '}
         y se publica en la hoja <span className="font-medium">Cache_Campanas</span>. Una vez publicado aparece acá.
       </p>
-      {motivo && <p className="mt-3 font-mono text-[11px] text-slate-400">{motivo}</p>}
+      {motivo && <p className="mt-3 font-mono text-[11px] text-slate-500">{motivo}</p>}
     </div>
   );
 }
 
 /* -------------------------------------------------------------------- vista */
 
+/**
+ * Dos vistas detrás del mismo tab:
+ *
+ * - **Admin**: el brief completo, todas las campañas propuestas, edición e incentivos. Es
+ *   la mesa de trabajo donde se decide qué campaña se impulsa.
+ * - **El resto del equipo**: solo las campañas ya aprobadas o cerradas, sin el análisis de
+ *   cartera ni los nombres de clientes.
+ *
+ * Quién es quién no se decide acá: `/api/campanas/brief` responde 403 a todo el que no
+ * esté en ADMIN_EMAILS, y de ese 403 se deduce la vista. Así el frontend no puede
+ * "ascender" a nadie por error.
+ */
 export function CampanasPage() {
+  const { error: errorBrief, isLoading: cargandoBrief } = useBriefCampanas();
+  const sinAcceso = (errorBrief as Error | null)?.message.includes('403');
+
+  if (cargandoBrief) {
+    return (
+      <div className="flex h-40 items-center justify-center">
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-transparent"
+              aria-label="Cargando" />
+      </div>
+    );
+  }
+  if (sinAcceso) return <VistaEquipo />;
+  return <VistaAdmin />;
+}
+
+function VistaAdmin() {
   const { data: brief, isLoading, error } = useBriefCampanas();
+  const { data: seguimientos } = useSeguimientos();
+  const [abierta, setAbierta] = useState<Campana | null>(null);
+  const { track } = useTrack();
+
   const errorObj = error as Error | null;
-  const esForbidden = errorObj?.message.includes('403');
+
+  const campanas = useMemo(
+    () => [...(brief?.campanas ?? [])].sort((a, b) => a.prioridad - b.prioridad),
+    [brief?.campanas],
+  );
+  const cambios = useMemo(() => vinietasDeCambios(brief?.markdown ?? ''), [brief?.markdown]);
+
+  // Los estados llegan todos juntos en una sola lectura de la colección, así que la
+  // grilla puede mostrar cuál ya se aprobó sin pedir un documento por tarjeta.
+  const estadoDe = (c: Campana): EstadoCampana => seguimientos?.[c.slug]?.estado ?? 'propuesta';
+
+  const abrir = (c: Campana) => {
+    setAbierta(c);
+    track('campana_abierta', c.slug);
+  };
 
   return (
     <div className="py-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">Campañas comerciales</h1>
           <p className="mt-0.5 text-[13px] text-slate-500">
-            Cambios de la cartera global y campañas propuestas, con base objetivo y producto.
+            Cambios de la cartera y campañas propuestas. Cada una se abre para ver su base objetivo,
+            el avance real y el incentivo que se le pide al área.
           </p>
         </div>
         {brief && !brief.sin_publicar && (
           <div className="text-right">
-            <span className="block text-[11.5px] tabular-nums text-slate-400">
+            <span className="block text-[11.5px] tabular-nums text-slate-500">
               {new Date(brief.generado_en!).toLocaleString('es-CL', {
                 day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
               })}
             </span>
             {brief.semana_id && (
-              <span className="block font-mono text-[11px] text-slate-400">{brief.semana_id}</span>
+              <span className="block font-mono text-[11px] text-slate-500">{brief.semana_id}</span>
             )}
           </div>
         )}
@@ -155,23 +137,50 @@ export function CampanasPage() {
           />
         </div>
       ) : errorObj ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-[13.5px] font-medium text-amber-900">
-            {esForbidden ? 'Esta vista es solo para Admin.' : 'No se pudo leer el brief.'}
-          </p>
-          <p className="mt-1 font-mono text-[11.5px] break-all text-amber-700">{errorObj.message}</p>
+        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-[13.5px] font-medium text-amber-900">No se pudo leer el brief.</p>
+          <p className="mt-1 font-mono text-[11.5px] break-all text-amber-800">{errorObj.message}</p>
         </div>
       ) : !brief || brief.sin_publicar ? (
         <Vacio motivo={brief?.motivo} />
       ) : (
         <>
-          <section aria-label="Brief de campañas" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <Markdown texto={brief.markdown ?? ''} />
+          <CambiosCartera vinietas={cambios} />
+
+          <section aria-labelledby="titulo-campanas" className="mb-6">
+            <div className="mb-2.5 flex items-baseline justify-between">
+              <h2 id="titulo-campanas" className="text-[12px] font-semibold uppercase tracking-wider text-slate-500">
+                Campañas propuestas
+              </h2>
+              <span className="text-[11.5px] tabular-nums text-slate-500">
+                {campanas.length} {campanas.length === 1 ? 'campaña' : 'campañas'}
+              </span>
+            </div>
+
+            {campanas.length === 0 ? (
+              <p className="rounded-2xl border border-slate-200 bg-white p-5 text-[13px] text-slate-500 shadow-sm">
+                El brief publicado no trae campañas que se puedan mostrar como tarjetas. Abajo queda
+                el texto completo.
+              </p>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {campanas.map((c, i) => (
+                  <CampanaCard
+                    key={c.slug}
+                    campana={c}
+                    indice={i}
+                    estado={estadoDe(c)}
+                    activa={abierta?.slug === c.slug}
+                    onAbrir={() => abrir(c)}
+                  />
+                ))}
+              </div>
+            )}
           </section>
 
           {(brief.preguntas?.length ?? 0) > 0 && (
-            <section aria-label="Preguntas frecuentes sobre la cartera" className="mt-5">
-              <h2 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-slate-500">
+            <section aria-label="Preguntas frecuentes sobre la cartera" className="mb-6">
+              <h2 className="mb-2.5 text-[12px] font-semibold uppercase tracking-wider text-slate-500">
                 Preguntas frecuentes
               </h2>
               <div className="space-y-2">
@@ -181,7 +190,29 @@ export function CampanasPage() {
               </div>
             </section>
           )}
+
+          {/* El brief completo sigue disponible: las tarjetas resumen, no reemplazan. */}
+          <motion.details
+            className="group rounded-2xl border border-slate-200 bg-white shadow-sm"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+          >
+            <summary className="cursor-pointer list-none px-5 py-3 text-[12.5px] font-medium text-slate-600 transition-colors hover:text-slate-900">
+              Ver el brief completo en texto
+            </summary>
+            <div className="border-t border-slate-100 px-5 pb-5 pt-1">
+              <Markdown texto={brief.markdown ?? ''} />
+            </div>
+          </motion.details>
         </>
+      )}
+
+      {abierta && (
+        <PanelSeguimientoAnimado
+          abierto
+          campana={abierta}
+          puedeEditar={Boolean(brief?.puede_editar)}
+          onCerrar={() => setAbierta(null)}
+        />
       )}
     </div>
   );

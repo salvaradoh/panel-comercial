@@ -109,15 +109,20 @@ const tabSuspenseFallback = (
 // Nadie queda filtrado por nombre de ejecutivo: un ejecutivo ve la cartera
 // completa de SU PAÍS, no solo la propia. Mi Vista sigue siendo personal —lee
 // su rol directo, no estos filtros— así que ahí sigue viendo lo suyo.
-const C_LEVEL_TABS: Tab[]  = ['metas', 'cartera', 'segmentacion', 'herramientas', 'novedades'];
-const EXEC_TABS: Tab[]      = ['mivista', 'metas', 'cartera', 'herramientas', 'novedades'];
-// Campañas consume tokens de la API de Claude, así que va solo para Admin. Ocultar el
-// tab no es el control de acceso: el backend exige requireAdmin en /api/campanas.
-// Proyectos (CBS) también arranca solo para Admin, mientras se validan las cifras
-// contra el tablero de Looker Studio del que viene. La hoja fuente está
-// compartida con todo el dominio, así que ocultarlo NO es control de acceso:
-// es un tablero en revisión, no información restringida.
-const ADMIN_TABS: Tab[]     = [...C_LEVEL_TABS, 'proyectos', 'campanas'];
+// Campañas lo ve TODO el equipo, pero la vista no es la misma para todos: el Admin ve el
+// brief entero y decide; el resto ve solo las campañas ya aprobadas o cerradas, con su
+// incentivo. Esa bifurcación NO se decide acá — la decide el 403 de /api/campanas/brief,
+// que es una allowlist de correos en el backend. Poner el tab en estas listas solo hace
+// visible el menú; no da acceso al análisis de cartera.
+const C_LEVEL_TABS: Tab[]  = ['metas', 'cartera', 'segmentacion', 'herramientas', 'novedades', 'campanas'];
+const EXEC_TABS: Tab[]      = ['mivista', 'metas', 'cartera', 'herramientas', 'novedades', 'campanas'];
+const ADMIN_TABS: Tab[]     = [...C_LEVEL_TABS, 'proyectos'];
+// Doble cargo: acceso de Admin Y cartera propia. Magda Sernaque es Team Latam
+// Leader y además ejecutiva comercial, y el layout era excluyente —ADMIN_TABS no
+// incluye Mi Vista—, así que darle Admin le habría quitado su propia vista.
+// La regla NO la nombra: se apoya en el KAM ID de la hoja. Quien tiene código
+// tiene cartera; los Admin sin cartera figuran con '-' y no ven este tab.
+const ADMIN_CARTERA_TABS: Tab[] = ['mivista', ...ADMIN_TABS];
 
 function Dashboard() {
   const { user, logout } = useAuth();
@@ -140,9 +145,13 @@ function Dashboard() {
 
   // Mi Vista es solo para quien tiene cartera propia. El Country Manager pasó al
   // dashboard completo: gestiona el país, no una cartera.
+  // Tiene cartera propia si la hoja le dio un KAM ID. Los roles de gestión pura
+  // (Country Manager, C-level, Admin sin venta) figuran con '-'.
+  const tieneCarteraPropia = !!userRole?.kamId && userRole.kamId !== '-';
+
   const visibleTabs = (isExec || adminViewingExec)
     ? EXEC_TABS
-    : (isAdmin ? ADMIN_TABS : C_LEVEL_TABS);
+    : (isAdmin ? (tieneCarteraPropia ? ADMIN_CARTERA_TABS : ADMIN_TABS) : C_LEVEL_TABS);
 
   const [tab, setTab] = useState<Tab>(() => (isExec ? 'mivista' : 'metas'));
 

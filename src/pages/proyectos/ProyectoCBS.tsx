@@ -14,7 +14,7 @@ const VISTAS: { id: VistaCBS; label: string }[] = [
 
 export function ProyectoCBS() {
   const [vista, setVista] = useState<VistaCBS>('farming');
-  const { datos, isLoading, error } = useProyectoCBS();
+  const { datos, isLoading, error, cruceFallo } = useProyectoCBS();
   const { track } = useTrack();
 
   function cambiar(v: VistaCBS) {
@@ -70,6 +70,19 @@ export function ProyectoCBS() {
             y volvé a entrar al panel si tu sesión venció.
           </p>
           <p className="text-xs text-red-500 font-mono mt-2 break-all">{(error as Error).message}</p>
+        </div>
+      )}
+
+      {/* El cruce de KAM es opcional: si falla, la vista igual sirve, pero hay
+          que decir con qué se está mirando el ranking por ejecutivo. */}
+      {cruceFallo && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800">
+          <p className="font-semibold">No se pudo leer la cartera del panel</p>
+          <p className="text-xs mt-1">
+            Los KAM que se muestran salen de la columna <code>ID KAM</code> de la hoja, que
+            está desactualizada. El avance por ejecutivo puede atribuir cuentas a quien ya no
+            las lleva.
+          </p>
         </div>
       )}
 

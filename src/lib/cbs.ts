@@ -1,4 +1,6 @@
 
+import { clavePais } from './paises';
+
 /**
  * Proyecto CBS (Cross Border Sales): LATAM → México.
  *
@@ -20,6 +22,14 @@ export const fmtNum = (v: number) => v.toLocaleString('es-PE');
 
 /** A→BD son las 56 columnas que tiene hoy la hoja; el margen de filas cubre crecimiento. */
 export const CBS_RANGO = `'${CBS_HOJA}'!A1:BD2000`;
+
+/**
+ * Pestaña de la MISMA hoja que empareja el correlativo de empresa con el RUT.
+ * Es el puente que necesita Chile: su Panel ID en la cartera del panel es el
+ * RUT, no el correlativo que usa `BBDD para MX`.
+ * Columnas: ID Empresa | Nombre Empresa | Razón Social | Rut | Kam | Email Kam | País.
+ */
+export const CBS_PUENTE_CL_RANGO = "'Clientes + KAMs CL'!A1:G3000";
 
 /**
  * Cabeceras de la hoja, tal cual están escritas (minúsculas y tildes incluidas).
@@ -110,6 +120,9 @@ export interface FilaCBS {
   paginaWeb: string; paisesConPresencia: string;
   oportunidadChile: string; oportunidadColombia: string; oportunidadPeru: string;
   oportunidadMexico: string; oportunidadEcuador: string;
+  /** KAM vigente resuelto contra la cartera del panel. Ver `aplicarKamActual`. */
+  kamActual: string;
+  kamFuente: FuenteKam;
   // Números
   whatsappCall: number; envioSecuencia: number; noAplica: number; enGestionActiva: number;
   sponsors: number; aHunting: number; enGestionReunion: number; noAplicaProspeccion: number;
@@ -165,6 +178,10 @@ export function parseFilasCBS(headers: string[], filas: string[][]): DatosCBS {
         const bruto = i === undefined ? '' : r[i];
         o[k] = NUMERICOS.has(k) ? num(bruto) : txt(bruto);
       });
+      // Sin cruzar todavía: el KAM vigente lo resuelve `aplicarKamActual`, que
+      // necesita la cartera del panel y no está disponible acá.
+      o.kamActual = o.idKam;
+      o.kamFuente = 'hoja-cbs';
       // `o` se arma clave por clave sobre COL, que es exactamente el shape de
       // FilaCBS; TypeScript no puede probarlo desde un Record genérico.
       return o as unknown as FilaCBS;
@@ -315,8 +332,12 @@ export function resumenHunting(filas: FilaCBS[]): ResumenHunting {
   };
 }
 
-/** Valores únicos de una columna de texto, ordenados, para los selectores. */
-export function opcionesDe(filas: FilaCBS[], k: ClaveCBS): string[] {
+/**
+ * Valores únicos de una columna de texto, ordenados, para los selectores.
+ * Acepta también `kamActual`, que no es una columna de la hoja sino el KAM
+ * vigente que resuelve `aplicarKamActual`.
+ */
+export function opcionesDe(filas: FilaCBS[], k: ClaveCBS | 'kamActual'): string[] {
   return [...new Set(filas.map((f) => txt(f[k as keyof FilaCBS])).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'es'));
 }
@@ -454,13 +475,15 @@ export interface FilaRanking {
 }
 
 /**
- * Avance por ejecutivo. `campo` es 'idKam' en Farming y 'idKamBdm' en Hunting.
+ * Avance por ejecutivo. `campo` es 'kamActual' en Farming —el KAM vigente que
+ * resolvió `aplicarKamActual`, NO la columna `ID KAM` de la hoja, que está
+ * desactualizada— y 'idKamBdm' en Hunting, que es a quién se derivó la cuenta.
  *
  * Es la vista que el tablero original no tenía —ahí el KAM era solo un filtro— y
  * es donde aparece lo accionable: al 2026-08-25 hay cuatro KAMs con 66 cuentas
  * entre todos y cero sponsors.
  */
-export function rankingEjecutivos(filas: FilaCBS[], campo: 'idKam' | 'idKamBdm'): FilaRanking[] {
+export function rankingEjecutivos(filas: FilaCBS[], campo: 'kamActual' | 'idKamBdm'): FilaRanking[] {
   return [...agrupar(filas.filter((f) => f[campo] !== ''), (f) => f[campo]).entries()]
     .map(([nombre, fs]) => {
       const sinTocar = fs.filter((f) => estadoDe(f) === 'sin_tocar');
@@ -533,4 +556,112 @@ export function fmtUSDCorto(v: number): string {
 /** USD exacto, para la ficha y los tooltips. */
 export function fmtUSDExacto(v: number): string {
   return `USD ${Math.round(v).toLocaleString('es-PE')}`;
+}
+
+// ── KAM vigente ───────────────────────────────────────────────────────────────
+
+/**
+ * De dónde salió el KAM que se muestra, en orden de confianza.
+ *
+ * Importa mostrarlo: el ranking por ejecutivo señala a personas con nombre y
+ * apellido, y no es lo mismo decirlo con la cartera vigente del panel que con
+ * una columna que la hoja no actualiza.
+ */
+export type FuenteKam = 'panel' | 'listado-cl' | 'hoja-cbs' | 'sin-dato';
+
+export const FUENTE_KAM_META: Record<FuenteKam, { label: string; confiable: boolean }> = {
+  'panel':      { label: 'Cartera vigente del panel',      confiable: true },
+  'listado-cl': { label: 'Listado de clientes Chile',      confiable: true },
+  'hoja-cbs':   { label: 'Columna ID KAM de la hoja (sin confirmar)', confiable: false },
+  'sin-dato':   { label: 'Sin asignación conocida',        confiable: false },
+};
+
+/**
+ * Normaliza un identificador de empresa para cruzar.
+ *
+ * Hace falta porque el Panel ID NO tiene el mismo formato en todos los países,
+ * verificado el 2026-08-25 sobre la cartera del panel:
+ *
+ *   Colombia   correlativo numérico  ("890")        1.363 de 1.391
+ *   Perú       correlativo numérico  ("72")           713 de   783
+ *   Chile      el RUT                ("76670860-9")     0 de 1.083 numéricos
+ *   México     el RFC                ("GRE851219528")   2 de   217 numéricos
+ *
+ * Los RUT vienen con puntos en unas hojas y sin puntos en otras, así que se
+ * sacan; para los correlativos numéricos esto no cambia nada.
+ */
+export function normalizaIdEmpresa(v: string): string {
+  return String(v ?? '').replace(/[.\s]/g, '').toUpperCase().trim();
+}
+
+/** Clave de persona sin tildes ni dobles espacios: la hoja escribe "Lorenzo  Jamasmie". */
+export function claveKam(v: string): string {
+  return String(v ?? '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+export interface CarteraKam {
+  /** `clavePaís||idNormalizado` → nombre del KAM, desde la cartera del panel. */
+  porPanelId: Map<string, string>;
+  /** `idEmpresa` (el correlativo de la hoja CBS) → RUT, solo Chile. */
+  puenteRut: Map<string, string>;
+  /** `idEmpresa` → KAM del listado de clientes de Chile. Respaldo. */
+  kamListadoCL: Map<string, string>;
+}
+
+/**
+ * Resuelve el KAM vigente de cada fila cruzando por Panel ID contra la cartera
+ * del panel — la misma hoja que alimenta Clientes y Segmentación.
+ *
+ * Por qué hace falta: la columna `ID KAM` de la hoja CBS está desactualizada.
+ * Verificado el 2026-08-25 — de las 225 filas que cruzan, **91 (40%) tienen hoy
+ * otro ejecutivo**, y además guarda códigos viejos (`DD`, `MS`, `JG`) que el
+ * resto del panel ya no usa. Con este cruce el nombre que se muestra en CBS es
+ * el mismo que en cualquier otro tab.
+ *
+ * Orden de resolución, con cobertura medida sobre las 287 filas:
+ *
+ *   1. `(país, panelId)` contra la cartera del panel ............ 225 filas
+ *      Chile no cruza directo porque su Panel ID es el RUT, así que primero
+ *      pasa por `puenteRut` (la pestaña `Clientes + KAMs CL` de la propia hoja,
+ *      que tiene ID Empresa y RUT en la misma fila).
+ *   2. `Clientes + KAMs CL` como respaldo para Chile ............. 57 filas
+ *      Son prospectos que todavía no están en la cartera activa. Coincide con
+ *      el panel en 60 de 70 casos comprobables, así que sirve de respaldo pero
+ *      no de fuente primaria.
+ *   3. Sin dato ................................................... 5 filas
+ *
+ * Total: 282 de 287 = 98,3%.
+ *
+ * El nombre se canonicaliza con la grafía del panel: la misma persona aparece
+ * como "Benjamin Gonzalez" en una hoja y "Benjamin González" en otra, y sin
+ * unificar saldría dos veces en el ranking.
+ */
+export function aplicarKamActual(filas: FilaCBS[], cartera: CarteraKam): FilaCBS[] {
+  // Grafía canónica = la del panel, que es la que ve el resto del dashboard.
+  const canonico = new Map<string, string>();
+  cartera.porPanelId.forEach((kam) => {
+    if (kam) canonico.set(claveKam(kam), kam);
+  });
+  const canon = (nombre: string) => canonico.get(claveKam(nombre)) ?? nombre.replace(/\s+/g, ' ').trim();
+
+  return filas.map((f) => {
+    const id = normalizaIdEmpresa(f.idEmpresa);
+    const pais = clavePais(f.paisOrigen);
+
+    const directo = cartera.porPanelId.get(`${pais}||${id}`);
+    if (directo) return { ...f, kamActual: canon(directo), kamFuente: 'panel' as FuenteKam };
+
+    const rut = cartera.puenteRut.get(f.idEmpresa.trim());
+    if (rut) {
+      const viaRut = cartera.porPanelId.get(`${pais}||${rut}`);
+      if (viaRut) return { ...f, kamActual: canon(viaRut), kamFuente: 'panel' as FuenteKam };
+    }
+
+    const listado = cartera.kamListadoCL.get(f.idEmpresa.trim());
+    if (listado) return { ...f, kamActual: canon(listado), kamFuente: 'listado-cl' as FuenteKam };
+
+    return { ...f, kamActual: '', kamFuente: 'sin-dato' as FuenteKam };
+  });
 }

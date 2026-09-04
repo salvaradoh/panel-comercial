@@ -4,7 +4,7 @@ import { Card } from '../../components/ui';
 import type { FilaCBS, EstadoCBS } from '../../lib/cbs';
 import {
   avancePorTier, opcionesDe, distribucionEstados, embudoConversion, rankingEjecutivos,
-  ventanaProyecto, estadoDe, usdDe, sumaUSD, cuentaOportunidades,
+  ventanaProyecto, estadoDe, usdDe, sumaUSD, cuentaOportunidades, FUENTE_KAM_META,
   ESTADO_META, fmtUSDCorto, fmtUSDExacto, fmtPct, fmtNum,
 } from '../../lib/cbs';
 import {
@@ -16,7 +16,7 @@ import { FichaCuentaCBS } from './FichaCuentaCBS';
 
 const POR_PAGINA = 25;
 
-type OrdenTabla = 'usd' | 'razonSocial' | 'segmentacion' | 'idKam';
+type OrdenTabla = 'usd' | 'razonSocial' | 'segmentacion' | 'kamActual';
 
 interface Props { filas: FilaCBS[] }
 
@@ -31,14 +31,14 @@ export function FarmingCBSTab({ filas }: Props) {
 
   const opciones = useMemo(() => ({
     paises: opcionesDe(filas, 'paisOrigen'),
-    kams:   opcionesDe(filas, 'idKam'),
+    kams:   opcionesDe(filas, 'kamActual'),
     tiers:  opcionesDe(filas, 'segmentacion'),
   }), [filas]);
 
   /** Filtros de contexto: mandan sobre TODA la página, agregados incluidos. */
   const enContexto = useMemo(() => filas.filter((f) =>
     (!pais || f.paisOrigen === pais) &&
-    (!kam  || f.idKam === kam) &&
+    (!kam  || f.kamActual === kam) &&
     (!tier || f.segmentacion === tier)
   ), [filas, pais, kam, tier]);
 
@@ -53,7 +53,7 @@ export function FarmingCBSTab({ filas }: Props) {
 
   const tramos  = useMemo(() => distribucionEstados(enContexto), [enContexto]);
   const embudo  = useMemo(() => embudoConversion(enContexto), [enContexto]);
-  const ranking = useMemo(() => rankingEjecutivos(enContexto, 'idKam'), [enContexto]);
+  const ranking = useMemo(() => rankingEjecutivos(enContexto, 'kamActual'), [enContexto]);
   const tiers   = useMemo(() => avancePorTier(enContexto), [enContexto]);
   const ventana = useMemo(() => ventanaProyecto(enContexto), [enContexto]);
 
@@ -107,7 +107,7 @@ export function FarmingCBSTab({ filas }: Props) {
       {/* Filtros de contexto */}
       <div className="flex flex-wrap items-end gap-4">
         <Selector label="País origen"  value={pais} options={opciones.paises} onChange={filtrar(setPais)} />
-        <Selector label="ID KAM"       value={kam}  options={opciones.kams}   onChange={filtrar(setKam)} />
+        <Selector label="KAM vigente"  value={kam}  options={opciones.kams}   onChange={filtrar(setKam)} />
         <Selector label="Segmentación" value={tier} options={opciones.tiers}  onChange={filtrar(setTier)} />
         {hayFiltro && (
           <div className="flex flex-wrap gap-2 pb-2">
@@ -197,7 +197,7 @@ export function FarmingCBSTab({ filas }: Props) {
                   <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
                     <Th k="razonSocial"  cur={orden} onSort={ordenar} align="left">Razón social</Th>
                     <Th k="segmentacion" cur={orden} onSort={ordenar} align="left">Tier</Th>
-                    <Th k="idKam"        cur={orden} onSort={ordenar} align="left">KAM</Th>
+                    <Th k="kamActual"    cur={orden} onSort={ordenar} align="left">KAM</Th>
                     <th className="text-left font-medium pb-2 pr-3">Estado</th>
                     <Th k="usd"          cur={orden} onSort={ordenar} align="right">USD 12m</Th>
                     <th className="text-left font-medium pb-2 pl-3">Contacto</th>
@@ -220,7 +220,18 @@ export function FarmingCBSTab({ filas }: Props) {
                           {f.razonSocial || '—'}
                         </td>
                         <td className="py-2 pr-3"><TierChip tier={f.segmentacion} /></td>
-                        <td className="py-2 pr-3 text-slate-600 whitespace-nowrap">{f.idKam || '—'}</td>
+                        <td className="py-2 pr-3 whitespace-nowrap">
+                          {f.kamActual
+                            ? <span className="text-slate-600">{f.kamActual}</span>
+                            : <span className="text-slate-300">Sin asignar</span>}
+                          {/* Un asterisco marca el dato que NO viene de la cartera
+                              vigente: el ranking señala personas, así que la
+                              procedencia tiene que estar a la vista. */}
+                          {!FUENTE_KAM_META[f.kamFuente].confiable && f.kamActual && (
+                            <span className="text-amber-500 ml-0.5"
+                                  title={FUENTE_KAM_META[f.kamFuente].label}>*</span>
+                          )}
+                        </td>
                         <td className="py-2 pr-3">
                           {/* Color + texto: nunca solo el punto */}
                           <span className="inline-flex items-center gap-1.5 text-[11px] whitespace-nowrap"
@@ -252,6 +263,11 @@ export function FarmingCBSTab({ filas }: Props) {
         Facturación convertida a USD con el tipo de cambio de la casa
         (CLP 950 · COP 4.000 · PEN 3,4), el mismo que produce <code>MONTO_USD</code> en BigQuery.
         {' '}{fmtNum(enContexto.filter((f) => usdDe(f) === 0).length)} cuentas sin facturación registrada.
+        <br />
+        El KAM sale de cruzar el Panel ID contra la cartera vigente del panel, no de la
+        columna <code>ID KAM</code> de la hoja, que está desactualizada.
+        {' '}{fmtNum(enContexto.filter((f) => !FUENTE_KAM_META[f.kamFuente].confiable).length)} cuentas
+        sin confirmar (marcadas con *).
       </p>
 
       {ficha && <FichaCuentaCBS fila={ficha} onClose={() => setFicha(null)} />}

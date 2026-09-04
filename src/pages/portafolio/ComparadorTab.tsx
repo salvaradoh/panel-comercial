@@ -15,6 +15,7 @@ import type { HistorialMap } from '../../hooks/useHistorial';
 import { SEG_COLOR, SEG_BG } from '../../components/salud';
 import { mismoPais } from '../../lib/paises';
 import { useTrack } from '../../hooks/useTrack';
+import { ChipIndustria } from '../../components/ClienteIndustriaChip';
 
 const MAX_SEL = 3;
 
@@ -399,14 +400,19 @@ function lecturaRapida(sel: ClienteTabla[]): Hallazgo[] {
 
 // ── Buscador ──────────────────────────────────────────────────────────────
 
+const SIN_TEXTO_LIMITE = 20;
+
 function Buscador({
-  universo, seleccion, onAdd, hayFueraDeCartera,
+  universo, seleccion, onAdd, hayFueraDeCartera, navegarSinTexto,
 }: {
   universo:  ClienteTabla[];
   seleccion: ClienteTabla[];
   onAdd:     (c: ClienteTabla) => void;
   /** true si con "Solo mi cartera" apagado sí habría resultados para la búsqueda */
   hayFueraDeCartera?: (q: string) => boolean;
+  /** Con un filtro (ej. industria) ya acotando `universo`, mostrar la lista al
+   *  abrir sin necesidad de escribir — el filtro ya hizo el trabajo de acotar. */
+  navegarSinTexto?: boolean;
 }) {
   const [q, setQ]             = useState('');
   const [abierto, setAbierto] = useState(false);
@@ -416,10 +422,20 @@ function Buscador({
   const lleno = seleccion.length >= MAX_SEL;
   const yaSel = new Set(seleccion.map(keyDe));
 
+  const sinTexto = !q.trim();
+
   const matches = useMemo(() => {
     const term      = q.trim().toLowerCase();
     const termAlnum = soloAlnum(term);
-    if (!terminoUtil(term, termAlnum)) return [];
+    if (!terminoUtil(term, termAlnum)) {
+      // Sin texto: si hay un filtro ya acotando el universo (industria), se
+      // navega la lista completa ordenada por monto en vez de pedir escribir.
+      if (!navegarSinTexto) return [];
+      return universo
+        .filter(c => !yaSel.has(keyDe(c)))
+        .sort((a, b) => monto12m(b) - monto12m(a))
+        .slice(0, SIN_TEXTO_LIMITE);
+    }
     return universo
       .filter(c => !yaSel.has(keyDe(c)) && coincide(c, term, termAlnum))
       // El match por ID va primero: si se tecleó un ID es porque se busca ESE
@@ -430,7 +446,7 @@ function Buscador({
         return ib - ia || monto12m(b) - monto12m(a);
       })
       .slice(0, 8);
-  }, [q, universo, seleccion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [q, universo, seleccion, navegarSinTexto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // idx se resetea en el onChange; se acota acá porque la lista también encoge
   // al seleccionar un cliente.
@@ -467,7 +483,9 @@ function Buscador({
         onChange={e => { setQ(e.target.value); setIdx(0); setAbierto(true); }}
         onFocus={() => setAbierto(true)}
         onKeyDown={onKeyDown}
-        placeholder={lleno ? `Máximo ${MAX_SEL} clientes — quita uno para agregar otro` : 'Buscar por razón social o ID panel…'}
+        placeholder={lleno ? `Máximo ${MAX_SEL} clientes — quita uno para agregar otro`
+          : navegarSinTexto ? 'Hacé clic para ver la lista, o escribí para buscar…'
+          : 'Buscar por razón social o ID panel…'}
         aria-label="Buscar cliente para comparar"
         aria-expanded={abierto && matches.length > 0}
         aria-controls="comparador-resultados"
@@ -483,6 +501,13 @@ function Buscador({
           className="absolute z-20 mt-1 w-full max-h-72 overflow-y-auto bg-white border border-slate-200
                      rounded-xl shadow-lg py-1"
         >
+          {sinTexto && navegarSinTexto && (
+            <li className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 border-b border-slate-50">
+              {universo.length > SIN_TEXTO_LIMITE
+                ? `Top ${SIN_TEXTO_LIMITE} por facturación de ${universo.length} — escribí para acotar`
+                : `${matches.length} cuenta${matches.length === 1 ? '' : 's'}`}
+            </li>
+          )}
           {matches.map((c, i) => (
             <li key={keyDe(c)} role="option" aria-selected={i === act}>
               <button
@@ -508,10 +533,12 @@ function Buscador({
           ))}
         </ul>
       )}
-      {abierto && q.trim().length >= 2 && matches.length === 0 && (
+      {abierto && matches.length === 0 && (q.trim().length >= 2 || (sinTexto && navegarSinTexto)) && (
         <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg
                         px-3 py-2.5 text-xs text-slate-400">
-          Sin coincidencias para «{q.trim()}»
+          {sinTexto
+            ? 'Sin cuentas para este filtro'
+            : <>Sin coincidencias para «{q.trim()}»</>}
           {hayFueraDeCartera?.(q) && (
             <span className="block mt-1 text-[11px] text-amber-600">
               Sí existe fuera de tu cartera — destildá «Solo mi cartera» para verlo.
@@ -525,6 +552,15 @@ function Buscador({
 
 // ── Tarjeta ───────────────────────────────────────────────────────────────
 
+/**
+ * Chip de industria con edición inline. Muestra el valor EN VIVO de la hoja
+ * "Industria — Cartera por País" (no el que quedó guardado en la hoja maestra
+ * la última vez que alguien corrió "Actualizar Cartera" — puede estar
+ * desactualizado si hubo una corrección o un alta de campanazo después).
+ * Si la empresa no tiene fila en esa hoja todavía, no se puede editar acá
+ * —no hay dónde escribir la corrección— y se muestra el valor de la cartera
+ * tal cual, sin lápiz.
+ */
 function TarjetaCliente({ c, slot, onRemove }: { c: ClienteTabla; slot: number; onRemove: () => void }) {
   const d  = delta6m(c);
   const st = statusDe(c);
@@ -570,11 +606,7 @@ function TarjetaCliente({ c, slot, onRemove }: { c: ClienteTabla; slot: number; 
           {st.label}
         </span>
         <SegChip segmento={c.segmento} />
-        {c.industria && (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-50 text-slate-500">
-            {c.industria}
-          </span>
-        )}
+        <ChipIndustria c={c} />
       </div>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] pt-1 border-t border-slate-100">
@@ -745,6 +777,7 @@ export function ComparadorTab({ filterPais, filterKam }: { filterPais?: string; 
   const { data: hist } = useHistorial();
   const [claves, setClaves] = useState<string[]>([]);
   const [soloMiCartera, setSoloMiCartera] = useState(true);
+  const [filtroIndustria, setFiltroIndustria] = useState('');
   const { track } = useTrack();
 
   // Solo clientes con segmento real: fuera primera_compra y perdido_historico.
@@ -760,9 +793,22 @@ export function ComparadorTab({ filterPais, filterKam }: { filterPais?: string; 
     [todos, filterPais]
   );
 
-  const universo = useMemo(
+  // Industrias presentes en el universo con filtro de KAM ya aplicado (no en
+  // conSegmento crudo): así el desplegable no ofrece industrias que el
+  // ejecutivo no tiene en su cartera cuando "Solo mi cartera" está activo.
+  const baseKam = useMemo(
     () => (filterKam && soloMiCartera ? conSegmento.filter(c => c.kam === filterKam) : conSegmento),
     [conSegmento, filterKam, soloMiCartera]
+  );
+  const industriasDisponibles = useMemo(() => {
+    const counts = new Map<string, number>();
+    baseKam.forEach(c => { if (c.industria) counts.set(c.industria, (counts.get(c.industria) ?? 0) + 1); });
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [baseKam]);
+
+  const universo = useMemo(
+    () => (filtroIndustria ? baseKam.filter(c => c.industria === filtroIndustria) : baseKam),
+    [baseKam, filtroIndustria]
   );
 
   const seleccion = useMemo(() => {
@@ -832,7 +878,8 @@ export function ComparadorTab({ filterPais, filterKam }: { filterPais?: string; 
         <h2 className="text-base font-semibold text-slate-800">Comparador de clientes</h2>
         <p className="text-xs text-slate-400 mt-0.5">
           Hasta {MAX_SEL} clientes lado a lado · {universo.length.toLocaleString('es')} disponibles
-          {filterKam && soloMiCartera ? ' en tu cartera' : ''} · solo estacionales y recurrentes
+          {filterKam && soloMiCartera ? ' en tu cartera' : ''}
+          {filtroIndustria ? ` · industria "${filtroIndustria}"` : ''} · solo estacionales y recurrentes
         </p>
       </div>
 
@@ -841,6 +888,7 @@ export function ComparadorTab({ filterPais, filterKam }: { filterPais?: string; 
           universo={universo}
           seleccion={seleccion}
           onAdd={add}
+          navegarSinTexto={!!filtroIndustria}
           hayFueraDeCartera={(q) => {
             if (!filterKam || !soloMiCartera) return false;
             const t  = q.trim().toLowerCase();
@@ -848,6 +896,21 @@ export function ComparadorTab({ filterPais, filterKam }: { filterPais?: string; 
             return terminoUtil(t, ta) && conSegmento.some(c => coincide(c, t, ta));
           }}
         />
+        {industriasDisponibles.length > 0 && (
+          <select
+            value={filtroIndustria}
+            onChange={e => setFiltroIndustria(e.target.value)}
+            aria-label="Filtrar por industria"
+            title="Acotar la búsqueda a una industria — útil para comparar la misma industria entre países"
+            className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600
+                       focus:outline-none focus:ring-2 focus:ring-[#0097A7]/40 focus:border-[#0097A7]"
+          >
+            <option value="">Todas las industrias</option>
+            {industriasDisponibles.map(([nombre, n]) => (
+              <option key={nombre} value={nombre}>{nombre} ({n})</option>
+            ))}
+          </select>
+        )}
         {filterKam && (
           <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
             <input
@@ -958,11 +1021,17 @@ export function ComparadorTab({ filterPais, filterKam }: { filterPais?: string; 
                     formatter={(v) => `${Number(v).toFixed(0)}%`}
                   />
                   <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
-                  <Bar dataKey="SaaS"        stackId="m" fill="#0e7490" />
-                  <Bar dataKey="Puntos"      stackId="m" fill="#0891b2" />
-                  <Bar dataKey="SuperCard"   stackId="m" fill="#22d3ee" />
-                  <Bar dataKey="GiftCard"    stackId="m" fill="#67e8f9" />
-                  <Bar dataKey="Marketplace" stackId="m" fill="#a5f3fc" radius={[4, 4, 0, 0]} />
+                  {/* Antes eran 5 tonos del mismo cyan (#0e7490..#a5f3fc) — una rampa
+                      secuencial usada para identidad categórica, así que las categorías
+                      adyacentes eran casi indistinguibles (y para daltonismo, directamente
+                      iguales). Paleta categórica de 5 tonos distintos, validada con
+                      scripts/validate_palette.js del skill dataviz (CVD ΔE 9.1, normal-vision
+                      ΔE 19.6 en el peor par adyacente — todo PASS). */}
+                  <Bar dataKey="SaaS"        stackId="m" fill="#2a78d6" />
+                  <Bar dataKey="Puntos"      stackId="m" fill="#eb6834" />
+                  <Bar dataKey="SuperCard"   stackId="m" fill="#1baf7a" />
+                  <Bar dataKey="GiftCard"    stackId="m" fill="#eda100" />
+                  <Bar dataKey="Marketplace" stackId="m" fill="#e87ba4" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

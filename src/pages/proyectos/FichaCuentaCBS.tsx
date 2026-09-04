@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { FilaCBS } from '../../lib/cbs';
-import { estadoDe, ESTADO_META, usdDe, fmtUSDExacto } from '../../lib/cbs';
+import { estadoDe, ESTADO_META, usdDe, fmtUSDExacto, FUENTE_KAM_META, claveKam } from '../../lib/cbs';
 import { TierChip } from './ui';
 
 /** Países que la hoja evalúa como destino, en el orden en que los escribe. */
@@ -132,7 +132,25 @@ export function FichaCuentaCBS({ fila, onClose }: Props) {
       <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
         <Bloque titulo="Cuenta">
-          <Dato label="KAM asignado" valor={fila.idKam || '—'} />
+          <Dato
+            label="KAM vigente"
+            valor={
+              <span>
+                {fila.kamActual || <span className="text-slate-300">Sin asignar</span>}
+                <span className="block text-[11px] text-slate-400">
+                  {FUENTE_KAM_META[fila.kamFuente].label}
+                </span>
+              </span>
+            }
+          />
+          {/* Se muestra el valor viejo solo cuando difiere: si coinciden no aporta
+              nada, y cuando difieren es justo lo que hay que corregir en la hoja. */}
+          {fila.idKam && claveKam(fila.idKam) !== claveKam(fila.kamActual) && (
+            <Dato
+              label="ID KAM en la hoja"
+              valor={<span className="text-amber-600">{fila.idKam} · desactualizado</span>}
+            />
+          )}
           <Dato
             label="Facturación 12m"
             mono

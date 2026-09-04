@@ -12,7 +12,8 @@ const ALL_TABS: { id: Tab; label: string; acento?: string }[] = [
   { id: 'novedades',     label: 'Novedades', acento: '#D97706' },
   // Solo Admin por ahora (ADMIN_TABS en App.tsx), hasta validar las cifras con el equipo.
   { id: 'proyectos',     label: 'Proyectos', acento: '#E11D48' },
-  // Solo Admin (ADMIN_TABS en App.tsx); el backend además exige requireAdmin.
+  // Visible para todo el equipo, pero el Admin ve otra vista: el brief completo contra
+  // solo las campañas aprobadas. Lo decide el backend, no esta lista.
   { id: 'campanas',      label: 'Campañas', acento: '#7C3AED' },
 ];
 

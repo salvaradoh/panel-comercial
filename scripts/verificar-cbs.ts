@@ -15,8 +15,9 @@ import { readFileSync } from 'node:fs';
 import {
   parseFilasCBS, resumenFarming, resumenHunting, avancePorTier,
   estadoLeadsPorPais, sponsorsPorPaisDestino, distribucionEstados, embudoConversion,
-  sumaUSD, ORDEN_ESTADOS,
+  sumaUSD, ORDEN_ESTADOS, aplicarKamActual, normalizaIdEmpresa, claveKam, FUENTE_KAM_META,
 } from '../src/lib/cbs';
+import { clavePais } from '../src/lib/paises';
 
 /** Cifras del tablero original, verificadas contra las capturas el 2026-08-25. */
 const ESPERADO: Record<string, number> = {
@@ -31,8 +32,29 @@ if (!ruta) {
   process.exit(2);
 }
 
-const { headers, filas } = JSON.parse(readFileSync(ruta, 'utf8'));
-const { filas: fs, faltantes } = parseFilasCBS(headers, filas);
+const { headers, filas, puente = [], cartera = [] } = JSON.parse(readFileSync(ruta, 'utf8'));
+const base = parseFilasCBS(headers, filas);
+const faltantes = base.faltantes;
+
+// Mismo armado que hace el hook, para verificar el cruce real y no una copia.
+const carteraKam = {
+  porPanelId: new Map<string, string>(),
+  puenteRut: new Map<string, string>(),
+  kamListadoCL: new Map<string, string>(),
+};
+(cartera as string[][]).forEach((r) => {
+  const kam = String(r[4] ?? '').trim();
+  if (kam) carteraKam.porPanelId.set(`${clavePais(r[0])}||${normalizaIdEmpresa(String(r[1] ?? ''))}`, kam);
+});
+(puente as string[][]).forEach((r) => {
+  const id = String(r[0] ?? '').trim();
+  if (!id) return;
+  const rut = normalizaIdEmpresa(String(r[3] ?? ''));
+  const kam = String(r[4] ?? '').trim();
+  if (rut) carteraKam.puenteRut.set(id, rut);
+  if (kam) carteraKam.kamListadoCL.set(id, kam);
+});
+const fs = aplicarKamActual(base.filas, carteraKam);
 
 console.log(`Filas parseadas: ${fs.length}`);
 console.log(`Columnas faltantes: ${faltantes.length ? faltantes.join(', ') : 'ninguna'}`);
@@ -91,6 +113,23 @@ etapas.forEach((e, i) => {
   console.log(`  ${rompe ? 'FALLA' : ' OK  '} ${e.label.padEnd(17)} ${String(e.cuentas).padStart(4)}  ${
     e.conversion === null ? '   —' : `${Math.round(e.conversion * 100)}%`.padStart(4)}`);
 });
+
+// Cobertura del cruce de KAM. Umbral 95%: si cae debajo, algo se rompió en la
+// hoja (un cambio de formato del Panel ID, un país nuevo sin puente).
+const porFuente = new Map<string, number>();
+fs.forEach((f) => porFuente.set(f.kamFuente, (porFuente.get(f.kamFuente) ?? 0) + 1));
+console.log('\n── Cruce de KAM vigente ──');
+[...porFuente.entries()].forEach(([k, n]) =>
+  console.log(`  ${k.padEnd(11)} ${String(n).padStart(3)}  ${FUENTE_KAM_META[k as keyof typeof FUENTE_KAM_META].label}`));
+const resueltos = fs.filter((f) => FUENTE_KAM_META[f.kamFuente].confiable).length;
+const pct = (resueltos / fs.length) * 100;
+console.log(`  cobertura ${resueltos}/${fs.length} = ${pct.toFixed(1)}%`);
+if (pct < 95) { fallos++; console.log(' FALLA la cobertura del cruce cayó debajo del 95%'); }
+else console.log('  OK   por encima del umbral de 95%');
+
+const desactualizados = fs.filter((f) =>
+  FUENTE_KAM_META[f.kamFuente].confiable && f.idKam && claveKam(f.idKam) !== claveKam(f.kamActual)).length;
+console.log(`  filas donde la columna 'ID KAM' de la hoja ya no coincide: ${desactualizados}`);
 
 console.log(`\nUSD 12m en el universo: ${Math.round(sumaUSD(fs)).toLocaleString('en-US')}`);
 console.log(fallos ? `\n${fallos} comprobación(es) fallaron` : '\nTodo cuadra');

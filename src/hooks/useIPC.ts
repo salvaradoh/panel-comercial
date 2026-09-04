@@ -24,6 +24,31 @@ export interface ClienteIPC {
   sinInteraccionReciente: boolean;
 }
 
+/** Una fila de `Registro Interacciones`, ya cruzada con su cliente. Solo se usa
+ *  para la descarga: la pantalla trabaja con los agregados por cliente. */
+export interface InteraccionIPC {
+  fecha: string;
+  hora: string;
+  kam: string;
+  tipoInteraccion: string;
+  tarea: string;
+  canal: string;
+  ptsBase: number;
+  factor: number;
+  pts: number;
+  trimestre: string;
+  /** Segmento que la hoja congeló al registrar. Discrepa del vigente en ~23% de las filas. */
+  segmentoEstampado: string;
+  fuente: string;
+  idExterno: string;
+  empresa: string;
+  pais: string;
+  panelId: string;
+  kamCartera: string;
+  tipoCliente: string;
+  segmentoVigente: string;
+}
+
 export interface IPCResponse {
   trimestre: string;
   trimestreAnterior: string;
@@ -56,6 +81,7 @@ export interface IPCResponse {
     porTipo: { tipo: string; n: number }[];
   };
   clientes: ClienteIPC[];
+  interacciones: InteraccionIPC[];
   alcance: {
     rol: string;
     global: boolean;
