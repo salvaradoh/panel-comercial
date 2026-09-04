@@ -338,9 +338,9 @@ export function IPCTab({ filterPais }: Props) {
           type="button"
           onClick={handleDescargar}
           disabled={descargando}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200
-                     text-slate-600 hover:border-[#0097A7] hover:text-[#0097A7] transition-colors disabled:opacity-50
-                     disabled:cursor-wait flex-shrink-0"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                     bg-[#0097A7] text-white hover:bg-[#00838f] transition-colors disabled:opacity-50
+                     disabled:cursor-wait flex-shrink-0 shadow-sm"
           title="Excel con tres hojas: Resumen de esta vista, Clientes con todas las columnas e Interacciones fila por fila. El detalle va sin los filtros de pantalla, para armar tablas dinámicas."
         >
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -517,7 +517,7 @@ export function IPCTab({ filterPais }: Props) {
       </div>
 
       <Card className="!p-0 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto tabla-scroll">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">

@@ -397,6 +397,7 @@ export function LoginPage() {
             padding: 48px 24px 40px;
             background: linear-gradient(160deg, #FFF5F8 0%, #FAF5FF 100%) !important;
             min-height: 100vh;
+            min-height: 100dvh;
           }
           .ap-login-form { max-width: 100%; }
           .ap-logo { height: 40px; }

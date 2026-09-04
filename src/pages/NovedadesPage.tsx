@@ -232,7 +232,7 @@ function ModalNueva({ onClose }: { onClose: () => void }) {
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-slate-800">Nueva novedad</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="text-slate-300 hover:text-slate-600 transition-colors">
+          <button onClick={onClose} aria-label="Cerrar" className="grid place-items-center w-10 h-10 sm:block sm:w-auto sm:h-auto text-slate-300 hover:text-slate-600 transition-colors">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>

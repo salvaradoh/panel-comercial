@@ -72,6 +72,11 @@ function scoreBadgeStyle(score: number): { background: string; color: string } {
 interface Factor {
   icon: string;
   pct: string;
+  /** Nombre corto del factor. El encabezado de la tabla muestra solo el ícono y
+      el peso, que alcanzan cuando se ve la columna entera; apilada en móvil cada
+      celda necesita decir de qué factor habla. Va explícito y no derivado del
+      `title` para que editar la descripción no rompa la etiqueta en silencio. */
+  label: string;
   campo: keyof ClienteSegmentacion;
   peso: number;
   /** Divisor para el color. Se replica el del GAS aunque no siempre sea el máximo real. */
@@ -81,18 +86,18 @@ interface Factor {
 
 // Recurrentes (Cache_Segmentacion18)
 const FACTORES_REC: Factor[] = [
-  { icon: '💰', pct: '50%', campo: 'ptVol',    peso: 0.50, maxColor: 2, title: 'Volumen — Pareto por país, peso 50%, máx 2.0' },
-  { icon: '📅', pct: '20%', campo: 'ptMeses',  peso: 0.20, maxColor: 1, title: 'Meses con compra, peso 20%' },
-  { icon: '👥', pct: '20%', campo: 'ptUsrInc', peso: 0.20, maxColor: 1, title: 'Usuarios incorporados, peso 20%' },
-  { icon: '💼', pct: '10%', campo: 'ptFee',    peso: 0.10, maxColor: 1, title: 'Fee/SaaS, peso 10%' },
+  { icon: '💰', pct: '50%', label: 'Volumen', campo: 'ptVol',    peso: 0.50, maxColor: 2, title: 'Volumen — Pareto por país, peso 50%, máx 2.0' },
+  { icon: '📅', pct: '20%', label: 'Meses con compra', campo: 'ptMeses',  peso: 0.20, maxColor: 1, title: 'Meses con compra, peso 20%' },
+  { icon: '👥', pct: '20%', label: 'Usuarios incorporados', campo: 'ptUsrInc', peso: 0.20, maxColor: 1, title: 'Usuarios incorporados, peso 20%' },
+  { icon: '💼', pct: '10%', label: 'Fee/SaaS', campo: 'ptFee',    peso: 0.10, maxColor: 1, title: 'Fee/SaaS, peso 10%' },
 ];
 
 // Estacionales (Cache_Churn → scoreEstacional). Pesos distintos a recurrentes.
 const FACTORES_EST: Factor[] = [
-  { icon: '💰',  pct: '50%',   campo: 'fVol',    peso: 0.50,  maxColor: 2, title: 'Volumen — Pareto por país, peso 50%, máx 2.0' },
-  { icon: '🛍️', pct: '25%',   campo: 'fProd',   peso: 0.25,  maxColor: 1, title: 'Producto dominante — SaaS=4, Puntos=3, SC=2, GC=1, peso 25%, máx 1.0' },
-  { icon: '📅',  pct: '12.5%', campo: 'fMeses',  peso: 0.125, maxColor: 1, title: 'Meses con compra en últimos 13m — 4+=4, 3→3, 2→2, 1→1, peso 12.5%, máx 0.5' },
-  { icon: '📊',  pct: '12.5%', campo: 'fMargen', peso: 0.125, maxColor: 1, title: 'Margen de mix — SaaS×75% + Puntos×25% + SC×12% + GC×5% sobre vol. total. ≥40%→4, ≥20%→3, ≥8%→2, <8%→1, peso 12.5%, máx 0.5' },
+  { icon: '💰',  pct: '50%',   label: 'Volumen', campo: 'fVol',    peso: 0.50,  maxColor: 2, title: 'Volumen — Pareto por país, peso 50%, máx 2.0' },
+  { icon: '🛍️', pct: '25%',   label: 'Producto dominante', campo: 'fProd',   peso: 0.25,  maxColor: 1, title: 'Producto dominante — SaaS=4, Puntos=3, SC=2, GC=1, peso 25%, máx 1.0' },
+  { icon: '📅',  pct: '12.5%', label: 'Meses con compra', campo: 'fMeses',  peso: 0.125, maxColor: 1, title: 'Meses con compra en últimos 13m — 4+=4, 3→3, 2→2, 1→1, peso 12.5%, máx 0.5' },
+  { icon: '📊',  pct: '12.5%', label: 'Margen de mix', campo: 'fMargen', peso: 0.125, maxColor: 1, title: 'Margen de mix — SaaS×75% + Puntos×25% + SC×12% + GC×5% sobre vol. total. ≥40%→4, ≥20%→3, ≥8%→2, <8%→1, peso 12.5%, máx 0.5' },
 ];
 
 const TIPO_LABEL: Record<string, string> = {
@@ -123,12 +128,12 @@ function ClienteRow({ c, esEstacional, pais, salud }: {
   if (!tieneFactores) {
     return (
       <tr className="border-b border-slate-100 text-xs">
-        <td className="px-4 py-1.5 text-slate-700 truncate max-w-[200px]">{c.cliente}</td>
-        <td className="px-2 py-1.5 text-center text-slate-300">—</td>
-        <td className="px-2 py-1.5 text-center text-slate-300">—</td>
-        <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">{fmtUSD(c.vol)}</td>
-        {esEstacional && <td className="px-2 py-1.5 text-center text-slate-300">—</td>}
-        {factores.map(f => <td key={f.campo} className="px-2 py-1.5 text-center text-slate-300">—</td>)}
+        <td data-titular className="px-4 py-1.5 text-slate-700 truncate max-w-[200px]">{c.cliente}</td>
+        <td data-label="Segmento" className="px-2 py-1.5 text-center text-slate-300">—</td>
+        <td data-label="Score" className="px-2 py-1.5 text-center text-slate-300">—</td>
+        <td data-label="Vol." className="px-2 py-1.5 text-right tabular-nums text-slate-600">{fmtUSD(c.vol)}</td>
+        {esEstacional && <td data-label="Tipo" className="px-2 py-1.5 text-center text-slate-300">—</td>}
+        {factores.map(f => <td key={f.campo} data-label={f.label} className="px-2 py-1.5 text-center text-slate-300">—</td>)}
       </tr>
     );
   }
@@ -138,13 +143,13 @@ function ClienteRow({ c, esEstacional, pais, salud }: {
       className="border-b border-slate-100 hover:brightness-[0.98] transition-all text-xs"
       style={{ borderLeft: `3px solid ${cfg.color}`, background: `${cfg.bg}a6` }}
     >
-      <td className="px-4 py-1.5 font-medium text-slate-700 truncate max-w-[200px]" title={c.cliente}>{c.cliente}</td>
-      <td className="px-2 py-1.5 text-center">
+      <td data-titular className="px-4 py-1.5 font-medium text-slate-700 truncate max-w-[200px]" title={c.cliente}>{c.cliente}</td>
+      <td data-label="Segmento" className="px-2 py-1.5 text-center">
         <span className="inline-block px-2 py-0.5 rounded-[10px] text-[10px] font-bold text-white" style={{ background: cfg.color }}>
           {c.segmento}
         </span>
       </td>
-      <td className="px-2 py-1.5 text-center">
+      <td data-label="Score" className="px-2 py-1.5 text-center">
         {saludScore != null
           ? <span className="inline-block px-2 py-0.5 rounded-[10px] text-[11px] font-bold tabular-nums min-w-[34px]"
                   style={sbSalud} title={`Salud ${esEstacional ? 'VENT' : 'RENT'}: ${saludScore.toFixed(2)}`}>
@@ -152,9 +157,9 @@ function ClienteRow({ c, esEstacional, pais, salud }: {
             </span>
           : <span className="text-slate-300 text-[11px]" title="Sin score de salud en Análisis de Clientes">—</span>}
       </td>
-      <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">{fmtUSD(c.vol)}</td>
+      <td data-label="Vol." className="px-2 py-1.5 text-right tabular-nums text-slate-600">{fmtUSD(c.vol)}</td>
       {esEstacional && (
-        <td className="px-2 py-1.5 text-center text-[10px] text-slate-500">
+        <td data-label="Tipo" className="px-2 py-1.5 text-center text-[10px] text-slate-500">
           {TIPO_LABEL[c.subSeg ?? ''] ?? '—'}
         </td>
       )}
@@ -162,7 +167,7 @@ function ClienteRow({ c, esEstacional, pais, salud }: {
         const v = Number(c[f.campo] ?? 1);
         const w = Math.round(v * f.peso * 100) / 100;
         return (
-          <td key={f.campo} className="px-2 py-1.5 text-center tabular-nums font-bold whitespace-nowrap"
+          <td key={f.campo} data-label={f.label} className="px-2 py-1.5 text-center tabular-nums font-bold whitespace-nowrap"
               style={{ color: wColor(w, f.maxColor) }}>
             {v} <span className="text-[9px] text-slate-400 font-normal">({w})</span>
           </td>
@@ -210,26 +215,28 @@ function KamSegRow({ k, segFiltro, dotacionFiltro, esEstacional, pais, salud }: 
         <tr>
           <td colSpan={8} className="bg-slate-50 border-l-2 border-[#0097A7] px-0 pb-1">
             <div className="max-h-72 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-slate-500 border-b border-slate-200 bg-white">
-                    <th className="text-left px-4 py-1.5 font-medium">Empresa</th>
-                    <th className="text-center px-2 py-1.5 font-medium">Segmento</th>
-                    <th className="text-center px-2 py-1.5 font-medium">Score</th>
-                    <th className="text-right px-2 py-1.5 font-medium">Vol.</th>
-                    {esEstacional && <th className="text-center px-2 py-1.5 font-medium">Tipo</th>}
-                    {factores.map(f => (
-                      <th key={f.campo} className="text-center px-1 py-1.5 font-medium leading-tight whitespace-nowrap" title={f.title}>
-                        <span aria-hidden="true">{f.icon}</span><br />
-                        <span className="text-[9px] text-slate-400 font-medium">{f.pct}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {clientes.map((c, i) => <ClienteRow key={i} c={c} esEstacional={esEstacional} pais={pais} salud={salud} />)}
-                </tbody>
-              </table>
+              <div className="tabla-scroll">
+                <table className="w-full text-xs tabla-apilable">
+                  <thead>
+                    <tr className="text-slate-500 border-b border-slate-200 bg-white">
+                      <th className="text-left px-4 py-1.5 font-medium">Empresa</th>
+                      <th className="text-center px-2 py-1.5 font-medium">Segmento</th>
+                      <th className="text-center px-2 py-1.5 font-medium">Score</th>
+                      <th className="text-right px-2 py-1.5 font-medium">Vol.</th>
+                      {esEstacional && <th className="text-center px-2 py-1.5 font-medium">Tipo</th>}
+                      {factores.map(f => (
+                        <th key={f.campo} className="text-center px-1 py-1.5 font-medium leading-tight whitespace-nowrap" title={f.title}>
+                          <span aria-hidden="true">{f.icon}</span><br />
+                          <span className="text-[9px] text-slate-400 font-medium">{f.pct}</span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clientes.map((c, i) => <ClienteRow key={i} c={c} esEstacional={esEstacional} pais={pais} salud={salud} />)}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </td>
         </tr>
@@ -251,35 +258,37 @@ function PaisSegTable({ p, segFiltro, dotacionFiltro, esEstacional, salud }: { p
   if (kams.length === 0) return <p className="text-xs text-slate-400 px-4 py-3">Sin KAMs con el filtro seleccionado.</p>;
 
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-xs text-slate-400 bg-slate-50 border-b border-slate-100">
-          <th className="text-left px-3 py-2 font-medium">Ejecutivo</th>
-          <th className="text-right px-3 py-2 font-medium">Total</th>
-          <th className="text-right px-3 py-2 font-medium" style={{ color: SEG_CFG['A+'].color }}>A+</th>
-          <th className="text-right px-3 py-2 font-medium" style={{ color: SEG_CFG['A'].color }}>A</th>
-          <th className="text-right px-3 py-2 font-medium" style={{ color: SEG_CFG['B'].color }}>B</th>
-          <th className="text-right px-3 py-2 font-medium" style={{ color: SEG_CFG['C'].color }}>C</th>
-          <th className="text-right px-3 py-2 font-medium">Vol.</th>
-          <th className="px-3 py-2" />
-        </tr>
-      </thead>
-      <tbody>
-        {kams.map((k, i) => <KamSegRow key={i} k={k} segFiltro={segFiltro} dotacionFiltro={dotacionFiltro} esEstacional={esEstacional} pais={p.pais} salud={salud} />)}
-      </tbody>
-      <tfoot>
-        <tr className="border-t-2 border-slate-200 bg-slate-50 font-bold text-sm">
-          <td className="px-3 py-2 text-slate-500">TOTAL</td>
-          <td className="px-3 py-2 text-right tabular-nums text-slate-700">{tTotal}</td>
-          <td className="px-3 py-2 text-right tabular-nums" style={{ color: SEG_CFG['A+'].color }}>{tAP || '—'}</td>
-          <td className="px-3 py-2 text-right tabular-nums" style={{ color: SEG_CFG['A'].color }}>{tA || '—'}</td>
-          <td className="px-3 py-2 text-right tabular-nums" style={{ color: SEG_CFG['B'].color }}>{tB || '—'}</td>
-          <td className="px-3 py-2 text-right tabular-nums" style={{ color: SEG_CFG['C'].color }}>{tC || '—'}</td>
-          <td className="px-3 py-2 text-right tabular-nums text-slate-600">{fmtUSD(tVol)}</td>
-          <td />
-        </tr>
-      </tfoot>
-    </table>
+    <div className="tabla-scroll">
+      <table className="w-full text-sm tabla-apilable">
+        <thead>
+          <tr className="text-xs text-slate-400 bg-slate-50 border-b border-slate-100">
+            <th className="text-left px-3 py-2 font-medium">Ejecutivo</th>
+            <th className="text-right px-3 py-2 font-medium">Total</th>
+            <th className="text-right px-3 py-2 font-medium" style={{ color: SEG_CFG['A+'].color }}>A+</th>
+            <th className="text-right px-3 py-2 font-medium" style={{ color: SEG_CFG['A'].color }}>A</th>
+            <th className="text-right px-3 py-2 font-medium" style={{ color: SEG_CFG['B'].color }}>B</th>
+            <th className="text-right px-3 py-2 font-medium" style={{ color: SEG_CFG['C'].color }}>C</th>
+            <th className="text-right px-3 py-2 font-medium">Vol.</th>
+            <th className="px-3 py-2" />
+          </tr>
+        </thead>
+        <tbody>
+          {kams.map((k, i) => <KamSegRow key={i} k={k} segFiltro={segFiltro} dotacionFiltro={dotacionFiltro} esEstacional={esEstacional} pais={p.pais} salud={salud} />)}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-slate-200 bg-slate-50 font-bold text-sm">
+            <td data-titular className="px-3 py-2 text-slate-500">TOTAL</td>
+            <td data-label="Total" className="px-3 py-2 text-right tabular-nums text-slate-700">{tTotal}</td>
+            <td data-label="A+" className="px-3 py-2 text-right tabular-nums" style={{ color: SEG_CFG['A+'].color }}>{tAP || '—'}</td>
+            <td data-label="A" className="px-3 py-2 text-right tabular-nums" style={{ color: SEG_CFG['A'].color }}>{tA || '—'}</td>
+            <td data-label="B" className="px-3 py-2 text-right tabular-nums" style={{ color: SEG_CFG['B'].color }}>{tB || '—'}</td>
+            <td data-label="C" className="px-3 py-2 text-right tabular-nums" style={{ color: SEG_CFG['C'].color }}>{tC || '—'}</td>
+            <td data-label="Vol." className="px-3 py-2 text-right tabular-nums text-slate-600">{fmtUSD(tVol)}</td>
+            <td data-sin-etiqueta />
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
 

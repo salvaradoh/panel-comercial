@@ -244,9 +244,9 @@ export function IndustriaPaisTab({ pais: filterPais }: { pais?: string } = {}) {
           type="button"
           onClick={handleDescargar}
           disabled={descargando}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200
-                     text-slate-600 hover:border-[#0097A7] hover:text-[#0097A7] transition-colors disabled:opacity-50
-                     disabled:cursor-wait flex-shrink-0"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                     bg-[#0097A7] text-white hover:bg-[#00838f] transition-colors disabled:opacity-50
+                     disabled:cursor-wait flex-shrink-0 shadow-sm"
           title="Descarga un Excel con el resumen de esta vista y el detalle completo de la cartera clasificada, sin filtro, para armar tablas dinámicas"
         >
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -394,7 +394,13 @@ export function IndustriaPaisTab({ pais: filterPais }: { pais?: string } = {}) {
           Sin datos para esta combinación de filtros.
         </Card>
       ) : (
-        <Card className="overflow-x-auto">
+        <Card className="overflow-x-auto tabla-scroll">
+          {/* Matriz, no lista: se queda con scroll lateral y NO se apila.
+          Apilada, cada fila sería una tarjeta con una línea por
+          columna, y eso destruye justamente lo que esta tabla
+          existe para mostrar —la comparación cruzada de un lado
+          contra el otro. Es la misma razón por la que las rúbricas
+          de score tampoco se apilan. */}
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr>

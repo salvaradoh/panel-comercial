@@ -1,3 +1,5 @@
+import { useAncho } from '../hooks/useAncho';
+
 interface SparklineProps {
   data: number[];
   width?: number;
@@ -110,6 +112,11 @@ export function SparklinePanel({
   const pct   = first !== 0 ? ((last - first) / first) * 100 : 0;
   const up     = last >= first;
 
+  // El <svg> lleva un ancho en píxeles, no un viewBox, así que un número fijo
+  // desborda en pantallas angostas. Se mide el contenedor: en desktop da los
+  // ~460px de siempre y en un teléfono se ajusta, sin encoger las etiquetas.
+  const { ref, ancho } = useAncho<HTMLDivElement>();
+
   return (
     <div>
       {title && (
@@ -120,13 +127,15 @@ export function SparklinePanel({
           </span>
         </div>
       )}
-      <div className="bg-slate-50 rounded-xl px-2 pt-2 pb-1">
+      <div ref={ref} className="bg-slate-50 rounded-xl px-2 pt-2 pb-1">
         <Sparkline
           data={data}
           // 220px venían de cuando el panel de detalle era una columna angosta.
           // Ahora es un overlay de ~500px y el gráfico se dibujaba en un tercio
           // del espacio, apretando las etiquetas del eje hasta que se pisaban.
-          width={460}
+          // El 460 quedó como ancho de diseño: es el que se usa hasta que la
+          // medición llega, y el tope cuando hay espacio de sobra.
+          width={Math.min(460, ancho ?? 460)}
           height={72}
           color={color}
           labels={labels}

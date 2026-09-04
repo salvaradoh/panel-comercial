@@ -51,7 +51,7 @@ export function VistaPreviaCorreo({
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         exit={{ opacity: 0, y: -12, filter: 'blur(4px)' }}
         transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
-        className="fixed left-1/2 top-1/2 z-[60] flex max-h-[88vh] w-[min(94vw,700px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        className="fixed left-1/2 top-1/2 z-[60] flex alto-modal w-[min(94vw,700px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
       >
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-3.5">
           <div className="min-w-0">

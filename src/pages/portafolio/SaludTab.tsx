@@ -170,46 +170,48 @@ function KamEstVentRow({ k, tipoFiltro, segFiltro, riesgoFiltro, dotacionFiltro,
         <tr>
           <td colSpan={7} className="bg-slate-50 px-0 pb-1 border-l-2 border-[#0097A7]">
             <div className="max-h-56 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-slate-400 border-b border-slate-200">
-                    <th className="text-left px-6 py-1.5 font-medium">Empresa</th>
-                    <th className="text-right px-3 py-1.5 font-medium">Tend.</th>
-                    <th className="text-right px-3 py-1.5 font-medium">Días s/c</th>
-                    <th className="text-right px-3 py-1.5 font-medium">Última compra</th>
-                    <th className="text-right px-3 py-1.5 font-medium">Eng.</th>
-                    <th className="text-right px-3 py-1.5 font-medium">NPS</th>
-                    <th className="text-right px-3 py-1.5 font-medium">Segmentación</th>
-                    <th className="text-right px-4 py-1.5 font-medium">Salud (VENT)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clientesFiltrados.map((c, i) => (
-                    <tr key={i} className="border-b border-slate-100 hover:bg-white transition-colors">
-                      <td className="px-6 py-1.5 text-slate-700 truncate max-w-[160px]">{c.empresa}</td>
-                      <td className="px-3 py-1.5 text-right"><TendCell caida={c.caida} /></td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">
-                        <span className={c.diasSinCompra > 180 ? 'text-red-500 font-semibold' : c.diasSinCompra > 90 ? 'text-amber-500' : 'text-slate-500'}>
-                          {c.diasSinCompra > 0 ? `${c.diasSinCompra}d` : '—'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-1.5 text-right text-slate-400 tabular-nums">{c.ultimaCompra ? fmtDate(c.ultimaCompra) : '—'}</td>
-                      <td className="px-3 py-1.5 text-right"><EngCell fE={c.fE} señales={c.señalesEng} ctxE={c.ctxE} /></td>
-                      <td className="px-3 py-1.5 text-right"><NpsCell npsRaw={c.npsRaw} /></td>
-                      {/* Dos métricas distintas del mismo cliente, juntas a propósito:
-                          segmentación (cuánto vale) y salud VENT (qué tan en riesgo está).
-                          Verlas en pantallas separadas hacía parecer que un mismo score
-                          estaba desincronizado — Netquest mostraba 1.63 acá y 1.90 allá. */}
-                      <td className="px-3 py-1.5 text-right">
-                        {c.score > 0
-                          ? <span className="text-[11px] font-semibold tabular-nums text-slate-500">{c.score.toFixed(2)}</span>
-                          : <span className="text-slate-300 text-[11px]">—</span>}
-                      </td>
-                      <td className="px-4 py-1.5 text-right"><ScoreBadge score={scoreOf(c)} segmento={segOf(scoreOf(c))} /></td>
+              <div className="tabla-scroll">
+                <table className="w-full text-xs tabla-apilable">
+                  <thead>
+                    <tr className="text-slate-400 border-b border-slate-200">
+                      <th className="text-left px-6 py-1.5 font-medium">Empresa</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Tend.</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Días s/c</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Última compra</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Eng.</th>
+                      <th className="text-right px-3 py-1.5 font-medium">NPS</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Segmentación</th>
+                      <th className="text-right px-4 py-1.5 font-medium">Salud (VENT)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {clientesFiltrados.map((c, i) => (
+                      <tr key={i} className="border-b border-slate-100 hover:bg-white transition-colors">
+                        <td data-titular className="px-6 py-1.5 text-slate-700 truncate max-w-[160px]">{c.empresa}</td>
+                        <td data-label="Tend." className="px-3 py-1.5 text-right"><TendCell caida={c.caida} /></td>
+                        <td data-label="Días s/c" className="px-3 py-1.5 text-right tabular-nums">
+                          <span className={c.diasSinCompra > 180 ? 'text-red-500 font-semibold' : c.diasSinCompra > 90 ? 'text-amber-500' : 'text-slate-500'}>
+                            {c.diasSinCompra > 0 ? `${c.diasSinCompra}d` : '—'}
+                          </span>
+                        </td>
+                        <td data-label="Última compra" className="px-3 py-1.5 text-right text-slate-400 tabular-nums">{c.ultimaCompra ? fmtDate(c.ultimaCompra) : '—'}</td>
+                        <td data-label="Eng." className="px-3 py-1.5 text-right"><EngCell fE={c.fE} señales={c.señalesEng} ctxE={c.ctxE} /></td>
+                        <td data-label="NPS" className="px-3 py-1.5 text-right"><NpsCell npsRaw={c.npsRaw} /></td>
+                        {/* Dos métricas distintas del mismo cliente, juntas a propósito:
+                            segmentación (cuánto vale) y salud VENT (qué tan en riesgo está).
+                            Verlas en pantallas separadas hacía parecer que un mismo score
+                            estaba desincronizado — Netquest mostraba 1.63 acá y 1.90 allá. */}
+                        <td data-label="Segmentación" className="px-3 py-1.5 text-right">
+                          {c.score > 0
+                            ? <span className="text-[11px] font-semibold tabular-nums text-slate-500">{c.score.toFixed(2)}</span>
+                            : <span className="text-slate-300 text-[11px]">—</span>}
+                        </td>
+                        <td data-label="Salud (VENT)" className="px-4 py-1.5 text-right"><ScoreBadge score={scoreOf(c)} segmento={segOf(scoreOf(c))} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </td>
         </tr>
@@ -257,18 +259,18 @@ function KamRecRow({ k, busqueda, riesgoFiltro, segFiltro, dotacionFiltro, modoP
   return (
     <>
       <tr className="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setExpanded(!expanded)}>
-        <td className="py-2 font-medium text-slate-700 px-3">{k.kam}</td>
-        <td className="py-2 text-right tabular-nums text-slate-500 px-3">{k.base}</td>
-        <td className="py-2 text-right tabular-nums text-emerald-600 font-semibold px-3">{k.saludables}</td>
-        <td className="py-2 text-right tabular-nums text-amber-500 font-semibold px-3">{k.monitorear}</td>
-        <td className="py-2 text-right tabular-nums text-orange-500 font-semibold px-3">{k.enRiesgo}</td>
-        <td className="py-2 text-right tabular-nums text-red-600 font-semibold px-3">{k.criticos}</td>
-        <td className="py-2 text-right tabular-nums px-3">
+        <td data-titular className="py-2 font-medium text-slate-700 px-3">{k.kam}</td>
+        <td data-label="Total" className="py-2 text-right tabular-nums text-slate-500 px-3">{k.base}</td>
+        <td data-label="Saludables" className="py-2 text-right tabular-nums text-emerald-600 font-semibold px-3">{k.saludables}</td>
+        <td data-label="Monitorear" className="py-2 text-right tabular-nums text-amber-500 font-semibold px-3">{k.monitorear}</td>
+        <td data-label="En Riesgo" className="py-2 text-right tabular-nums text-orange-500 font-semibold px-3">{k.enRiesgo}</td>
+        <td data-label="Críticos" className="py-2 text-right tabular-nums text-red-600 font-semibold px-3">{k.criticos}</td>
+        <td data-label="Caída USD" className="py-2 text-right tabular-nums px-3">
           {(k.caidaUSD ?? k.montoPerdido ?? 0) > 0
             ? <span className="text-red-500 font-semibold">{fmtUSD(k.caidaUSD ?? k.montoPerdido ?? 0)}</span>
             : <span className="text-slate-300">—</span>}
         </td>
-        <td className="py-2 text-right px-3">
+        <td data-label="Score Prom." className="py-2 text-right px-3">
           {k.scorePromedio > 0
             ? <ScoreBadge score={k.scorePromedio} segmento={segOf(k.scorePromedio)} />
             : <span className="text-slate-300 text-xs">—</span>}
@@ -279,42 +281,44 @@ function KamRecRow({ k, busqueda, riesgoFiltro, segFiltro, dotacionFiltro, modoP
         <tr>
           <td colSpan={8} className="bg-slate-50 px-0 pb-1 border-l-2 border-[#1565C0]">
             <div className="max-h-56 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-slate-400 border-b border-slate-200">
-                    <th className="text-left px-6 py-1.5 font-medium">Empresa</th>
-                    <th className="text-right px-3 py-1.5 font-medium">Tend.</th>
-                    <th className="text-right px-3 py-1.5 font-medium">Días s/c</th>
-                    <th className="text-right px-3 py-1.5 font-medium">Última compra</th>
-                    <th className="text-right px-3 py-1.5 font-medium">Eng.</th>
-                    <th className="text-right px-3 py-1.5 font-medium">NPS</th>
-                    <th className="text-right px-4 py-1.5 font-medium">Score RENT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listaFiltrada.map((c, i) => (
-                    <tr key={i} className="border-b border-slate-100 hover:bg-white transition-colors">
-                      <td className="px-6 py-1.5 text-slate-700 truncate max-w-[160px]">{c.empresa}</td>
-                      <td className="px-3 py-1.5 text-right"><TendCell monto6m={c.monto6m} monto6mAnt={c.monto6mAnt} /></td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">
-                        <span className={c.diasSinCompra > 180 ? 'text-red-500 font-semibold' : c.diasSinCompra > 90 ? 'text-amber-500' : 'text-slate-500'}>
-                          {c.diasSinCompra}d
-                        </span>
-                      </td>
-                      <td className="px-3 py-1.5 text-right text-slate-400 tabular-nums">{c.ultimaCompra ? fmtDate(c.ultimaCompra) : '—'}</td>
-                      <td className="px-3 py-1.5 text-right">
-                        <EngCell fE={c.fE}
-                          señales={c.detalleEngagement ? c.detalleEngagement.split(' | ').filter(Boolean) : []}
-                          ctxE={c.ctxE} />
-                      </td>
-                      <td className="px-3 py-1.5 text-right"><NpsCell npsRaw={c.npsRaw} /></td>
-                      <td className="px-4 py-1.5 text-right">
-                        <ScoreBadge score={c.score} segmento={c.segmento} />
-                      </td>
+              <div className="tabla-scroll">
+                <table className="w-full text-xs tabla-apilable">
+                  <thead>
+                    <tr className="text-slate-400 border-b border-slate-200">
+                      <th className="text-left px-6 py-1.5 font-medium">Empresa</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Tend.</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Días s/c</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Última compra</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Eng.</th>
+                      <th className="text-right px-3 py-1.5 font-medium">NPS</th>
+                      <th className="text-right px-4 py-1.5 font-medium">Score RENT</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {listaFiltrada.map((c, i) => (
+                      <tr key={i} className="border-b border-slate-100 hover:bg-white transition-colors">
+                        <td data-titular className="px-6 py-1.5 text-slate-700 truncate max-w-[160px]">{c.empresa}</td>
+                        <td data-label="Tend." className="px-3 py-1.5 text-right"><TendCell monto6m={c.monto6m} monto6mAnt={c.monto6mAnt} /></td>
+                        <td data-label="Días s/c" className="px-3 py-1.5 text-right tabular-nums">
+                          <span className={c.diasSinCompra > 180 ? 'text-red-500 font-semibold' : c.diasSinCompra > 90 ? 'text-amber-500' : 'text-slate-500'}>
+                            {c.diasSinCompra}d
+                          </span>
+                        </td>
+                        <td data-label="Última compra" className="px-3 py-1.5 text-right text-slate-400 tabular-nums">{c.ultimaCompra ? fmtDate(c.ultimaCompra) : '—'}</td>
+                        <td data-label="Eng." className="px-3 py-1.5 text-right">
+                          <EngCell fE={c.fE}
+                            señales={c.detalleEngagement ? c.detalleEngagement.split(' | ').filter(Boolean) : []}
+                            ctxE={c.ctxE} />
+                        </td>
+                        <td data-label="NPS" className="px-3 py-1.5 text-right"><NpsCell npsRaw={c.npsRaw} /></td>
+                        <td data-label="Score RENT" className="px-4 py-1.5 text-right">
+                          <ScoreBadge score={c.score} segmento={c.segmento} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </td>
         </tr>
@@ -498,53 +502,55 @@ export function SaludTab({ tipo }: SaludTabProps) {
               scoreLabel="Score VENT"
               defaultOpen={p.pais === 'Chile'}
             >
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-slate-400 bg-slate-50 border-b border-slate-100">
-                    <th className="text-left px-4 py-2 font-medium">KAM</th>
-                    <th className="text-right px-3 py-2 font-medium">Cartera</th>
-                    <th className="text-right px-3 py-2 font-medium text-emerald-600">Saludable</th>
-                    <th className="text-right px-3 py-2 font-medium text-amber-500">Monitorear</th>
-                    <th className="text-right px-3 py-2 font-medium text-orange-500">En Riesgo</th>
-                    <th className="text-right px-3 py-2 font-medium text-red-500">Crítico</th>
-                    <th className="px-4 py-2 text-right font-medium">Score VENT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.kams.map((k, i) => (
-                    <KamEstVentRow key={i} k={k} tipoFiltro={tipoFiltro} segFiltro={segFiltro} riesgoFiltro={riesgoFiltro} dotacionFiltro={dotacionFiltro} busqueda={busqueda} />
-                  ))}
-                </tbody>
-                <tfoot>
-                  {(() => {
-                    const hasVNT2 = (c: { scoreVNT?: number }) => c.scoreVNT != null && c.scoreVNT > 0;
-                    const scoreOf2 = (c: { scoreVNT?: number }) => Number(c.scoreVNT || 0);
-                    const all = p.kams.flatMap(k => [...k.clientesChurn, ...k.clientesRetenidos])
-                      .filter(c => tipoFiltro === 'todos' || (c as { subSeg?: string }).subSeg === tipoFiltro);
-                    const tSal = all.filter(c => hasVNT2(c) && scoreOf2(c) >= 3.5).length;
-                    const tMon = all.filter(c => hasVNT2(c) && scoreOf2(c) >= 3.0 && scoreOf2(c) < 3.5).length;
-                    const tRis = all.filter(c => hasVNT2(c) && scoreOf2(c) >= 2.0 && scoreOf2(c) < 3.0).length;
-                    const tCri = all.filter(c => hasVNT2(c) && scoreOf2(c) < 2.0).length;
-                    const tWithVNT = all.filter(hasVNT2);
-                    const tScore = tWithVNT.length > 0
-                      ? tWithVNT.reduce((s, c) => s + scoreOf2(c), 0) / tWithVNT.length
-                      : 0;
-                    return (
-                      <tr className="border-t-2 border-slate-200 bg-slate-50 font-bold text-sm">
-                        <td className="px-4 py-2 text-slate-500">TOTAL</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-slate-700">{all.length}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{tSal}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-amber-500">{tMon}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-orange-500">{tRis}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-red-500">{tCri}</td>
-                        <td className="px-4 py-2 text-right">
-                          {tScore > 0 && <ScoreBadge score={tScore} segmento={segOf(tScore)} />}
-                        </td>
-                      </tr>
-                    );
-                  })()}
-                </tfoot>
-              </table>
+              <div className="tabla-scroll">
+                <table className="w-full text-sm tabla-apilable">
+                  <thead>
+                    <tr className="text-xs text-slate-400 bg-slate-50 border-b border-slate-100">
+                      <th className="text-left px-4 py-2 font-medium">KAM</th>
+                      <th className="text-right px-3 py-2 font-medium">Cartera</th>
+                      <th className="text-right px-3 py-2 font-medium text-emerald-600">Saludable</th>
+                      <th className="text-right px-3 py-2 font-medium text-amber-500">Monitorear</th>
+                      <th className="text-right px-3 py-2 font-medium text-orange-500">En Riesgo</th>
+                      <th className="text-right px-3 py-2 font-medium text-red-500">Crítico</th>
+                      <th className="px-4 py-2 text-right font-medium">Score VENT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.kams.map((k, i) => (
+                      <KamEstVentRow key={i} k={k} tipoFiltro={tipoFiltro} segFiltro={segFiltro} riesgoFiltro={riesgoFiltro} dotacionFiltro={dotacionFiltro} busqueda={busqueda} />
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    {(() => {
+                      const hasVNT2 = (c: { scoreVNT?: number }) => c.scoreVNT != null && c.scoreVNT > 0;
+                      const scoreOf2 = (c: { scoreVNT?: number }) => Number(c.scoreVNT || 0);
+                      const all = p.kams.flatMap(k => [...k.clientesChurn, ...k.clientesRetenidos])
+                        .filter(c => tipoFiltro === 'todos' || (c as { subSeg?: string }).subSeg === tipoFiltro);
+                      const tSal = all.filter(c => hasVNT2(c) && scoreOf2(c) >= 3.5).length;
+                      const tMon = all.filter(c => hasVNT2(c) && scoreOf2(c) >= 3.0 && scoreOf2(c) < 3.5).length;
+                      const tRis = all.filter(c => hasVNT2(c) && scoreOf2(c) >= 2.0 && scoreOf2(c) < 3.0).length;
+                      const tCri = all.filter(c => hasVNT2(c) && scoreOf2(c) < 2.0).length;
+                      const tWithVNT = all.filter(hasVNT2);
+                      const tScore = tWithVNT.length > 0
+                        ? tWithVNT.reduce((s, c) => s + scoreOf2(c), 0) / tWithVNT.length
+                        : 0;
+                      return (
+                        <tr className="border-t-2 border-slate-200 bg-slate-50 font-bold text-sm">
+                          <td data-titular className="px-4 py-2 text-slate-500">TOTAL</td>
+                          <td data-label="Cartera" className="px-3 py-2 text-right tabular-nums text-slate-700">{all.length}</td>
+                          <td data-label="Saludable" className="px-3 py-2 text-right tabular-nums text-emerald-600">{tSal}</td>
+                          <td data-label="Monitorear" className="px-3 py-2 text-right tabular-nums text-amber-500">{tMon}</td>
+                          <td data-label="En Riesgo" className="px-3 py-2 text-right tabular-nums text-orange-500">{tRis}</td>
+                          <td data-label="Crítico" className="px-3 py-2 text-right tabular-nums text-red-500">{tCri}</td>
+                          <td data-label="Score VENT" className="px-4 py-2 text-right">
+                            {tScore > 0 && <ScoreBadge score={tScore} segmento={segOf(tScore)} />}
+                          </td>
+                        </tr>
+                      );
+                    })()}
+                  </tfoot>
+                </table>
+              </div>
             </SaludPaisAccordion>
           );
         })}
@@ -638,29 +644,31 @@ export function SaludTab({ tipo }: SaludTabProps) {
             scoreLabel="Score RENT"
             defaultOpen={p.pais === 'Chile'}
           >
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-slate-400 border-b border-slate-100 bg-slate-50">
-                  <th className="text-left py-1.5 px-3 font-medium">KAM</th>
-                  <th className="text-right py-1.5 px-3 font-medium">Total</th>
-                  <th className="text-right py-1.5 px-3 font-medium text-emerald-600">Saludables</th>
-                  <th className="text-right py-1.5 px-3 font-medium text-amber-500">Monitorear</th>
-                  <th className="text-right py-1.5 px-3 font-medium text-orange-500">En Riesgo</th>
-                  <th className="text-right py-1.5 px-3 font-medium text-red-600">Críticos</th>
-                  <th className="text-right py-1.5 px-3 font-medium text-red-400">Caída USD</th>
-                  <th className="text-right py-1.5 px-3 font-medium">Score Prom.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {p.kams.map((k, i) => (
-                  <KamRecRow
-                    key={i} k={k}
-                    busqueda={busqueda} riesgoFiltro={riesgoFiltro} dotacionFiltro={dotacionFiltro}
-                    segFiltro={segFiltro} modoPH={modoPH}
-                  />
-                ))}
-              </tbody>
-            </table>
+            <div className="tabla-scroll">
+              <table className="w-full text-sm tabla-apilable">
+                <thead>
+                  <tr className="text-xs text-slate-400 border-b border-slate-100 bg-slate-50">
+                    <th className="text-left py-1.5 px-3 font-medium">KAM</th>
+                    <th className="text-right py-1.5 px-3 font-medium">Total</th>
+                    <th className="text-right py-1.5 px-3 font-medium text-emerald-600">Saludables</th>
+                    <th className="text-right py-1.5 px-3 font-medium text-amber-500">Monitorear</th>
+                    <th className="text-right py-1.5 px-3 font-medium text-orange-500">En Riesgo</th>
+                    <th className="text-right py-1.5 px-3 font-medium text-red-600">Críticos</th>
+                    <th className="text-right py-1.5 px-3 font-medium text-red-400">Caída USD</th>
+                    <th className="text-right py-1.5 px-3 font-medium">Score Prom.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {p.kams.map((k, i) => (
+                    <KamRecRow
+                      key={i} k={k}
+                      busqueda={busqueda} riesgoFiltro={riesgoFiltro} dotacionFiltro={dotacionFiltro}
+                      segFiltro={segFiltro} modoPH={modoPH}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </SaludPaisAccordion>
         );
       })}

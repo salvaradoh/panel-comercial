@@ -102,32 +102,34 @@ export function DotMatrix({ clientes, kams }: DotMatrixProps) {
 
       {/* Tabla detalle */}
       <Card>
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="text-slate-400 border-b border-slate-100">
-              <th className="text-left py-1.5 font-medium">Cliente</th>
-              <th className="text-left py-1.5 font-medium">KAM</th>
-              <th className="text-right py-1.5 font-medium tabular-nums">Vol</th>
-              <th className="text-center py-1.5 font-medium">Seg</th>
-              <th className="text-right py-1.5 font-medium tabular-nums">Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.slice(0, 20).map((c, i) => (
-              <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
-                <td className="py-1.5 text-slate-700 truncate max-w-[120px]">{c.cliente}</td>
-                <td className="py-1.5 text-slate-500">{c.kam}</td>
-                <td className="py-1.5 text-right tabular-nums text-slate-600">
-                  {c.vol.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
-                </td>
-                <td className="py-1.5 text-center">
-                  <Badge label={c.segmento} color={SEG_COLOR[c.segmento as Segmento]?.badge || 'gray'} />
-                </td>
-                <td className="py-1.5 text-right tabular-nums text-slate-500 text-xs">{c.score?.toFixed(2) || '—'}</td>
+        <div className="tabla-scroll">
+          <table className="w-full text-xs tabla-apilable">
+            <thead>
+              <tr className="text-slate-400 border-b border-slate-100">
+                <th className="text-left py-1.5 font-medium">Cliente</th>
+                <th className="text-left py-1.5 font-medium">KAM</th>
+                <th className="text-right py-1.5 font-medium tabular-nums">Vol</th>
+                <th className="text-center py-1.5 font-medium">Seg</th>
+                <th className="text-right py-1.5 font-medium tabular-nums">Score</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.slice(0, 20).map((c, i) => (
+                <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
+                  <td data-titular className="py-1.5 text-slate-700 truncate max-w-[120px]">{c.cliente}</td>
+                  <td data-label="KAM" className="py-1.5 text-slate-500">{c.kam}</td>
+                  <td data-label="Vol" className="py-1.5 text-right tabular-nums text-slate-600">
+                    {c.vol.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
+                  </td>
+                  <td data-label="Seg" className="py-1.5 text-center">
+                    <Badge label={c.segmento} color={SEG_COLOR[c.segmento as Segmento]?.badge || 'gray'} />
+                  </td>
+                  <td data-label="Score" className="py-1.5 text-right tabular-nums text-slate-500 text-xs">{c.score?.toFixed(2) || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {filtered.length > 20 && (
           <p className="text-xs text-slate-400 mt-2 text-center">
             +{filtered.length - 20} clientes más

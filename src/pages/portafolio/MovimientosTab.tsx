@@ -274,8 +274,8 @@ function VistaSemaforo({ data, kam }: { data: MovimientosResponse; kam?: string 
       {verTabla && (
         <Card>
           <h3 className="text-sm font-semibold text-slate-700 mb-3">Detalle mensual</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto tabla-scroll">
+            <table className="w-full text-sm tabla-apilable">
               <caption className="sr-only">
                 Clientes por tramo de días sin comprar y movimientos entre tramos, por mes
               </caption>
@@ -293,16 +293,16 @@ function VistaSemaforo({ data, kam }: { data: MovimientosResponse; kam?: string 
               <tbody>
                 {serie.map(m => (
                   <tr key={m.mes} className="border-b border-slate-100">
-                    <td className="py-2 text-slate-700">
+                    <td data-titular className="py-2 text-slate-700">
                       {etiquetaMes(m.mes)}
                       {m.esParcial && <span className="ml-1.5 text-[11px] text-amber-600">en curso</span>}
                     </td>
-                    <td className="text-right tabular-nums text-slate-700">{nf.format(m.t60)}</td>
-                    <td className="text-right tabular-nums text-slate-700">{nf.format(m.t90)}</td>
-                    <td className="text-right tabular-nums text-slate-700">{nf.format(m.t90mas)}</td>
-                    <td className="text-right tabular-nums text-slate-500">{nf.format(m.cartera)}</td>
-                    <td className="text-right tabular-nums text-red-500">{nf.format(m.empeoraron)}</td>
-                    <td className="text-right tabular-nums text-emerald-600">{nf.format(m.mejoraron)}</td>
+                    <td data-label="≤60" className="text-right tabular-nums text-slate-700">{nf.format(m.t60)}</td>
+                    <td data-label="61-90" className="text-right tabular-nums text-slate-700">{nf.format(m.t90)}</td>
+                    <td data-label=">90" className="text-right tabular-nums text-slate-700">{nf.format(m.t90mas)}</td>
+                    <td data-label="Cartera" className="text-right tabular-nums text-slate-500">{nf.format(m.cartera)}</td>
+                    <td data-label="Empeoraron" className="text-right tabular-nums text-red-500">{nf.format(m.empeoraron)}</td>
+                    <td data-label="Mejoraron" className="text-right tabular-nums text-emerald-600">{nf.format(m.mejoraron)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -317,8 +317,8 @@ function VistaSemaforo({ data, kam }: { data: MovimientosResponse; kam?: string 
           <p className="text-[11px] text-slate-400 mb-3">
             Foto de {etiquetaMes(ultimo.mes)}, ordenada por inactivos.
           </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto tabla-scroll">
+            <table className="w-full text-sm tabla-apilable">
               <thead>
                 <tr className="text-slate-400 border-b border-slate-200 text-xs">
                   <th scope="col" className="text-left font-medium py-2">Ejecutivo</th>
@@ -333,15 +333,15 @@ function VistaSemaforo({ data, kam }: { data: MovimientosResponse; kam?: string 
               <tbody>
                 {data.kams.map(k => (
                   <tr key={`${k.pais}|${k.nombre}`} className="border-b border-slate-100">
-                    <td className="py-2 text-slate-700">{k.nombre}</td>
-                    <td className="text-slate-500 text-xs">{k.pais}</td>
-                    <td className="text-right tabular-nums text-slate-700">{nf.format(k.t60)}</td>
-                    <td className="text-right tabular-nums text-slate-700">{nf.format(k.t90)}</td>
-                    <td className="text-right tabular-nums text-slate-700">{nf.format(k.t90mas)}</td>
-                    <td className="text-right tabular-nums font-medium text-slate-700">
+                    <td data-titular className="py-2 text-slate-700">{k.nombre}</td>
+                    <td data-label="País" className="text-slate-500 text-xs">{k.pais}</td>
+                    <td data-label="≤60" className="text-right tabular-nums text-slate-700">{nf.format(k.t60)}</td>
+                    <td data-label="61-90" className="text-right tabular-nums text-slate-700">{nf.format(k.t90)}</td>
+                    <td data-label=">90" className="text-right tabular-nums text-slate-700">{nf.format(k.t90mas)}</td>
+                    <td data-label="% >90" className="text-right tabular-nums font-medium text-slate-700">
                       {k.pct90mas != null ? `${k.pct90mas.toFixed(0)}%` : '—'}
                     </td>
-                    <td className="text-right tabular-nums text-red-500">{nf.format(k.empeoraron)}</td>
+                    <td data-label="Empeoraron" className="text-right tabular-nums text-red-500">{nf.format(k.empeoraron)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -572,8 +572,8 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
         </div>
       </div>
 
-      <div className="overflow-x-auto -mx-2">
-        <table className="w-full text-sm min-w-[440px]">
+      <div className="overflow-x-auto -mx-2 tabla-scroll">
+        <table className="w-full text-sm min-w-[440px] tabla-apilable">
           <caption className="sr-only">
             {medida === 'pct' ? 'Porcentaje de churn' : 'Clientes en churn'} por trimestre y país
           </caption>
@@ -590,11 +590,11 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
                 Clientes en la base
               </th>
               {base.map((n, i) => (
-                <td key={paises[i]} className="text-right py-2.5 px-2 tabular-nums text-[11px] text-slate-400">
+                <td key={paises[i]} data-label={paises[i]} className="text-right py-2.5 px-2 tabular-nums text-[11px] text-slate-400">
                   {nf.format(n)}
                 </td>
               ))}
-              <td className="text-right py-2.5 px-2 tabular-nums text-[11px] text-slate-500 font-semibold">
+              <td data-label="Total" className="text-right py-2.5 px-2 tabular-nums text-[11px] text-slate-500 font-semibold">
                 {nf.format(baseTotal)}
               </td>
             </tr>
@@ -618,15 +618,15 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
                   const c = buscar(tid, p);
                   if (!c || c.coberturaParcial) {
                     return (
-                      <td key={p} className="text-right py-3 px-2 text-slate-300 text-xs"
+                      <td key={p} data-label={p} className="text-right py-3 px-2 text-slate-300 text-xs"
                           title="Sin cobertura: la historia del país no alcanza para armar la referencia">
                         n/d
                       </td>
                     );
                   }
-                  return <td key={p} className={td}>{fmt(valor(c))}</td>;
+                  return <td key={p} data-label={p} className={td}>{fmt(valor(c))}</td>;
                 })}
-                <td className={`${td} font-semibold text-slate-800`}>{fmt(total(tid))}</td>
+                <td data-label="Total" className={`${td} font-semibold text-slate-800`}>{fmt(total(tid))}</td>
               </tr>
             ))}
 
@@ -636,11 +636,11 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
                   Promedio {a}
                 </th>
                 {paises.map(p => (
-                  <td key={p} className="text-right py-2.5 px-2 tabular-nums text-xs text-slate-500">
+                  <td key={p} data-label={p} className="text-right py-2.5 px-2 tabular-nums text-xs text-slate-500">
                     {(() => { const v = promedio(a, p); return v != null ? fmt(v) : 'n/d'; })()}
                   </td>
                 ))}
-                <td className="text-right py-2.5 px-2 tabular-nums text-xs text-slate-600 font-semibold">
+                <td data-label="Total" className="text-right py-2.5 px-2 tabular-nums text-xs text-slate-600 font-semibold">
                   {(() => { const v = promedio(a); return v != null ? fmt(v) : 'n/d'; })()}
                 </td>
               </tr>
@@ -653,11 +653,11 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
                   <span className="block text-[10px]">en curso</span>
                 </th>
                 {paises.map(p => (
-                  <td key={p} className="text-right py-3 px-2 tabular-nums text-slate-400">
+                  <td key={p} data-label={p} className="text-right py-3 px-2 tabular-nums text-slate-400">
                     {fmt(valor(buscar(enCurso.trimestreId, p)))}
                   </td>
                 ))}
-                <td className="text-right py-3 px-2 tabular-nums text-slate-500 font-semibold">
+                <td data-label="Total" className="text-right py-3 px-2 tabular-nums text-slate-500 font-semibold">
                   {fmt(total(enCurso.trimestreId))}
                 </td>
               </tr>
@@ -674,8 +674,8 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
         <p className="text-[11px] text-slate-400 mt-0.5 mb-2">
           Tocá un trimestre para ver y descargar sus empresas.
         </p>
-        <div className="overflow-x-auto -mx-2">
-          <table className="w-full text-sm min-w-[420px]">
+        <div className="overflow-x-auto -mx-2 tabla-scroll">
+          <table className="w-full text-sm min-w-[420px] tabla-apilable">
             <caption className="sr-only">Clientes en churn por rama, cartera y porcentaje</caption>
             <thead>
               <tr className="border-b border-slate-200">
@@ -709,11 +709,11 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
                       <span className="ml-1.5 text-[10px] text-amber-600">parcial</span>
                     )}
                   </th>
-                  <td className={`${td} font-semibold text-slate-800`}>{nf.format(d.churn)}</td>
-                  <td className={`${td} text-slate-500`}>{nf.format(d.churnRec)}</td>
-                  <td className={`${td} text-slate-500`}>{nf.format(d.churnEst)}</td>
-                  <td className={`${td} text-slate-500`}>{nf.format(d.cartera)}</td>
-                  <td className={`${td} font-medium`}>
+                  <td data-label="Churn" className={`${td} font-semibold text-slate-800`}>{nf.format(d.churn)}</td>
+                  <td data-label="Rec." className={`${td} text-slate-500`}>{nf.format(d.churnRec)}</td>
+                  <td data-label="Est." className={`${td} text-slate-500`}>{nf.format(d.churnEst)}</td>
+                  <td data-label="Cartera" className={`${td} text-slate-500`}>{nf.format(d.cartera)}</td>
+                  <td data-label="%" className={`${td} font-medium`}>
                     {d.pctChurn != null ? `${d.pctChurn.toFixed(1)}%` : '—'}
                   </td>
                 </tr>
@@ -954,8 +954,8 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
             <p className="text-[11px] text-slate-400 mb-3">
               Q{ult.trimestre} {ult.anio}, ordenado por clientes en churn.
             </p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto tabla-scroll">
+              <table className="w-full text-sm tabla-apilable">
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-200 text-xs">
                     <th scope="col" className="text-left font-medium py-2">Ejecutivo</th>
@@ -969,14 +969,14 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
                 <tbody>
                   {data.churnQKams.map(k => (
                     <tr key={`${k.pais}|${k.nombre}`} className="border-b border-slate-100">
-                      <td className="py-2 text-slate-700">{k.nombre}</td>
-                      <td className="text-slate-500 text-xs">{k.pais}</td>
-                      <td className="text-right tabular-nums font-medium text-slate-800">{nf.format(k.churn)}</td>
-                      <td className="text-right tabular-nums text-slate-500">{nf.format(k.cartera)}</td>
-                      <td className="text-right tabular-nums font-medium text-slate-700">
+                      <td data-titular className="py-2 text-slate-700">{k.nombre}</td>
+                      <td data-label="País" className="text-slate-500 text-xs">{k.pais}</td>
+                      <td data-label="Churn" className="text-right tabular-nums font-medium text-slate-800">{nf.format(k.churn)}</td>
+                      <td data-label="Cartera" className="text-right tabular-nums text-slate-500">{nf.format(k.cartera)}</td>
+                      <td data-label="%" className="text-right tabular-nums font-medium text-slate-700">
                         {k.pctChurn != null ? `${k.pctChurn.toFixed(1)}%` : '—'}
                       </td>
-                      <td className="text-right tabular-nums text-slate-500">{fmtUsd(k.usdChurn)}</td>
+                      <td data-label="USD" className="text-right tabular-nums text-slate-500">{fmtUsd(k.usdChurn)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1026,8 +1026,8 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
             incluye la ventana con la que se declaró la pérdida, para poder verificarla.
           </p>
           {verClientes && (
-            <div className="mt-3 overflow-x-auto max-h-[420px] overflow-y-auto">
-              <table className="w-full text-sm">
+            <div className="mt-3 overflow-x-auto max-h-[420px] overflow-y-auto tabla-scroll">
+              <table className="w-full text-sm tabla-apilable">
                 <thead className="sticky top-0 bg-white">
                   <tr className="text-slate-400 border-b border-slate-200 text-xs">
                     <th scope="col" className="text-left font-medium py-2">Cliente</th>
@@ -1042,13 +1042,13 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
                 <tbody>
                   {clientes.map(c => (
                     <tr key={`${c.pais}|${c.panelId}`} className="border-b border-slate-100">
-                      <td className="py-2 text-slate-700">
+                      <td data-titular className="py-2 text-slate-700">
                         <span className="block max-w-[240px] truncate" title={c.nombre}>{c.nombre}</span>
                       </td>
-                      <td className="text-slate-400 text-xs tabular-nums">{c.idTributario ?? c.panelId}</td>
-                      <td className="text-slate-500 text-xs">{c.pais}</td>
-                      <td className="text-slate-500 text-xs">{c.kam}</td>
-                      <td className="text-xs">
+                      <td data-label="ID tributario" className="text-slate-400 text-xs tabular-nums">{c.idTributario ?? c.panelId}</td>
+                      <td data-label="País" className="text-slate-500 text-xs">{c.pais}</td>
+                      <td data-label="Ejecutivo" className="text-slate-500 text-xs">{c.kam}</td>
+                      <td data-label="Tipo" className="text-xs">
                         <span className="inline-flex items-center gap-1.5 text-slate-600">
                           <span className="w-2 h-2 rounded-sm shrink-0"
                                 style={{ background: c.rama === 'recurrente' ? C_REC : C_EST }} />
@@ -1058,8 +1058,8 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
                           )}
                         </span>
                       </td>
-                      <td className="text-slate-500 text-xs tabular-nums">{c.silDe ?? '—'}</td>
-                      <td className="text-right tabular-nums text-slate-700">{fmtUsd(c.usdReferencia)}</td>
+                      <td data-label="Sin comprar desde" className="text-slate-500 text-xs tabular-nums">{c.silDe ?? '—'}</td>
+                      <td data-label="USD referencia" className="text-right tabular-nums text-slate-700">{fmtUsd(c.usdReferencia)}</td>
                     </tr>
                   ))}
                 </tbody>

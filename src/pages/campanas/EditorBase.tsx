@@ -117,39 +117,41 @@ export function EditorBase({ cuentas, acento, onCambiar, onRestaurar, editada }:
           </p>
         ) : (
           <div className="max-h-64 overflow-auto rounded-xl border border-slate-200">
-            <table className="w-full border-collapse text-[12px]">
-              <thead className="sticky top-0 bg-slate-50">
-                <tr className="text-left text-[10.5px] uppercase tracking-wide text-slate-600">
-                  <th scope="col" className="px-3 py-2 font-medium">Cuenta</th>
-                  <th scope="col" className="px-3 py-2 font-medium">Ejecutivo</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">6 meses</th>
-                  <th scope="col" className="px-2 py-2"><span className="sr-only">Quitar</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {cuentas.map((c) => (
-                  <tr key={clave(c)} className="border-t border-slate-100 hover:bg-slate-50">
-                    <td className="max-w-[210px] truncate px-3 py-1.5 text-slate-800" title={c.nombre}>
-                      {c.nombre}
-                      <span className="ml-1.5 text-[10.5px] text-slate-600">{c.pais}</span>
-                    </td>
-                    <td className="px-3 py-1.5 text-slate-600">{c.kam ?? '—'}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums text-slate-700">
-                      {c.monto_6m_usd != null ? usd(c.monto_6m_usd) : '—'}
-                    </td>
-                    <td className="px-2 py-1">
-                      <button
-                        onClick={() => quitarCuenta(c)}
-                        aria-label={`Quitar ${c.nombre} de la base objetivo`}
-                        className="flex h-8 w-8 items-center justify-center rounded text-[15px] leading-none text-slate-500 transition-colors duration-150 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 active:scale-[0.96]"
-                      >
-                        ×
-                      </button>
-                    </td>
+            <div className="tabla-scroll">
+              <table className="w-full border-collapse text-[12px] tabla-apilable">
+                <thead className="sticky top-0 bg-slate-50">
+                  <tr className="text-left text-[10.5px] uppercase tracking-wide text-slate-600">
+                    <th scope="col" className="px-3 py-2 font-medium">Cuenta</th>
+                    <th scope="col" className="px-3 py-2 font-medium">Ejecutivo</th>
+                    <th scope="col" className="px-3 py-2 text-right font-medium">6 meses</th>
+                    <th scope="col" className="px-2 py-2"><span className="sr-only">Quitar</span></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {cuentas.map((c) => (
+                    <tr key={clave(c)} className="border-t border-slate-100 hover:bg-slate-50">
+                      <td data-titular className="max-w-[210px] truncate px-3 py-1.5 text-slate-800" title={c.nombre}>
+                        {c.nombre}
+                        <span className="ml-1.5 text-[10.5px] text-slate-600">{c.pais}</span>
+                      </td>
+                      <td data-label="Ejecutivo" className="px-3 py-1.5 text-slate-600">{c.kam ?? '—'}</td>
+                      <td data-label="6 meses" className="px-3 py-1.5 text-right tabular-nums text-slate-700">
+                        {c.monto_6m_usd != null ? usd(c.monto_6m_usd) : '—'}
+                      </td>
+                      <td data-label="Quitar" className="px-2 py-1">
+                        <button
+                          onClick={() => quitarCuenta(c)}
+                          aria-label={`Quitar ${c.nombre} de la base objetivo`}
+                          className="flex h-8 w-8 items-center justify-center rounded text-[15px] leading-none text-slate-500 transition-colors duration-150 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 active:scale-[0.96]"
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

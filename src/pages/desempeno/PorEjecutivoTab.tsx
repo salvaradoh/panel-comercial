@@ -129,11 +129,11 @@ function TablaDesempeno({
             <tr key={k.nombre + k.pais} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
               <RankCell rank={i + 1} color={i < 3 ? color : '#cbd5e1'} />
               <NameCell nombre={k.nombre} pais={k.pais} />
-              <td className="px-3 py-3.5 text-right">
+              <td data-label="Venta YTD" className="px-3 py-3.5 text-right">
                 <p className="text-sm font-bold tabular-nums text-[#0097A7]">{fmtUSD(k.avanceAnualUSD)}</p>
                 {conMeta && <MiniBar pct={ytdCumpl} color={color} h={3} />}
               </td>
-              <td className="px-3 py-3.5 text-right tabular-nums text-sm text-slate-400">
+              <td data-label="Meta YTD" className="px-3 py-3.5 text-right tabular-nums text-sm text-slate-400">
                 {conMeta ? fmtUSD(metaYTD) : (
                   <span className="text-slate-300"
                         title={esPersona(k.nombre)
@@ -141,7 +141,7 @@ function TablaDesempeno({
                           : 'No es un ejecutivo: es la venta no atribuida del país, sin meta propia'}>—</span>
                 )}
               </td>
-              <td className="px-3 py-3.5 w-36">
+              <td data-label="Cumpl." className="px-3 py-3.5 w-36">
                 {conMeta ? (
                   <div className="flex items-center gap-2">
                     <MiniBar pct={ytdCumpl} color={color} h={6} />
@@ -156,7 +156,7 @@ function TablaDesempeno({
                           : 'Venta no atribuida a un ejecutivo: no se le mide cumplimiento'}>—</span>
                 )}
               </td>
-              <td className="px-3 py-3.5 w-32">
+              <td data-label="Consistencia" className="px-3 py-3.5 w-32">
                 {cons ? (
                   <div className="flex items-center gap-2">
                     <MiniBar pct={consPct ?? 0} color={consPct !== null ? pctColor(consPct) : '#cbd5e1'} h={6} />
@@ -164,7 +164,7 @@ function TablaDesempeno({
                   </div>
                 ) : <span className="text-slate-300 text-xs">—</span>}
               </td>
-              <td className="px-4 py-3.5 text-right">
+              <td data-label="Proyección" className="px-4 py-3.5 text-right">
                 <p className="text-xs font-semibold tabular-nums text-slate-600">{fmtUSD(runRate)}</p>
                 <p className="text-[9px] text-slate-400">proyec. anual</p>
               </td>
@@ -281,8 +281,8 @@ function TablaCartera({ kams, filtroPais, anio, mes, onSelectKam, nuevosData, nu
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto tabla-scroll">
+        <table className="w-full text-sm border-collapse tabla-apilable">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/60">
               <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide w-8">#</th>
@@ -312,12 +312,12 @@ function TablaCartera({ kams, filtroPais, anio, mes, onSelectKam, nuevosData, nu
                 onClick={() => onSelectKam(k.nombre, k.pais)}
                 className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors group cursor-pointer"
               >
-                <td className="px-4 py-3">
+                <td data-label="#" className="px-4 py-3">
                   <span className="text-xs font-bold text-slate-300 tabular-nums">{i + 1}</span>
                 </td>
                 <NameCell nombre={k.nombre} pais={k.pais} />
                 {/* Activos */}
-                <td className="px-3 py-3">
+                <td data-label="Activos" className="px-3 py-3">
                   <div className="flex flex-col items-end gap-1">
                     <span className={`text-sm font-bold tabular-nums ${sort === 'activos' ? 'text-[#0097A7]' : 'text-slate-800'}`}>{k.activos}</span>
                     <div className="w-16 h-1 rounded-full bg-slate-100 overflow-hidden">
@@ -326,31 +326,31 @@ function TablaCartera({ kams, filtroPais, anio, mes, onSelectKam, nuevosData, nu
                   </div>
                 </td>
                 {/* Nuevos año */}
-                <td className="px-3 py-3 text-right">
+                <td data-label={`Nuevos ${anio}`} className="px-3 py-3 text-right">
                   <span className={`text-sm font-bold tabular-nums ${sort === 'nuevos_anio' ? 'text-indigo-600' : 'text-slate-700'}`}>
                     {k.nuevos_anio > 0 ? k.nuevos_anio : '—'}
                   </span>
                 </td>
                 {/* Nuevos mes */}
-                <td className="px-3 py-3 text-right">
+                <td data-label={`Nuevos ${mesLabel}`} className="px-3 py-3 text-right">
                   <span className={`text-sm tabular-nums ${sort === 'nuevos_mes' ? 'text-indigo-500 font-semibold' : 'text-slate-400'}`}>
                     {nuevosLoading ? '…' : (k.nuevos_mes > 0 ? k.nuevos_mes : '—')}
                   </span>
                 </td>
                 {/* Recurrentes */}
-                <td className="px-3 py-3 text-right">
+                <td data-label="Recurrentes" className="px-3 py-3 text-right">
                   <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 tabular-nums">
                     {k.recurrentes}
                   </span>
                 </td>
                 {/* Estacionales */}
-                <td className="px-3 py-3 text-right">
+                <td data-label="Estacionales" className="px-3 py-3 text-right">
                   <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 tabular-nums">
                     {k.estacionales}
                   </span>
                 </td>
                 {/* % Recurrencia */}
-                <td className="px-3 py-3">
+                <td data-label="% Recurrencia" className="px-3 py-3">
                   <div className="flex flex-col items-end gap-1">
                     <span className="text-xs font-bold tabular-nums" style={{ color: k.pct_recurrencia >= 0.4 ? '#10b981' : k.pct_recurrencia >= 0.2 ? '#f59e0b' : '#ef4444' }}>
                       {(k.pct_recurrencia * 100).toFixed(0)}%
@@ -361,13 +361,13 @@ function TablaCartera({ kams, filtroPais, anio, mes, onSelectKam, nuevosData, nu
                   </div>
                 </td>
                 {/* Días s/c */}
-                <td className="px-3 py-3 text-right">
+                <td data-label="Días s/c" className="px-3 py-3 text-right">
                   <span className={`text-sm font-semibold tabular-nums ${k.dias_sc_prom > 180 ? 'text-red-500' : k.dias_sc_prom > 90 ? 'text-amber-500' : 'text-emerald-600'}`}>
                     {k.dias_sc_prom > 0 ? `${k.dias_sc_prom}d` : '—'}
                   </span>
                 </td>
                 {/* Sin actividad */}
-                <td className="px-4 py-3 text-right">
+                <td data-label="Sin actividad" className="px-4 py-3 text-right">
                   {k.perdidos > 0
                     ? <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-500 tabular-nums">{k.perdidos}</span>
                     : <span className="text-slate-300 text-xs">—</span>
@@ -448,14 +448,14 @@ function TablaTicket({ kams, rankMap }: { kams: KamSummary[]; rankMap: Map<strin
               <RankCell rank={i + 1} color='#cbd5e1' />
               <NameCell nombre={k.nombre} pais={k.pais} />
               {/* Vol 6m prom */}
-              <td className="px-3 py-3.5">
+              <td data-label="Vol. 6m prom./cliente" className="px-3 py-3.5">
                 <div className="flex items-center gap-2">
                   <MiniBar pct={k.vol_6m_prom / maxVol} color="#0097A7" h={6} />
                   <span className="text-sm font-bold tabular-nums text-slate-700 flex-shrink-0 w-16 text-right">{fmtUSD(k.vol_6m_prom)}</span>
                 </div>
               </td>
               {/* Ticket unitario */}
-              <td className="px-3 py-3.5">
+              <td data-label="Ticket unitario" className="px-3 py-3.5">
                 {sort === 'ticket' ? (
                   <div className="flex items-center gap-2">
                     <MiniBar pct={k.ticket_unitario / maxTicket} color="#0097A7" h={6} />
@@ -469,7 +469,7 @@ function TablaTicket({ kams, rankMap }: { kams: KamSummary[]; rankMap: Map<strin
                 )}
               </td>
               {/* Facturas prom */}
-              <td className="px-3 py-3.5">
+              <td data-label="Facturas prom./cliente" className="px-3 py-3.5">
                 {sort === 'facturas' ? (
                   <div className="flex items-center gap-2">
                     <MiniBar pct={k.facturas_prom / maxFacturas} color="#0097A7" h={6} />
@@ -483,7 +483,7 @@ function TablaTicket({ kams, rankMap }: { kams: KamSummary[]; rankMap: Map<strin
                 )}
               </td>
               {/* Revenue por cliente */}
-              <td className="px-4 py-3.5 text-right">
+              <td data-label="Venta / cliente activo" className="px-4 py-3.5 text-right">
                 <p className="text-sm font-semibold tabular-nums text-[#0097A7]">{revPorCliente > 0 ? fmtUSD(revPorCliente) : '—'}</p>
                 <p className="text-[9px] text-slate-400">anual / activo</p>
               </td>
@@ -521,8 +521,8 @@ type TableHeader = string | { label: string; tooltip: string };
 
 function TableShell({ headers, children }: { headers: TableHeader[]; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto tabla-scroll">
+      <table className="w-full text-sm border-collapse tabla-apilable">
         <thead>
           <tr className="border-b border-slate-100">
             {headers.map((h, i) => {
@@ -545,7 +545,7 @@ function TableShell({ headers, children }: { headers: TableHeader[]; children: R
 
 function RankCell({ rank, color }: { rank: number; color: string }) {
   return (
-    <td className="px-4 py-3.5">
+    <td data-label="#" className="px-4 py-3.5">
       <span className="inline-flex w-5 h-5 rounded-full items-center justify-center text-[9px] font-black text-white" style={{ background: color }}>
         {rank}
       </span>
@@ -556,7 +556,7 @@ function RankCell({ rank, color }: { rank: number; color: string }) {
 function NameCell({ nombre, pais }: { nombre: string; pais: string }) {
   const cc = FLAG_CC[pais];
   return (
-    <td className="px-3 py-3.5">
+    <td data-titular className="px-3 py-3.5">
       <div className="flex items-center gap-2">
         {cc && <img src={`https://flagcdn.com/16x12/${cc}.png`} width={14} height={10} alt={pais} className="rounded-sm flex-shrink-0" />}
         <div>

@@ -399,56 +399,58 @@ function CountryManagerView({
 
         {!isLoading && kams.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-8">#</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ejecutivo</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Avance</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">% Cumpl.</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Activos</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Consistencia</th>
-                </tr>
-              </thead>
-              <tbody>
-                {kams.map((k, i) => {
-                  const summary = summaryByNombre.get(k.nombre);
-                  const medalEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
-                  return (
-                    <tr
-                      key={k.nombre}
-                      className={[
-                        'border-b border-slate-50 hover:bg-slate-50 transition-colors',
-                        i === kams.length - 1 ? 'border-b-0' : '',
-                      ].join(' ')}
-                    >
-                      <td className="px-4 py-3 text-center">
-                        {medalEmoji ? (
-                          <span style={{ fontSize: 18 }}>{medalEmoji}</span>
-                        ) : (
-                          <span className="text-xs text-slate-400 tabular-nums">{i + 1}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-slate-800">{k.nombre}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-700">{fmtUSD(k.avance)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        <span className="font-bold" style={{ color: k.meta > 0 ? pctColor(k.pct) : '#94a3b8' }}>
-                          {k.meta > 0 ? `${(k.pct * 100).toFixed(0)}%` : '—'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-500 hidden sm:table-cell">
-                        {summary ? summary.activos : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right hidden sm:table-cell">
-                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full tabular-nums">
-                          {k.consistencia}/4 sem.
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="tabla-scroll">
+              <table className="w-full text-sm tabla-apilable">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-8">#</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ejecutivo</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Avance</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">% Cumpl.</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Activos</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Consistencia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kams.map((k, i) => {
+                    const summary = summaryByNombre.get(k.nombre);
+                    const medalEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+                    return (
+                      <tr
+                        key={k.nombre}
+                        className={[
+                          'border-b border-slate-50 hover:bg-slate-50 transition-colors',
+                          i === kams.length - 1 ? 'border-b-0' : '',
+                        ].join(' ')}
+                      >
+                        <td data-label="#" className="px-4 py-3 text-center">
+                          {medalEmoji ? (
+                            <span style={{ fontSize: 18 }}>{medalEmoji}</span>
+                          ) : (
+                            <span className="text-xs text-slate-400 tabular-nums">{i + 1}</span>
+                          )}
+                        </td>
+                        <td data-titular className="px-4 py-3 font-medium text-slate-800">{k.nombre}</td>
+                        <td data-label="Avance" className="px-4 py-3 text-right tabular-nums text-slate-700">{fmtUSD(k.avance)}</td>
+                        <td data-label="% Cumpl." className="px-4 py-3 text-right tabular-nums">
+                          <span className="font-bold" style={{ color: k.meta > 0 ? pctColor(k.pct) : '#94a3b8' }}>
+                            {k.meta > 0 ? `${(k.pct * 100).toFixed(0)}%` : '—'}
+                          </span>
+                        </td>
+                        <td data-label="Activos" className="px-4 py-3 text-right tabular-nums text-slate-500 hidden sm:table-cell">
+                          {summary ? summary.activos : '—'}
+                        </td>
+                        <td data-label="Consistencia" className="px-4 py-3 text-right hidden sm:table-cell">
+                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full tabular-nums">
+                            {k.consistencia}/4 sem.
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

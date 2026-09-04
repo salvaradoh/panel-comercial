@@ -107,47 +107,49 @@ export function AvanceBase({
       </p>
 
       <div className="max-h-72 overflow-auto rounded-xl border border-slate-200">
-        <table className="w-full border-collapse text-[12px]">
-          <thead className="sticky top-0 bg-slate-50">
-            <tr className="text-left text-[10.5px] uppercase tracking-wide text-slate-600">
-              <th scope="col" className="px-3 py-2 font-medium">Cuenta</th>
-              <th scope="col" className="px-3 py-2 font-medium">Ejecutivo</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">
-                {esScore ? 'Score' : 'Facturación 6m'}
-              </th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">{avance.etiqueta_metrica}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {avance.cuentas.map((c, i) => (
-              <tr key={`${c.pais}-${c.panel_id}-${i}`} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="max-w-[210px] truncate px-3 py-1.5 text-slate-800" title={c.nombre}>
-                  {c.nombre}
-                  <span className="ml-1.5 text-[10.5px] text-slate-500">{c.pais}</span>
-                </td>
-                <td className="px-3 py-1.5 text-slate-600">{c.kam ?? '—'}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-slate-700">
-                  {!c.encontrada ? '—'
-                    : esScore ? `${(c.score_antes ?? 0).toFixed(1)} → ${(c.score_ahora ?? 0).toFixed(1)}`
-                    : usd(c.monto_ahora_usd)}
-                </td>
-                <td className="px-3 py-1.5 text-right">
-                  {/* El texto dice el estado; el color solo lo acompaña. */}
-                  <span
-                    className={`inline-block rounded-md px-1.5 py-0.5 text-[10.5px] font-medium ${
-                      !c.encontrada ? 'bg-slate-50 text-slate-500'
-                        : c.logrado ? 'bg-emerald-50 text-emerald-800'
-                        : 'bg-slate-50 text-slate-600'
-                    }`}
-                  >
-                    {!c.encontrada ? 'Sin dato' : c.logrado ? logro : pendiente}
-                  </span>
-                  {c.detalle && <span className="ml-1.5 text-[10.5px] text-slate-500">{c.detalle}</span>}
-                </td>
+        <div className="tabla-scroll">
+          <table className="w-full border-collapse text-[12px] tabla-apilable">
+            <thead className="sticky top-0 bg-slate-50">
+              <tr className="text-left text-[10.5px] uppercase tracking-wide text-slate-600">
+                <th scope="col" className="px-3 py-2 font-medium">Cuenta</th>
+                <th scope="col" className="px-3 py-2 font-medium">Ejecutivo</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">
+                  {esScore ? 'Score' : 'Facturación 6m'}
+                </th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">{avance.etiqueta_metrica}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {avance.cuentas.map((c, i) => (
+                <tr key={`${c.pais}-${c.panel_id}-${i}`} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td data-titular className="max-w-[210px] truncate px-3 py-1.5 text-slate-800" title={c.nombre}>
+                    {c.nombre}
+                    <span className="ml-1.5 text-[10.5px] text-slate-500">{c.pais}</span>
+                  </td>
+                  <td data-label="Ejecutivo" className="px-3 py-1.5 text-slate-600">{c.kam ?? '—'}</td>
+                  <td data-label={esScore ? 'Score' : 'Facturación 6m'} className="px-3 py-1.5 text-right tabular-nums text-slate-700">
+                    {!c.encontrada ? '—'
+                      : esScore ? `${(c.score_antes ?? 0).toFixed(1)} → ${(c.score_ahora ?? 0).toFixed(1)}`
+                      : usd(c.monto_ahora_usd)}
+                  </td>
+                  <td data-label={avance.etiqueta_metrica} className="px-3 py-1.5 text-right">
+                    {/* El texto dice el estado; el color solo lo acompaña. */}
+                    <span
+                      className={`inline-block rounded-md px-1.5 py-0.5 text-[10.5px] font-medium ${
+                        !c.encontrada ? 'bg-slate-50 text-slate-500'
+                          : c.logrado ? 'bg-emerald-50 text-emerald-800'
+                          : 'bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      {!c.encontrada ? 'Sin dato' : c.logrado ? logro : pendiente}
+                    </span>
+                    {c.detalle && <span className="ml-1.5 text-[10.5px] text-slate-500">{c.detalle}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

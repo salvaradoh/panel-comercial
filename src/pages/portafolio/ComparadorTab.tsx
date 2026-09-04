@@ -1084,7 +1084,13 @@ export function ComparadorTab({ filterPais, filterKam }: { filterPais?: string; 
             <div className="px-5 pt-5 pb-3">
               <p className="text-xs font-semibold text-slate-600">Detalle comparado</p>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto tabla-scroll">
+              {/* Matriz, no lista: se queda con scroll lateral y NO se apila.
+              Apilada, cada fila sería una tarjeta con una línea por
+              columna, y eso destruye justamente lo que esta tabla
+              existe para mostrar —la comparación cruzada de un lado
+              contra el otro. Es la misma razón por la que las rúbricas
+              de score tampoco se apilan. */}
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-y border-slate-100 bg-slate-50/60">

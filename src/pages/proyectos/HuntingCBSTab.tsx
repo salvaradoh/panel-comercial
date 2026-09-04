@@ -122,8 +122,8 @@ export function HuntingCBSTab({ filas }: Props) {
             <SinDatos mensaje="Ninguna cuenta derivada a KAM o BDM con estos filtros." />
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[880px]">
+              <div className="overflow-x-auto tabla-scroll">
+                <table className="w-full text-sm min-w-[880px] tabla-apilable">
                   <thead>
                     <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
                       <th className="text-left  font-medium pb-2 pr-3">Razón social</th>
@@ -147,21 +147,21 @@ export function HuntingCBSTab({ filas }: Props) {
                             abierta ? 'bg-rose-50/60' : 'hover:bg-slate-50/60'
                           }`}
                         >
-                          <td className="py-2 pr-3 text-slate-700 max-w-[200px] truncate" title={f.razonSocial}>
+                          <td data-titular className="py-2 pr-3 text-slate-700 max-w-[200px] truncate" title={f.razonSocial}>
                             {f.razonSocial || '—'}
                           </td>
-                          <td className="py-2 pr-3 whitespace-nowrap">
+                          <td data-label="Destino" className="py-2 pr-3 whitespace-nowrap">
                             <span className="text-slate-700">{f.idKamBdm}</span>
                             <span className="text-slate-400 text-[12px]"> · {f.paisDestino || '—'}</span>
                           </td>
-                          <td className="py-2 pl-3 text-right tabular-nums text-slate-700 whitespace-nowrap"
+                          <td data-label="USD 12m" className="py-2 pl-3 text-right tabular-nums text-slate-700 whitespace-nowrap"
                               title={fmtUSDExacto(usd)}>
                             {usd > 0 ? fmtUSDCorto(usd) : <span className="text-slate-300">—</span>}
                           </td>
-                          <td className="py-2 pl-3 text-right"><Flag v={f.envioSecuenciaHunting} /></td>
-                          <td className="py-2 pl-3 text-right"><Flag v={f.whatsappHunting} /></td>
-                          <td className="py-2 pl-3 text-right"><Flag v={f.enGestionReunion} /></td>
-                          <td className="py-2 pl-4 text-slate-500 text-[12px] max-w-[240px] truncate"
+                          <td data-label="Secuencia" className="py-2 pl-3 text-right"><Flag v={f.envioSecuenciaHunting} /></td>
+                          <td data-label="WhatsApp" className="py-2 pl-3 text-right"><Flag v={f.whatsappHunting} /></td>
+                          <td data-label="Reunión" className="py-2 pl-3 text-right"><Flag v={f.enGestionReunion} /></td>
+                          <td data-label="Seguimiento" className="py-2 pl-4 text-slate-500 text-[12px] max-w-[240px] truncate"
                               title={f.seguimiento}>
                             {f.seguimiento || <span className="text-slate-300">—</span>}
                           </td>
@@ -204,8 +204,8 @@ export function HuntingCBSTab({ filas }: Props) {
           {cuentasHunting.length === 0 ? (
             <SinDatos mensaje="Ninguna cuenta en prospección con estos filtros." />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[820px]">
+            <div className="overflow-x-auto tabla-scroll">
+              <table className="w-full text-sm min-w-[820px] tabla-apilable">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
                     <th className="text-left  font-medium pb-2 pr-3">Razón social</th>
@@ -229,20 +229,20 @@ export function HuntingCBSTab({ filas }: Props) {
                           abierta ? 'bg-rose-50/60' : 'hover:bg-slate-50/60'
                         }`}
                       >
-                        <td className="py-2 pr-3 text-slate-700 max-w-[210px] truncate" title={f.razonSocial}>
+                        <td data-titular className="py-2 pr-3 text-slate-700 max-w-[210px] truncate" title={f.razonSocial}>
                           {f.razonSocial || '—'}
                         </td>
-                        <td className="py-2 pr-3"><TierChip tier={f.segmentacion} /></td>
-                        <td className="py-2 pl-3 text-right tabular-nums text-slate-700 whitespace-nowrap"
+                        <td data-label="Tier" className="py-2 pr-3"><TierChip tier={f.segmentacion} /></td>
+                        <td data-label="USD 12m" className="py-2 pl-3 text-right tabular-nums text-slate-700 whitespace-nowrap"
                             title={fmtUSDExacto(usd)}>
                           {usd > 0 ? fmtUSDCorto(usd) : <span className="text-slate-300">—</span>}
                         </td>
-                        <td className="py-2 pl-3 text-right"><Flag v={f.envioSecuenciaHunting} /></td>
-                        <td className="py-2 pl-3 text-right"><Flag v={f.whatsappHunting} /></td>
-                        <td className="py-2 pl-3 text-right tabular-nums text-slate-700 font-semibold">
+                        <td data-label="Secuencia" className="py-2 pl-3 text-right"><Flag v={f.envioSecuenciaHunting} /></td>
+                        <td data-label="WhatsApp" className="py-2 pl-3 text-right"><Flag v={f.whatsappHunting} /></td>
+                        <td data-label="Contactos" className="py-2 pl-3 text-right tabular-nums text-slate-700 font-semibold">
                           {f.nuevosContactos || <span className="text-slate-300 font-normal">—</span>}
                         </td>
-                        <td className="py-2 pl-4 text-slate-500 text-[12px] max-w-[260px] truncate"
+                        <td data-label="Seguimiento" className="py-2 pl-4 text-slate-500 text-[12px] max-w-[260px] truncate"
                             title={f.seguimiento}>
                           {f.seguimiento || <span className="text-slate-300">—</span>}
                         </td>

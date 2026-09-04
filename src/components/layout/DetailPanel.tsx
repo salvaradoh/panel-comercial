@@ -13,7 +13,7 @@ export function DetailPanel({ title, children, onClose }: DetailPanelProps) {
         <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
         <button
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+          className="grid place-items-center w-10 h-10 sm:block sm:w-auto sm:h-auto text-slate-400 hover:text-slate-600 text-lg leading-none"
           aria-label="Cerrar panel"
         >
           ×

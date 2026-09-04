@@ -22,3 +22,225 @@ body {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Tablas adaptables
+   ───────────────────────────────────────────────────────────────────────────
+   Dos piezas que trabajan juntas:
+
+   `.tabla-scroll`   va en el div que envuelve la tabla. Hace dos cosas: da
+                     scroll lateral, y —clave— establece el contenedor de
+                     consulta. La medida que importa es el ancho del envoltorio,
+                     no el del teléfono: la misma tabla vive dentro de una card
+                     a ancho completo, de media celda de grid y de un modal, y
+                     en cada caso tiene distinto espacio real. Una media query
+                     no puede distinguirlos; una container query sí.
+
+   `.tabla-apilable` va en la <table>. Por debajo de 40rem de CONTENEDOR, cada
+                     fila se vuelve una tarjeta: se oculta el thead y cada celda
+                     muestra su propia etiqueta desde `data-label`.
+
+   El marcado es UNO SOLO. No hay una <table> para desktop y una lista de
+   tarjetas para móvil: es la misma tabla, con las mismas celdas y los mismos
+   handlers de orden y de clic. Eso es lo que hace sostenible tener paridad en
+   47 tablas hechas a mano.
+
+   Cómo se marca una tabla (ver también la receta en el SKILL del panel):
+     <div className="tabla-scroll">
+       <table className="w-full tabla-apilable">
+         <td data-titular>Nombre del cliente</td>   ← titular de la tarjeta
+         <td data-label="Facturación">…</td>        ← etiqueta + valor
+         <td data-label="Meses" data-secundario>…</td>  ← oculto hasta expandir
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.tabla-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  container-type: inline-size;
+}
+
+@container (max-width: 40rem) {
+  /* Los min-w-[NNNpx] que ya tienen las tablas son justamente lo que impide
+     apilar. Se neutralizan acá, dentro de la consulta, en vez de tocar las
+     clases de cada tabla: así el desktop queda garantizado idéntico —la regla
+     no existe fuera de este bloque— y no hay 8 ediciones que revisar. */
+  .tabla-apilable { min-width: 0 !important; }
+
+  /* tr como bloque dentro de una display:table se comporta de forma despareja
+     entre motores; se baja toda la cadena a bloque. */
+  .tabla-apilable,
+  .tabla-apilable tbody,
+  .tabla-apilable tfoot { display: block; }
+
+  .tabla-apilable thead,
+  .tabla-apilable colgroup { display: none; }
+
+  .tabla-apilable tr {
+    display: block;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .tabla-apilable tr:last-child { border-bottom: 0; }
+
+  .tabla-apilable td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.15rem 0;
+    text-align: right;
+    /* Las tablas traen border-b en las celdas para las líneas de la grilla;
+       apiladas, esas líneas cortan la tarjeta por dentro. */
+    border: 0;
+    /* whitespace-nowrap es común en las celdas y acá provoca desborde. */
+    white-space: normal;
+  }
+
+  .tabla-apilable td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94a3b8;
+    text-align: left;
+    flex: none;
+    max-width: 45%;
+  }
+
+  /* Un `<th scope="row">` ya declara, semánticamente, que esa celda identifica
+     la fila. Así que encabeza la tarjeta sin necesidad de marcarlo con
+     `data-titular`: la tabla bien hecha se apila sola. */
+  .tabla-apilable tbody th[scope="row"],
+  .tabla-apilable tfoot th[scope="row"] {
+    display: block;
+    text-align: left;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+
+  /* La celda titular encabeza la tarjeta: sin etiqueta y a ancho completo. */
+  .tabla-apilable td[data-titular] {
+    display: block;
+    text-align: left;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+  }
+  .tabla-apilable td[data-titular]::before { content: none; }
+
+  /* Celdas de detalle: se esconden al apilar.
+     Una tabla de 11 columnas como tarjeta es una pared de 11 líneas por
+     cliente, así que solo quedan las que se barren de un vistazo.
+     El resto no se pierde: donde la fila abre una ficha —el caso de la tabla de
+     Clientes—, ahí esos datos se leen mejor que en una línea, y la ficha ya es
+     de ancho completo por debajo de 1280px. Para una tabla SIN ficha, poner
+     `data-abierta` en el <tr> los despliega en la tarjeta misma. */
+  .tabla-apilable td[data-secundario] { display: none; }
+  .tabla-apilable tr[data-abierta] td[data-secundario] { display: flex; }
+
+  /* Filas de estado vacío ("no hay datos") usan colspan y no tienen etiqueta. */
+  .tabla-apilable td[colspan] {
+    display: block;
+    text-align: center;
+  }
+  .tabla-apilable td[colspan]::before { content: none; }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Shell móvil
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Tira de tabs deslizable. Con 9 tabs (el caso del Admin con cartera propia)
+   son ~1000px de pestañas: en un teléfono no hay barra inferior de 5 huecos que
+   alcance, así que la tira desliza. La barra de scroll se oculta porque en
+   desktop, donde los tabs entran de sobra, una barra bajo las pestañas sería
+   una regresión visual; el degradado de los bordes es el que avisa que hay más. */
+.subnav-scroll {
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.subnav-scroll::-webkit-scrollbar { display: none; }
+.subnav-scroll > * { scroll-snap-align: start; }
+
+/* Posición del toast.
+   Vive en variables porque el <Toaster> está en el App() raíz y no puede ver el
+   estado de impersonación, que es de Dashboard(). Los valores salen del TopNav:
+   header h-14 (56px) + los 8px con que cae el menú del perfil (top-full mt-2),
+   y el padding lateral del header. sileo pasa los strings verbatim al style,
+   así que `var()` funciona tal cual. */
+:root {
+  --toast-top: 64px;
+  --toast-right: 16px;  /* el header es px-4 en móvil */
+}
+@media (min-width: 640px) {
+  :root { --toast-right: 24px; }  /* sm:px-6 */
+}
+/* Con el banner ámbar de impersonación el header crece ~29px y el toast tiene
+   que bajar con él. Lo marca Dashboard() en <html>. */
+:root[data-impersonando] {
+  --toast-top: 93px;
+}
+
+/* Alto del shell.
+   `h-screen` es 100vh, y en un teléfono 100vh NO descuenta la barra de URL: el
+   shell queda más alto que lo visible, el borde inferior se esconde detrás de la
+   barra y el layout salta cuando esa barra se colapsa al hacer scroll. `dvh` es
+   la unidad hecha para esto —se ajusta a lo que realmente se ve.
+   Va en @supports y no reemplazando la clase para que un navegador sin dvh
+   conserve el 100vh de Tailwind en lugar de quedarse sin alto. */
+@supports (height: 100dvh) {
+  .shell-alto { height: 100dvh; }
+}
+
+/* Controles que existen solo en modo apilado.
+   El caso que los justifica: al ocultar el `thead` se pierden los `<th>`
+   clickeables que ordenan la tabla, así que en móvil hay que reponer esa
+   función por otra vía (ver `<OrdenadorMovil>`).
+   Tienen que estar DENTRO de un `.tabla-scroll` para que la consulta los
+   alcance. Eso no molesta: en modo apilado la tabla ya no desborda —el
+   `min-width` está neutralizado— así que no hay scroll horizontal del que se
+   puedan escapar. */
+.solo-apilado { display: none; }
+@container (max-width: 40rem) {
+  .solo-apilado { display: flex; }
+}
+
+/* Celdas que a propósito no llevan etiqueta: la columna de acciones (un botón,
+   un chevron) se explica sola y "ACCIONES: ▸" sería ruido. Es una salida
+   explícita, no un olvido —el lint de tablas exige que cada celda declare una
+   de las tres cosas, y ésta es la tercera. */
+@container (max-width: 40rem) {
+  .tabla-apilable td[data-sin-etiqueta]::before { content: none; }
+  .tabla-apilable td[data-sin-etiqueta] { justify-content: flex-end; }
+}
+
+/* Alto máximo de los modales.
+   Mismo problema que el shell: `vh` no descuenta la barra de URL del teléfono,
+   así que un modal a 90vh se extiende por debajo de lo visible y su botón de
+   cerrar —que suele ir al pie— queda fuera de alcance. Va como clase y no como
+   valor arbitrario de Tailwind porque hacen falta DOS declaraciones: la segunda
+   la ignora el navegador que no entiende `dvh`, y así conserva el vh en lugar de
+   quedarse sin tope. */
+.alto-modal {
+  max-height: 90vh;
+  max-height: 90dvh;
+}
+
+/* Menos movimiento, para quien lo pidió en su sistema.
+   Tres partes del panel ya lo respetaban por su cuenta —el login, el ticker de
+   Novedades y la celebración de Campañas— pero las otras 194 transiciones y 34
+   animaciones de utilidad no. Esto cubre el resto de una vez.
+   No se ponen a 0 sino a 0.01ms: así los eventos `transitionend` y
+   `animationend` que algún componente pueda estar esperando siguen disparando,
+   en lugar de dejarlo colgado esperando una animación que nunca ocurre. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

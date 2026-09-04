@@ -17,7 +17,7 @@ export function SemanaPicker({ semana, onChange, semanas = [1, 2, 3, 4] }: Seman
             onClick={() => onChange(s)}
             aria-label={ariaLabel}
             aria-pressed={isActive}
-            className={`px-2 h-6 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+            className={`px-3 h-8 sm:px-2 sm:h-6 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
               isActive
                 ? 'bg-[#0097A7] text-white shadow-sm'
                 : 'border border-slate-200 text-slate-500 hover:border-[#0097A7] hover:text-[#0097A7]'

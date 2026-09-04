@@ -261,39 +261,41 @@ function Transacciones({ c }: { c: ClienteTabla }) {
       {trx.length > 0 && (
         <>
           <div className="max-h-64 overflow-y-auto -mx-1 px-1">
-            <table className="w-full text-xs">
-              <caption className="sr-only">Últimas ventas del cliente</caption>
-              <thead className="sticky top-0 bg-white">
-                <tr className="text-slate-400 text-[10px] border-b border-slate-100">
-                  <th scope="col" className="text-left font-medium py-1.5">Fecha</th>
-                  <th scope="col" className="text-left font-medium">Producto</th>
-                  <th scope="col" className="text-right font-medium">Monto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trx.map((t, i) => (
-                  <tr key={`${t.fecha}-${i}`} className="border-b border-slate-50 last:border-0">
-                    <td className="py-1.5 whitespace-nowrap">
-                      <span className="block text-slate-500 tabular-nums">{fmtFecha(t.fecha)}</span>
-                      {/* El folio va debajo de la fecha y no en una cuarta columna:
-                          el panel es angosto y solo Chile y México lo tienen. */}
-                      {t.folio && (
-                        <span className="block text-[10px] tabular-nums text-slate-400">#{t.folio}</span>
-                      )}
-                    </td>
-                    <td className="text-slate-600">{t.producto}</td>
-                    <td className="text-right py-1.5">
-                      <span className="block tabular-nums font-medium text-slate-700">{nfUsd(t.usd)}</span>
-                      {t.local > 0 && moneda !== 'USD' && (
-                        <span className="block text-[10px] tabular-nums text-slate-400 whitespace-nowrap">
-                          {nfLocal.format(t.local)} {moneda}
-                        </span>
-                      )}
-                    </td>
+            <div className="tabla-scroll">
+              <table className="w-full text-xs tabla-apilable">
+                <caption className="sr-only">Últimas ventas del cliente</caption>
+                <thead className="sticky top-0 bg-white">
+                  <tr className="text-slate-400 text-[10px] border-b border-slate-100">
+                    <th scope="col" className="text-left font-medium py-1.5">Fecha</th>
+                    <th scope="col" className="text-left font-medium">Producto</th>
+                    <th scope="col" className="text-right font-medium">Monto</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {trx.map((t, i) => (
+                    <tr key={`${t.fecha}-${i}`} className="border-b border-slate-50 last:border-0">
+                      <td data-titular className="py-1.5 whitespace-nowrap">
+                        <span className="block text-slate-500 tabular-nums">{fmtFecha(t.fecha)}</span>
+                        {/* El folio va debajo de la fecha y no en una cuarta columna:
+                            el panel es angosto y solo Chile y México lo tienen. */}
+                        {t.folio && (
+                          <span className="block text-[10px] tabular-nums text-slate-400">#{t.folio}</span>
+                        )}
+                      </td>
+                      <td data-label="Producto" className="text-slate-600">{t.producto}</td>
+                      <td data-label="Monto" className="text-right py-1.5">
+                        <span className="block tabular-nums font-medium text-slate-700">{nfUsd(t.usd)}</span>
+                        {t.local > 0 && moneda !== 'USD' && (
+                          <span className="block text-[10px] tabular-nums text-slate-400 whitespace-nowrap">
+                            {nfLocal.format(t.local)} {moneda}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
           {generado && (
             <p className="mt-2 text-[10px] text-slate-300">
@@ -873,7 +875,7 @@ function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; histo
 
           <button onClick={onClose}
                   aria-label="Cerrar detalle"
-                  className="text-slate-400 hover:text-slate-600 text-lg leading-none flex-shrink-0">✕</button>
+                  className="grid place-items-center w-10 h-10 sm:block sm:w-auto sm:h-auto text-slate-400 hover:text-slate-600 text-lg leading-none flex-shrink-0">✕</button>
         </div>
       </div>
 
@@ -1016,30 +1018,32 @@ function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; histo
           />
           {hist.length > 0 && (
             <div className="mt-3">
-              <table className="w-full text-[10px]">
-                <thead>
-                  <tr className="text-slate-400 border-b border-slate-100">
-                    <th className="text-left pb-1 font-semibold">Semana</th>
-                    <th className="text-right pb-1 font-semibold">Score</th>
-                    <th className="text-right pb-1 font-semibold">Rec</th>
-                    <th className="text-right pb-1 font-semibold">Eng</th>
-                    <th className="text-right pb-1 font-semibold">Ten</th>
-                    <th className="text-right pb-1 font-semibold">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...hist].reverse().map((h, i) => (
-                    <tr key={i} className="border-b border-slate-50 last:border-0">
-                      <td className="py-1 text-slate-400">{h.semana.replace(/^\d{4}-/, '')}</td>
-                      <td className="py-1 text-right font-bold tabular-nums" style={{ color }}>{h.score.toFixed(2)}</td>
-                      <td className="py-1 text-right tabular-nums text-slate-500">{h.fRec.toFixed(1)}</td>
-                      <td className="py-1 text-right tabular-nums text-slate-500">{h.fEng.toFixed(1)}</td>
-                      <td className="py-1 text-right tabular-nums text-slate-500">{h.fTen.toFixed(1)}</td>
-                      <td className="py-1 text-right text-slate-400">{h.status}</td>
+              <div className="tabla-scroll">
+                <table className="w-full text-[10px] tabla-apilable">
+                  <thead>
+                    <tr className="text-slate-400 border-b border-slate-100">
+                      <th className="text-left pb-1 font-semibold">Semana</th>
+                      <th className="text-right pb-1 font-semibold">Score</th>
+                      <th className="text-right pb-1 font-semibold">Rec</th>
+                      <th className="text-right pb-1 font-semibold">Eng</th>
+                      <th className="text-right pb-1 font-semibold">Ten</th>
+                      <th className="text-right pb-1 font-semibold">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {[...hist].reverse().map((h, i) => (
+                      <tr key={i} className="border-b border-slate-50 last:border-0">
+                        <td data-titular className="py-1 text-slate-400">{h.semana.replace(/^\d{4}-/, '')}</td>
+                        <td data-label="Score" className="py-1 text-right font-bold tabular-nums" style={{ color }}>{h.score.toFixed(2)}</td>
+                        <td data-label="Rec" className="py-1 text-right tabular-nums text-slate-500">{h.fRec.toFixed(1)}</td>
+                        <td data-label="Eng" className="py-1 text-right tabular-nums text-slate-500">{h.fEng.toFixed(1)}</td>
+                        <td data-label="Ten" className="py-1 text-right tabular-nums text-slate-500">{h.fTen.toFixed(1)}</td>
+                        <td data-label="Status" className="py-1 text-right text-slate-400">{h.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -1579,120 +1583,122 @@ export function SegmentacionPage({ filterKam, filterPais, embedded, presetCambio
                 Con el panel de detalle abierto NO se aplica: ahí la tabla vive en
                 ~60% del ancho y varias columnas se ocultan, así que un mínimo fijo
                 solo agregaría scroll para nada. */}
-            <table className="w-full text-sm border-collapse min-w-[1180px]">
-              <thead className="sticky top-0 z-10">
-                <tr className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide border-b border-slate-100 bg-white">
-                  <th className="text-right px-4 py-2.5 w-10">#</th>
-                  <th className="text-left px-3 py-2.5">País</th>
-                  <SortTh k="nombre"       cur={sortKey} dir={sortDir} onSort={toggleSort} align="left"  className="px-3 py-2.5">Empresa</SortTh>
-                  <th className="text-left px-3 py-2.5">Ejecutivo</th>
-                  <th className="text-center px-3 py-2.5">Tipo</th>
-                  <th className="text-center px-3 py-2.5">Seg.</th>
-                  <SortTh k="score"        cur={sortKey} dir={sortDir} onSort={toggleSort} align="right" className="px-3 py-2.5">RENT/VENT</SortTh>
-                  <SortTh k="tendencia"    cur={sortKey} dir={sortDir} onSort={toggleSort} align="left"  className="px-3 py-2.5">Tendencia</SortTh>
-                  <SortTh k="diasSinCompra" cur={sortKey} dir={sortDir} onSort={toggleSort} align="right" className="px-3 py-2.5">Días s/c</SortTh>
-                  {hayDotacion && (
-                    <SortTh k="dotacion" cur={sortKey} dir={sortDir} onSort={toggleSort} align="right" className="px-3 py-2.5 whitespace-nowrap">Dotación</SortTh>
-                  )}
-                  <SortTh k="ultimaCompra" cur={sortKey} dir={sortDir} onSort={toggleSort} align="right" className="px-4 py-2.5">Últ. Compra</SortTh>
-                </tr>
-              </thead>
-              <tbody>
-                {visibles.map((c, i) => {
-                  const globalIdx = paginaActual * POR_PAGINA + i + 1;
-                  const isSelected = selected?.idTributario === c.idTributario && selected?.pais === c.pais;
-                  return (
-                    <tr
-                      key={`${c.pais}-${c.idTributario}-${i}`}
-                      // Se registra solo la apertura, no el cierre. El detalle va con
-                      // el país y no con el nombre del cliente: alcanza para saber
-                      // qué carteras se consultan sin llenar Firestore de razones
-                      // sociales.
-                      onClick={() => {
-                        setSelected(isSelected ? null : c);
-                        if (!isSelected) track('clientes:ficha', c.pais);
-                      }}
-                      className={`border-b border-slate-50 cursor-pointer transition-colors ${
-                        isSelected ? 'bg-[#e0f7fa]' : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <td className="text-right px-4 py-2.5 text-slate-300 text-xs tabular-nums select-none">{globalIdx}</td>
+            <div className="tabla-scroll">
+              <table className="w-full text-sm border-collapse min-w-[1180px] tabla-apilable">
+                <thead className="sticky top-0 z-10">
+                  <tr className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide border-b border-slate-100 bg-white">
+                    <th className="text-right px-4 py-2.5 w-10">#</th>
+                    <th className="text-left px-3 py-2.5">País</th>
+                    <SortTh k="nombre"       cur={sortKey} dir={sortDir} onSort={toggleSort} align="left"  className="px-3 py-2.5">Empresa</SortTh>
+                    <th className="text-left px-3 py-2.5">Ejecutivo</th>
+                    <th className="text-center px-3 py-2.5">Tipo</th>
+                    <th className="text-center px-3 py-2.5">Seg.</th>
+                    <SortTh k="score"        cur={sortKey} dir={sortDir} onSort={toggleSort} align="right" className="px-3 py-2.5">RENT/VENT</SortTh>
+                    <SortTh k="tendencia"    cur={sortKey} dir={sortDir} onSort={toggleSort} align="left"  className="px-3 py-2.5">Tendencia</SortTh>
+                    <SortTh k="diasSinCompra" cur={sortKey} dir={sortDir} onSort={toggleSort} align="right" className="px-3 py-2.5">Días s/c</SortTh>
+                    {hayDotacion && (
+                      <SortTh k="dotacion" cur={sortKey} dir={sortDir} onSort={toggleSort} align="right" className="px-3 py-2.5 whitespace-nowrap">Dotación</SortTh>
+                    )}
+                    <SortTh k="ultimaCompra" cur={sortKey} dir={sortDir} onSort={toggleSort} align="right" className="px-4 py-2.5">Últ. Compra</SortTh>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibles.map((c, i) => {
+                    const globalIdx = paginaActual * POR_PAGINA + i + 1;
+                    const isSelected = selected?.idTributario === c.idTributario && selected?.pais === c.pais;
+                    return (
+                      <tr
+                        key={`${c.pais}-${c.idTributario}-${i}`}
+                        // Se registra solo la apertura, no el cierre. El detalle va con
+                        // el país y no con el nombre del cliente: alcanza para saber
+                        // qué carteras se consultan sin llenar Firestore de razones
+                        // sociales.
+                        onClick={() => {
+                          setSelected(isSelected ? null : c);
+                          if (!isSelected) track('clientes:ficha', c.pais);
+                        }}
+                        className={`border-b border-slate-50 cursor-pointer transition-colors ${
+                          isSelected ? 'bg-[#e0f7fa]' : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <td data-label="#" data-secundario className="text-right px-4 py-2.5 text-slate-300 text-xs tabular-nums select-none">{globalIdx}</td>
 
-                      <td className="px-3 py-2.5">
-                        {(() => {
-                          const cc = FLAG_CC[c.pais];
-                          return cc
-                            ? <img src={`https://flagcdn.com/16x12/${cc}.png`} width={14} height={10} alt={c.pais} className="rounded-sm" />
-                            : <span className="text-xs text-slate-400">{c.pais}</span>;
-                        })()}
-                      </td>
-
-                      <td className="px-3 py-1.5 max-w-[220px] w-[220px]">
-                        <span
-                          title={c.nombre}
-                          className={`block truncate text-sm font-medium ${isSelected ? 'text-[#0097A7]' : 'text-slate-700'}`}
-                        >
-                          {c.nombre}
-                        </span>
-                      </td>
-
-                      <td className="px-3 py-2.5 text-xs text-slate-400">
-                        {c.kam || '—'}
-                      </td>
-
-                      <td className="px-3 py-2.5 text-center">
-                        <TipoBadge tipo={c.tipo} />
-                      </td>
-
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <SegDot seg={c.segmento} />
-                          <span className="text-xs font-semibold" style={{ color: SEG_COLOR[c.segmento] }}>
-                            {c.segmento}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="px-3 py-2.5 text-right">
-                        {getScoreChurn(c, scoresChurn) !== null
-                          ? <ScoreBadge score={getScoreChurn(c, scoresChurn)!} segmento={c.segmento} />
-                          : <RiesgoPill status={c.status} />}
-                      </td>
-
-                      <td className="px-3 py-2.5">
-                        <TendenciaCell act={c.monto6mAct} ant={c.monto6mAnt} />
-                      </td>
-
-                      <td className={`px-3 py-2.5 text-right tabular-nums text-xs ${
-                        c.diasSinCompra > 180 ? 'text-red-500 font-semibold' : c.diasSinCompra > 90 ? 'text-amber-500' : 'text-slate-400'
-                      }`}>
-                        {c.diasSinCompra > 0 ? `${c.diasSinCompra}d` : '—'}
-                      </td>
-
-                      {hayDotacion && (
-                        <td className="px-3 py-2.5 text-right tabular-nums text-xs whitespace-nowrap">
-                          {c.usdDotacion > 0
-                            ? <span className="text-slate-700 font-medium">{fmtUSD(c.usdDotacion)}</span>
-                            : <span className="text-slate-300">—</span>}
+                        <td data-label="País" data-secundario className="px-3 py-2.5">
+                          {(() => {
+                            const cc = FLAG_CC[c.pais];
+                            return cc
+                              ? <img src={`https://flagcdn.com/16x12/${cc}.png`} width={14} height={10} alt={c.pais} className="rounded-sm" />
+                              : <span className="text-xs text-slate-400">{c.pais}</span>;
+                          })()}
                         </td>
-                      )}
 
-                      <td className="px-4 py-2.5 text-right tabular-nums text-xs text-slate-500 whitespace-nowrap">
-                        {fmtFecha(c.ultimaCompra)}
+                        <td data-titular className="px-3 py-1.5 max-w-[220px] w-[220px]">
+                          <span
+                            title={c.nombre}
+                            className={`block truncate text-sm font-medium ${isSelected ? 'text-[#0097A7]' : 'text-slate-700'}`}
+                          >
+                            {c.nombre}
+                          </span>
+                        </td>
+
+                        <td data-label="Ejecutivo" data-secundario className="px-3 py-2.5 text-xs text-slate-400">
+                          {c.kam || '—'}
+                        </td>
+
+                        <td data-label="Tipo" data-secundario className="px-3 py-2.5 text-center">
+                          <TipoBadge tipo={c.tipo} />
+                        </td>
+
+                        <td data-label="Seg." data-secundario className="px-3 py-2.5">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <SegDot seg={c.segmento} />
+                            <span className="text-xs font-semibold" style={{ color: SEG_COLOR[c.segmento] }}>
+                              {c.segmento}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td data-label="RENT/VENT" className="px-3 py-2.5 text-right">
+                          {getScoreChurn(c, scoresChurn) !== null
+                            ? <ScoreBadge score={getScoreChurn(c, scoresChurn)!} segmento={c.segmento} />
+                            : <RiesgoPill status={c.status} />}
+                        </td>
+
+                        <td data-label="Tendencia" className="px-3 py-2.5">
+                          <TendenciaCell act={c.monto6mAct} ant={c.monto6mAnt} />
+                        </td>
+
+                        <td data-label="Días s/c" className={`px-3 py-2.5 text-right tabular-nums text-xs ${
+                          c.diasSinCompra > 180 ? 'text-red-500 font-semibold' : c.diasSinCompra > 90 ? 'text-amber-500' : 'text-slate-400'
+                        }`}>
+                          {c.diasSinCompra > 0 ? `${c.diasSinCompra}d` : '—'}
+                        </td>
+
+                        {hayDotacion && (
+                          <td data-label="Dotación" data-secundario className="px-3 py-2.5 text-right tabular-nums text-xs whitespace-nowrap">
+                            {c.usdDotacion > 0
+                              ? <span className="text-slate-700 font-medium">{fmtUSD(c.usdDotacion)}</span>
+                              : <span className="text-slate-300">—</span>}
+                          </td>
+                        )}
+
+                        <td data-label="Últ. Compra" data-secundario className="px-4 py-2.5 text-right tabular-nums text-xs text-slate-500 whitespace-nowrap">
+                          {fmtFecha(c.ultimaCompra)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {visibles.length === 0 && (
+                    <tr>
+                      <td colSpan={hayDotacion ? 10 : 9} className="text-center py-20 text-slate-400 text-sm">
+                        No hay clientes que coincidan con los filtros.
                       </td>
                     </tr>
-                  );
-                })}
-
-                {visibles.length === 0 && (
-                  <tr>
-                    <td colSpan={hayDotacion ? 10 : 9} className="text-center py-20 text-slate-400 text-sm">
-                      No hay clientes que coincidan con los filtros.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 

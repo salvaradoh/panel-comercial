@@ -200,6 +200,17 @@ function Dashboard() {
     track(EVENTO_TAB[activeTab] ?? activeTab);
   }, [roleLoading, activeTab]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // El banner ámbar de impersonación empuja todo el contenido ~29px hacia abajo,
+  // incluido el punto donde debe caer el toast. El <Toaster> vive en el App()
+  // raíz y no ve este estado, así que se publica en <html> como bandera y la
+  // corrección la hace el CSS (`:root[data-impersonando]`).
+  React.useEffect(() => {
+    const raiz = document.documentElement;
+    if (viewAs) raiz.setAttribute('data-impersonando', '');
+    else raiz.removeAttribute('data-impersonando');
+    return () => raiz.removeAttribute('data-impersonando');
+  }, [viewAs]);
+
   function handlePeriodChange(p: Partial<typeof period>) {
     setPeriod((prev) => ({ ...prev, ...p }));
   }
@@ -208,7 +219,7 @@ function Dashboard() {
     && activeTab !== 'novedades' && activeTab !== 'campanas' && activeTab !== 'proyectos';
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen shell-alto">
       <TopNav
         onLogout={logout}
         isAdmin={isAdmin}
@@ -327,7 +338,23 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AppContent />
-        <Toaster position="top-right" theme="light" />
+        {/* El offset alinea el toast con el menú del perfil en vez de taparlo:
+            baja del ícono de perfil como si fuera parte de él, que es lo que se
+            espera al verlo. Sin offset, sileo lo pega al borde superior derecho
+            —justo encima del avatar y el nombre.
+
+            Los valores viven en variables CSS (`--toast-top` / `--toast-right`,
+            definidas en index.css) y no en números acá, por dos razones: el
+            padding del header cambia entre móvil y desktop, y con el banner de
+            impersonación el header crece ~29px. Ese estado es de Dashboard(),
+            que está por debajo de este punto del árbol y no puede alcanzarlo por
+            props. sileo pasa los strings verbatim al style, así que `var()`
+            resuelve donde tiene que resolver. */}
+        <Toaster
+          position="top-right"
+          theme="light"
+          offset={{ top: 'var(--toast-top)', right: 'var(--toast-right)' }}
+        />
       </AuthProvider>
     </QueryClientProvider>
   );

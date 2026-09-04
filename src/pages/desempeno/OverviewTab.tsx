@@ -306,6 +306,14 @@ export function OverviewTab({ metas, anio, mes, onSelectPais }: OverviewTabProps
           </div>
         </div>
         <PaisResumenTable
+          // El encabezado decía "Mes A. Ant." y mostraba el año pasado acotado al
+          // mismo tramo que lleva el período en curso, no el mes completo. En la
+          // vista Mes eso es la semana en la que estamos; en la vista Año, el
+          // acumulado hasta el mes elegido. Se nombra por lo que es.
+          etiquetaAnterior={`${anio - 1} a la fecha`}
+          tituloAnterior={periodo === 'anio'
+            ? `Acumulado de ${anio - 1} hasta el mismo mes, para comparar contra el avance del año en curso`
+            : `${anio - 1} acumulado hasta el mismo tramo del mes que lleva ${anio}, para que la variación compare períodos iguales`}
           paises={periodo === 'anio' ? paisesAnuales : paisesCompletos}
           onSelectPais={onSelectPais}
           noClickPaises={PAISES_SIN_KAMS}

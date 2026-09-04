@@ -8,6 +8,22 @@ interface PaisResumenTableProps {
   paises: PaisData[];
   onSelectPais?: (pais: string) => void;
   noClickPaises?: string[];
+  /**
+   * Encabezado de la columna de referencia del año anterior.
+   *
+   * Se parametriza porque el valor NO es el mes anterior completo, que es lo que
+   * el encabezado fijo "Mes A. Ant." daba a entender. Es el año pasado acumulado
+   * hasta el mismo tramo que lleva el mes en curso (`avance_mes_ytd_ant_usd` de
+   * la semana de hoy). Estando en la semana 1, es la semana 1 del año pasado:
+   * Chile mostraba 457,883 y esa fue exactamente su semana 1 de 2025, mientras
+   * su septiembre completo fue 2,805,604.
+   *
+   * La comparación en sí está bien —`Avance` también es parcial, así que la Var.
+   * YoY compara tramos iguales—; lo que engañaba era el nombre. El mes anterior
+   * completo existe en los datos (`cierre_men_anterior`) y esta tabla no lo usa.
+   */
+  etiquetaAnterior?: string;
+  tituloAnterior?: string;
 }
 
 function fmtUSD(v: number): string {
@@ -36,7 +52,10 @@ function VarBadge({ value, pct }: { value: number; pct: number | null | undefine
   );
 }
 
-export function PaisResumenTable({ paises, onSelectPais, noClickPaises }: PaisResumenTableProps) {
+export function PaisResumenTable({
+  paises, onSelectPais, noClickPaises,
+  etiquetaAnterior = 'Mes A. Ant.', tituloAnterior,
+}: PaisResumenTableProps) {
   const noClickSet = new Set(noClickPaises ?? []);
 
   // Ordenar por cumplimiento desc (todos los países, incluido Ecuador)
@@ -57,14 +76,14 @@ export function PaisResumenTable({ paises, onSelectPais, noClickPaises }: PaisRe
         <h3 className="text-sm font-semibold text-slate-700">Resumen por Región</h3>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="overflow-x-auto tabla-scroll">
+        <table className="w-full tabla-apilable">
           <thead>
             <tr className="text-xs text-slate-400 border-b border-slate-100 bg-slate-50">
               <th className="text-left px-5 py-3 font-medium">País</th>
               <th className="text-right px-4 py-3 font-medium tabular-nums">Meta</th>
               <th className="text-right px-4 py-3 font-medium tabular-nums">Avance</th>
-              <th className="text-right px-4 py-3 font-medium tabular-nums">Mes A. Ant.</th>
+              <th className="text-right px-4 py-3 font-medium tabular-nums" title={tituloAnterior}>{etiquetaAnterior}</th>
               <th className="text-right px-4 py-3 font-medium tabular-nums">Var. YoY</th>
               <th className="text-right px-5 py-3 font-medium tabular-nums">Cumpl. ↓</th>
             </tr>
@@ -81,7 +100,7 @@ export function PaisResumenTable({ paises, onSelectPais, noClickPaises }: PaisRe
                   className={`border-b border-slate-50 transition-colors ${isClickable ? 'hover:bg-slate-50 cursor-pointer' : ''}`}
                   onClick={() => isClickable && onSelectPais?.(p.pais)}
                 >
-                  <td className="px-5 py-3.5">
+                  <td data-titular className="px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
                       {cc && (
                         <img src={`https://flagcdn.com/24x18/${cc}.png`} width={20} height={15} alt={p.pais} className="rounded-sm shadow-sm flex-shrink-0" />
@@ -89,18 +108,18 @@ export function PaisResumenTable({ paises, onSelectPais, noClickPaises }: PaisRe
                       <span className="text-sm font-semibold text-slate-700">{p.pais}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-right tabular-nums text-slate-400 text-sm">{fmtUSD(p.meta)}</td>
-                  <td className="px-4 py-3.5 text-right tabular-nums text-sm font-semibold text-slate-800">{fmtUSD(p.avance)}</td>
-                  <td className="px-4 py-3.5 text-right tabular-nums text-sm text-slate-400">
+                  <td data-label="Meta" className="px-4 py-3.5 text-right tabular-nums text-slate-400 text-sm">{fmtUSD(p.meta)}</td>
+                  <td data-label="Avance" className="px-4 py-3.5 text-right tabular-nums text-sm font-semibold text-slate-800">{fmtUSD(p.avance)}</td>
+                  <td data-label="Mes A. Ant." className="px-4 py-3.5 text-right tabular-nums text-sm text-slate-400">
                     {(p.avanceYoY ?? 0) > 0 ? fmtUSD(p.avanceYoY!) : '—'}
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td data-label="Var. YoY" className="px-4 py-3.5">
                     {p.varYoY != null
                       ? <VarBadge value={p.varYoY} pct={p.varYoYPct} />
                       : <p className="text-right text-slate-300 text-sm">—</p>
                     }
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td data-label="Cumpl." className="px-5 py-3.5">
                     <div className="flex items-center justify-end gap-2">
                       <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden">
                         <div
@@ -120,14 +139,14 @@ export function PaisResumenTable({ paises, onSelectPais, noClickPaises }: PaisRe
           {/* Totales */}
           <tfoot>
             <tr className="bg-slate-50 border-t-2 border-slate-200">
-              <td className="px-5 py-3.5 text-sm font-bold text-slate-700">Total LATAM</td>
-              <td className="px-4 py-3.5 text-right tabular-nums text-sm font-semibold text-slate-500">{fmtUSD(totalMeta)}</td>
-              <td className="px-4 py-3.5 text-right tabular-nums text-sm font-bold text-slate-800">{fmtUSD(totalAvance)}</td>
-              <td className="px-4 py-3.5 text-right tabular-nums text-sm text-slate-500">{totalAnt > 0 ? fmtUSD(totalAnt) : '—'}</td>
-              <td className="px-4 py-3.5">
+              <td data-titular className="px-5 py-3.5 text-sm font-bold text-slate-700">Total LATAM</td>
+              <td data-label="Meta" className="px-4 py-3.5 text-right tabular-nums text-sm font-semibold text-slate-500">{fmtUSD(totalMeta)}</td>
+              <td data-label="Avance" className="px-4 py-3.5 text-right tabular-nums text-sm font-bold text-slate-800">{fmtUSD(totalAvance)}</td>
+              <td data-label={etiquetaAnterior} className="px-4 py-3.5 text-right tabular-nums text-sm text-slate-500">{totalAnt > 0 ? fmtUSD(totalAnt) : '—'}</td>
+              <td data-label="Var. YoY" className="px-4 py-3.5">
                 <VarBadge value={totalVar} pct={totalVarPct} />
               </td>
-              <td className="px-5 py-3.5">
+              <td data-label="Cumpl." className="px-5 py-3.5">
                 <div className="flex items-center justify-end gap-2">
                   <div className="w-16 bg-slate-200 rounded-full h-1.5 overflow-hidden">
                     <div

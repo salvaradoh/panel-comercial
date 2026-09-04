@@ -61,7 +61,13 @@ export function LatamMap({ data, onSelectPais }: LatamMapProps) {
     <Card className="flex flex-col gap-3">
       <h3 className="text-sm font-semibold text-slate-700">Avance LATAM</h3>
       <div className="flex gap-4">
-        <div className="flex-1 min-h-0" style={{ height: 320 }}>
+        {/* El mapa se oculta en pantallas angostas. No es una decisión de
+            espacio sino de legibilidad: sus etiquetas son texto SVG de 10px en
+            unidades del viewBox, así que al encogerse el mapa se encogen con él
+            —en un teléfono quedarían en ~2px. Y no se pierde nada accionable: la
+            lista de al lado tiene el país, el % y el mismo clic, y acá pasa a
+            ocupar el ancho completo. */}
+        <div className="hidden sm:block flex-1 min-h-0" style={{ height: 320 }}>
           <ComposableMap
             projection="geoMercator"
             projectionConfig={{ center: [-80, -5], scale: 340 }}
@@ -137,7 +143,7 @@ export function LatamMap({ data, onSelectPais }: LatamMapProps) {
         </div>
 
         {/* Tabla lateral */}
-        <div className="w-36 flex flex-col gap-2 justify-center">
+        <div className="w-full sm:w-36 flex flex-col gap-2 justify-center">
           {data
             .slice()
             .sort((a, b) => b.avance - a.avance)
@@ -147,7 +153,7 @@ export function LatamMap({ data, onSelectPais }: LatamMapProps) {
               return (
                 <button
                   key={d.pais}
-                  className="flex items-center gap-2 text-left hover:bg-slate-50 rounded-lg px-2 py-1 transition-all active:scale-[0.99] w-full"
+                  className="flex items-center gap-2 text-left hover:bg-slate-50 rounded-lg px-2 py-2 sm:py-1 transition-all active:scale-[0.99] w-full"
                   onClick={() => onSelectPais?.(d.pais)}
                   aria-label={`Ver detalle de ${d.pais}`}
                 >

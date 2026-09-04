@@ -122,7 +122,7 @@ export function FichaCuentaCBS({ fila, onClose }: Props) {
         <button
           onClick={onClose}
           aria-label="Cerrar ficha"
-          className="text-slate-400 hover:text-slate-600 text-xl leading-none px-1 active:scale-90 transition-transform"
+          className="grid place-items-center w-10 h-10 sm:block sm:w-auto sm:h-auto text-slate-400 hover:text-slate-600 text-xl leading-none px-1 active:scale-90 transition-transform"
         >
           ×
         </button>

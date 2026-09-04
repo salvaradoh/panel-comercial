@@ -139,37 +139,39 @@ export function FarmingCBSTab({ filas }: Props) {
         <Card>
           <h3 className="text-sm font-bold text-slate-700 mb-3">Dónde está el valor</h3>
           {tiers.length === 0 ? <SinDatos /> : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
-                  <th className="text-left  font-medium pb-2">Tier</th>
-                  <th className="text-right font-medium pb-2">USD 12m</th>
-                  <th className="text-right font-medium pb-2 pl-3">Avance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tiers.map((t) => {
-                  const usd = sumaUSD(enContexto.filter((f) => f.segmentacion === t.tier));
-                  const share = usdTotal ? usd / usdTotal : 0;
-                  return (
-                    <tr key={t.tier} className="border-b border-slate-50 last:border-0">
-                      <td className="py-2 pr-3"><TierChip tier={t.tier} /></td>
-                      <td className="py-2 text-right" title={fmtUSDExacto(usd)}>
-                        <div className="tabular-nums font-semibold text-slate-800">{fmtUSDCorto(usd)}</div>
-                        {/* Cuánto del valor total concentra este tier */}
-                        <div className="h-1 w-full bg-slate-100 rounded-full mt-1 overflow-hidden">
-                          <div className="h-full rounded-full bg-slate-300" style={{ width: `${share * 100}%` }} />
-                        </div>
-                      </td>
-                      <td className="py-2 pl-3 text-right tabular-nums text-slate-500 whitespace-nowrap">
-                        {t.sponsors}/{t.oportunidades}
-                        <span className="text-slate-400"> · {fmtPct(t.avance)}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="tabla-scroll">
+              <table className="w-full text-sm tabla-apilable">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
+                    <th className="text-left  font-medium pb-2">Tier</th>
+                    <th className="text-right font-medium pb-2">USD 12m</th>
+                    <th className="text-right font-medium pb-2 pl-3">Avance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tiers.map((t) => {
+                    const usd = sumaUSD(enContexto.filter((f) => f.segmentacion === t.tier));
+                    const share = usdTotal ? usd / usdTotal : 0;
+                    return (
+                      <tr key={t.tier} className="border-b border-slate-50 last:border-0">
+                        <td data-titular className="py-2 pr-3"><TierChip tier={t.tier} /></td>
+                        <td data-label="USD 12m" className="py-2 text-right" title={fmtUSDExacto(usd)}>
+                          <div className="tabular-nums font-semibold text-slate-800">{fmtUSDCorto(usd)}</div>
+                          {/* Cuánto del valor total concentra este tier */}
+                          <div className="h-1 w-full bg-slate-100 rounded-full mt-1 overflow-hidden">
+                            <div className="h-full rounded-full bg-slate-300" style={{ width: `${share * 100}%` }} />
+                          </div>
+                        </td>
+                        <td data-label="Avance" className="py-2 pl-3 text-right tabular-nums text-slate-500 whitespace-nowrap">
+                          {t.sponsors}/{t.oportunidades}
+                          <span className="text-slate-400"> · {fmtPct(t.avance)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
       </div>
@@ -191,8 +193,8 @@ export function FarmingCBSTab({ filas }: Props) {
         </div>
         {enTabla.length === 0 ? <SinDatos /> : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[760px]">
+            <div className="overflow-x-auto tabla-scroll">
+              <table className="w-full text-sm min-w-[760px] tabla-apilable">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
                     <Th k="razonSocial"  cur={orden} onSort={ordenar} align="left">Razón social</Th>
@@ -216,11 +218,11 @@ export function FarmingCBSTab({ filas }: Props) {
                           abierta ? 'bg-rose-50/60' : 'hover:bg-slate-50/60'
                         }`}
                       >
-                        <td className="py-2 pr-3 text-slate-700 max-w-[230px] truncate" title={f.razonSocial}>
+                        <td data-titular className="py-2 pr-3 text-slate-700 max-w-[230px] truncate" title={f.razonSocial}>
                           {f.razonSocial || '—'}
                         </td>
-                        <td className="py-2 pr-3"><TierChip tier={f.segmentacion} /></td>
-                        <td className="py-2 pr-3 whitespace-nowrap">
+                        <td data-label="Tier" className="py-2 pr-3"><TierChip tier={f.segmentacion} /></td>
+                        <td data-label="KAM" className="py-2 pr-3 whitespace-nowrap">
                           {f.kamActual
                             ? <span className="text-slate-600">{f.kamActual}</span>
                             : <span className="text-slate-300">Sin asignar</span>}
@@ -232,7 +234,7 @@ export function FarmingCBSTab({ filas }: Props) {
                                   title={FUENTE_KAM_META[f.kamFuente].label}>*</span>
                           )}
                         </td>
-                        <td className="py-2 pr-3">
+                        <td data-label="Estado" className="py-2 pr-3">
                           {/* Color + texto: nunca solo el punto */}
                           <span className="inline-flex items-center gap-1.5 text-[11px] whitespace-nowrap"
                                 style={{ color: meta.color }}>
@@ -240,11 +242,11 @@ export function FarmingCBSTab({ filas }: Props) {
                             {meta.label}
                           </span>
                         </td>
-                        <td className="py-2 pl-3 text-right tabular-nums text-slate-700 whitespace-nowrap"
+                        <td data-label="USD 12m" className="py-2 pl-3 text-right tabular-nums text-slate-700 whitespace-nowrap"
                             title={fmtUSDExacto(usd)}>
                           {usd > 0 ? fmtUSDCorto(usd) : <span className="text-slate-300">—</span>}
                         </td>
-                        <td className="py-2 pl-3 text-slate-500 text-[12px] max-w-[190px] truncate"
+                        <td data-label="Contacto" className="py-2 pl-3 text-slate-500 text-[12px] max-w-[190px] truncate"
                             title={f.correoContacto || f.contactoActual}>
                           {f.contactoActual || <span className="text-slate-300">Sin contacto</span>}
                         </td>

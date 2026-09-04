@@ -304,99 +304,111 @@ function ScoreRentContent() {
         {/* 1. Variables */}
         <div>
           <h3 className={SEC}>1. Variables utilizadas</h3>
-          <table className="w-full border-collapse text-[12px] rounded-lg overflow-hidden">
-            <thead><tr><th className={TH}>Variable</th><th className={TH_C}>Peso</th><th className={TH}>Descripción</th></tr></thead>
-            <tbody>
-              <tr><td className={`${TD} font-semibold`}>Recencia (R)</td><td className={`${TD_C} font-bold`}>35%</td><td className={TD + ' text-slate-500'}>Días sin comprar en relación a su ritmo habitual (TBP). Mayor puntaje = compra más reciente.</td></tr>
-              <tr className="bg-slate-50"><td className={`${TD} font-semibold`}>Engagement (E)</td><td className={`${TD_C} font-bold`}>25%</td><td className={TD + ' text-slate-500'}>Score del Churn Semanal (0–9, mayor = más saludable). Sin datos→E=4, ≥5→E=3, ≥3→E=2, &lt;3→E=1.</td></tr>
-              <tr><td className={`${TD} font-semibold`}>NPS (N)</td><td className={`${TD_C} font-bold`}>15%</td><td className={TD + ' text-slate-500'}>Satisfacción del cliente (NPS 0–10). Sin respuesta: dimensión excluida y pesos R/E/T se redistribuyen a 40/30/30.</td></tr>
-              <tr className="bg-slate-50"><td className="px-3 py-2 text-[12px] font-semibold">Tendencia (T)</td><td className="px-3 py-2 text-[12px] text-center font-bold">25%</td><td className="px-3 py-2 text-[12px] text-slate-500">Variación del volumen: últimos 6m vs el mismo semestre del año anterior.</td></tr>
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[12px] rounded-lg overflow-hidden">
+              <thead><tr><th className={TH}>Variable</th><th className={TH_C}>Peso</th><th className={TH}>Descripción</th></tr></thead>
+              <tbody>
+                <tr><td className={`${TD} font-semibold`}>Recencia (R)</td><td className={`${TD_C} font-bold`}>35%</td><td className={TD + ' text-slate-500'}>Días sin comprar en relación a su ritmo habitual (TBP). Mayor puntaje = compra más reciente.</td></tr>
+                <tr className="bg-slate-50"><td className={`${TD} font-semibold`}>Engagement (E)</td><td className={`${TD_C} font-bold`}>25%</td><td className={TD + ' text-slate-500'}>Score del Churn Semanal (0–9, mayor = más saludable). Sin datos→E=4, ≥5→E=3, ≥3→E=2, &lt;3→E=1.</td></tr>
+                <tr><td className={`${TD} font-semibold`}>NPS (N)</td><td className={`${TD_C} font-bold`}>15%</td><td className={TD + ' text-slate-500'}>Satisfacción del cliente (NPS 0–10). Sin respuesta: dimensión excluida y pesos R/E/T se redistribuyen a 40/30/30.</td></tr>
+                <tr className="bg-slate-50"><td className="px-3 py-2 text-[12px] font-semibold">Tendencia (T)</td><td className="px-3 py-2 text-[12px] text-center font-bold">25%</td><td className="px-3 py-2 text-[12px] text-slate-500">Variación del volumen: últimos 6m vs el mismo semestre del año anterior.</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* 2. Criterios */}
         <div>
           <h3 className={SEC}>2. Criterios de puntuación (escala 1–4)</h3>
-          <table className="w-full border-collapse text-[11.5px] rounded-lg overflow-hidden">
-            <thead><tr>
-              <th className={TH}>Variable</th>
-              <th className="bg-[#1a1a2e] text-emerald-400 px-3 py-2 text-center font-bold text-[11px]">4 — Excelente</th>
-              <th className="bg-[#1a1a2e] text-amber-400 px-3 py-2 text-center font-bold text-[11px]">3 — Bueno</th>
-              <th className="bg-[#1a1a2e] text-orange-400 px-3 py-2 text-center font-bold text-[11px]">2 — Riesgo</th>
-              <th className="bg-[#1a1a2e] text-red-400 px-3 py-2 text-center font-bold text-[11px]">1 — Crítico</th>
-            </tr></thead>
-            <tbody>
-              {[
-                ['Recencia (R)', 'ratio ≤ 0.5\nCompró hace poco', 'ratio ≤ 1.0\nDentro de su ciclo', 'ratio ≤ 2.0\n1–2 ciclos de retraso', 'ratio > 2.0\n2+ ciclos sin comprar'],
-                ['Engagement (E)', 'Sin señales\nAbono y login OK', '1 señal leve\nInactividad 14–30d', '2–3 señales\nAbono + login atrasados', '3+ señales severas\nAlto valor + inactivo'],
-                ['NPS (N)', '9–10\nPromotor', '7–8\nPasivo', '5–6\nDetractor leve', '0–4\nDetractor'],
-                ['Tendencia (T)', '+20% o más\nCreciendo', '±20%\nEstable', '-20% a -50%\nCayendo', '-50% o más\nCaída severa'],
-              ].map(([v, c4, c3, c2, c1], i) => {
-                const Cell = ({ val, color }: { val: string; color: string }) => {
-                  const [main, sub] = val.split('\n');
-                  return <td className={`px-3 py-2 border-b border-slate-100 text-center text-[11.5px] font-bold ${color}`}>{main}{sub && <><br/><span className="font-normal text-slate-400 text-[10px]">{sub}</span></>}</td>;
-                };
-                return (
-                  <tr key={v} className={i % 2 === 1 ? 'bg-slate-50' : ''}>
-                    <td className="px-3 py-2 border-b border-slate-100 text-[11.5px] font-semibold">{v}</td>
-                    <Cell val={c4} color="text-emerald-600" />
-                    <Cell val={c3} color="text-amber-500" />
-                    <Cell val={c2} color="text-orange-500" />
-                    <Cell val={c1} color="text-red-500" />
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[11.5px] rounded-lg overflow-hidden">
+              <thead><tr>
+                <th className={TH}>Variable</th>
+                <th className="bg-[#1a1a2e] text-emerald-400 px-3 py-2 text-center font-bold text-[11px]">4 — Excelente</th>
+                <th className="bg-[#1a1a2e] text-amber-400 px-3 py-2 text-center font-bold text-[11px]">3 — Bueno</th>
+                <th className="bg-[#1a1a2e] text-orange-400 px-3 py-2 text-center font-bold text-[11px]">2 — Riesgo</th>
+                <th className="bg-[#1a1a2e] text-red-400 px-3 py-2 text-center font-bold text-[11px]">1 — Crítico</th>
+              </tr></thead>
+              <tbody>
+                {[
+                  ['Recencia (R)', 'ratio ≤ 0.5\nCompró hace poco', 'ratio ≤ 1.0\nDentro de su ciclo', 'ratio ≤ 2.0\n1–2 ciclos de retraso', 'ratio > 2.0\n2+ ciclos sin comprar'],
+                  ['Engagement (E)', 'Sin señales\nAbono y login OK', '1 señal leve\nInactividad 14–30d', '2–3 señales\nAbono + login atrasados', '3+ señales severas\nAlto valor + inactivo'],
+                  ['NPS (N)', '9–10\nPromotor', '7–8\nPasivo', '5–6\nDetractor leve', '0–4\nDetractor'],
+                  ['Tendencia (T)', '+20% o más\nCreciendo', '±20%\nEstable', '-20% a -50%\nCayendo', '-50% o más\nCaída severa'],
+                ].map(([v, c4, c3, c2, c1], i) => {
+                  const Cell = ({ val, color }: { val: string; color: string }) => {
+                    const [main, sub] = val.split('\n');
+                    return <td className={`px-3 py-2 border-b border-slate-100 text-center text-[11.5px] font-bold ${color}`}>{main}{sub && <><br/><span className="font-normal text-slate-400 text-[10px]">{sub}</span></>}</td>;
+                  };
+                  return (
+                    <tr key={v} className={i % 2 === 1 ? 'bg-slate-50' : ''}>
+                      <td className="px-3 py-2 border-b border-slate-100 text-[11.5px] font-semibold">{v}</td>
+                      <Cell val={c4} color="text-emerald-600" />
+                      <Cell val={c3} color="text-amber-500" />
+                      <Cell val={c2} color="text-orange-500" />
+                      <Cell val={c1} color="text-red-500" />
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* 3. Intervalos R */}
         <div>
           <h3 className={SEC}>3. Intervalos detallados por variable</h3>
           <p className="text-[12px] font-bold text-slate-700 mb-2">Recencia (R) — ratio = días sin comprar ÷ TBP</p>
-          <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
-            <thead><tr><th className={TH}>Qué significa</th><th className={TH_C}>ratio</th><th className={TH_C}>R</th><th className={TH}>Ejemplo (TBP = 30d)</th></tr></thead>
-            <tbody>
-              <tr className="bg-green-50"><td className={TD}>Compra reciente, dentro de su ritmo</td><td className={TD_C}>≤ 0.5</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td><td className={TD + ' text-slate-400'}>Lleva 15 días → R=4</td></tr>
-              <tr><td className={TD}>Dentro de su ciclo habitual</td><td className={TD_C}>≤ 1.0</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-amber-500">3</td><td className={TD + ' text-slate-400'}>Lleva 28 días → R=3</td></tr>
-              <tr className="bg-orange-50/40"><td className={TD}>Fuera de ciclo, retraso leve</td><td className={TD_C}>≤ 2.0</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-orange-500">2</td><td className={TD + ' text-slate-400'}>Lleva 45 días → R=2</td></tr>
-              <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">2+ ciclos sin comprar</td><td className="px-3 py-2 text-center text-[11px]">{'>'}2.0</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td><td className="px-3 py-2 text-[11px] text-slate-400">Lleva 90 días → R=1</td></tr>
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
+              <thead><tr><th className={TH}>Qué significa</th><th className={TH_C}>ratio</th><th className={TH_C}>R</th><th className={TH}>Ejemplo (TBP = 30d)</th></tr></thead>
+              <tbody>
+                <tr className="bg-green-50"><td className={TD}>Compra reciente, dentro de su ritmo</td><td className={TD_C}>≤ 0.5</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td><td className={TD + ' text-slate-400'}>Lleva 15 días → R=4</td></tr>
+                <tr><td className={TD}>Dentro de su ciclo habitual</td><td className={TD_C}>≤ 1.0</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-amber-500">3</td><td className={TD + ' text-slate-400'}>Lleva 28 días → R=3</td></tr>
+                <tr className="bg-orange-50/40"><td className={TD}>Fuera de ciclo, retraso leve</td><td className={TD_C}>≤ 2.0</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-orange-500">2</td><td className={TD + ' text-slate-400'}>Lleva 45 días → R=2</td></tr>
+                <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">2+ ciclos sin comprar</td><td className="px-3 py-2 text-center text-[11px]">{'>'}2.0</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td><td className="px-3 py-2 text-[11px] text-slate-400">Lleva 90 días → R=1</td></tr>
+              </tbody>
+            </table>
+          </div>
 
           <p className="text-[12px] font-bold text-slate-700 mb-2">Engagement (E) — abono + actividad digital</p>
-          <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
-            <thead><tr><th className={TH_C}>Churn Semanal (0–9)</th><th className={TH_C}>E</th><th className={TH}>Interpretación</th></tr></thead>
-            <tbody>
-              <tr className="bg-green-50"><td className="px-3 py-2 border-b border-slate-100 text-center font-bold text-emerald-600">sin datos</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td><td className={TD}>Sin riesgo — abono y login al día</td></tr>
-              <tr><td className={TD_C + ' font-bold text-amber-500'}>≥ 5</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td><td className={TD}>Riesgo leve — señal temprana aislada</td></tr>
-              <tr className="bg-orange-50/40"><td className={TD_C + ' font-bold text-orange-500'}>≥ 3</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td><td className={TD}>Riesgo moderado — señales combinadas</td></tr>
-              <tr className="bg-red-50/40"><td className="px-3 py-2 text-center text-[11px] font-bold text-red-500">{'<'} 3</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td><td className="px-3 py-2 text-[11px]">Riesgo alto — múltiples señales severas</td></tr>
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
+              <thead><tr><th className={TH_C}>Churn Semanal (0–9)</th><th className={TH_C}>E</th><th className={TH}>Interpretación</th></tr></thead>
+              <tbody>
+                <tr className="bg-green-50"><td className="px-3 py-2 border-b border-slate-100 text-center font-bold text-emerald-600">sin datos</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td><td className={TD}>Sin riesgo — abono y login al día</td></tr>
+                <tr><td className={TD_C + ' font-bold text-amber-500'}>≥ 5</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td><td className={TD}>Riesgo leve — señal temprana aislada</td></tr>
+                <tr className="bg-orange-50/40"><td className={TD_C + ' font-bold text-orange-500'}>≥ 3</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td><td className={TD}>Riesgo moderado — señales combinadas</td></tr>
+                <tr className="bg-red-50/40"><td className="px-3 py-2 text-center text-[11px] font-bold text-red-500">{'<'} 3</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td><td className="px-3 py-2 text-[11px]">Riesgo alto — múltiples señales severas</td></tr>
+              </tbody>
+            </table>
+          </div>
 
           <p className="text-[12px] font-bold text-slate-700 mb-2">NPS (N) — satisfacción del cliente (0–10)</p>
-          <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
-            <thead><tr><th className={TH}>Categoría</th><th className={TH_C}>Score</th><th className={TH_C}>N</th></tr></thead>
-            <tbody>
-              <tr className="bg-green-50"><td className={TD}>Promotor — recomienda activamente</td><td className={TD_C}>9–10</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
-              <tr><td className={TD}>Pasivo — satisfecho pero no comprometido</td><td className={TD_C}>7–8</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
-              <tr className="bg-orange-50/40"><td className={TD}>Detractor leve</td><td className={TD_C}>5–6</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
-              <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">Detractor — riesgo de fuga</td><td className="px-3 py-2 text-center text-[11px]">0–4</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td></tr>
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
+              <thead><tr><th className={TH}>Categoría</th><th className={TH_C}>Score</th><th className={TH_C}>N</th></tr></thead>
+              <tbody>
+                <tr className="bg-green-50"><td className={TD}>Promotor — recomienda activamente</td><td className={TD_C}>9–10</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
+                <tr><td className={TD}>Pasivo — satisfecho pero no comprometido</td><td className={TD_C}>7–8</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
+                <tr className="bg-orange-50/40"><td className={TD}>Detractor leve</td><td className={TD_C}>5–6</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
+                <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">Detractor — riesgo de fuga</td><td className="px-3 py-2 text-center text-[11px]">0–4</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td></tr>
+              </tbody>
+            </table>
+          </div>
 
           <p className="text-[12px] font-bold text-slate-700 mb-2">Tendencia (T) — últimos 6m vs el mismo semestre del año anterior</p>
-          <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-3">
-            <thead><tr><th className={TH}>Qué significa</th><th className={TH_C}>Variación</th><th className={TH_C}>T</th></tr></thead>
-            <tbody>
-              <tr className="bg-green-50"><td className={TD}>Creciendo</td><td className={TD_C}>{'>'}+20%</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
-              <tr><td className={TD}>Estable</td><td className={TD_C}>±20%</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
-              <tr className="bg-orange-50/40"><td className={TD}>Cayendo</td><td className={TD_C}>-20% a -50%</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
-              <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">Caída severa — posible migración o abandono</td><td className="px-3 py-2 text-center text-[11px]">{'<'}-50%</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1 *</td></tr>
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-3">
+              <thead><tr><th className={TH}>Qué significa</th><th className={TH_C}>Variación</th><th className={TH_C}>T</th></tr></thead>
+              <tbody>
+                <tr className="bg-green-50"><td className={TD}>Creciendo</td><td className={TD_C}>{'>'}+20%</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
+                <tr><td className={TD}>Estable</td><td className={TD_C}>±20%</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
+                <tr className="bg-orange-50/40"><td className={TD}>Cayendo</td><td className={TD_C}>-20% a -50%</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
+                <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">Caída severa — posible migración o abandono</td><td className="px-3 py-2 text-center text-[11px]">{'<'}-50%</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1 *</td></tr>
+              </tbody>
+            </table>
+          </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-[11px] text-slate-600 leading-relaxed">
             <strong className="text-blue-700">* Filtro de impacto absoluto:</strong> Un cliente que cayó {'>'}50% pero cuya pérdida real es menor a $1,000 USD recibe T=2 en lugar de T=1, evitando penalizar cuentas pequeñas por fluctuaciones estadísticas (análisis de 794 clientes: cuentas &lt;$5K tienen stddev del 2,674%).
           </div>
@@ -454,15 +466,17 @@ function ScoreVentContent() {
         {/* 1. Variables */}
         <div>
           <h3 className="text-[15px] font-extrabold text-[#146787] mb-3 pl-3 border-l-4 border-violet-300">1. Variables y pesos</h3>
-          <table className="w-full border-collapse text-[12px] rounded-lg overflow-hidden">
-            <thead><tr><th className={TH}>Variable</th><th className={TH_C}>Peso base</th><th className={TH}>Descripción</th></tr></thead>
-            <tbody>
-              <tr><td className={`${TD} font-semibold`}>V — Vigencia</td><td className={`${TD_C} font-bold`}>35%</td><td className={TD + ' text-slate-500'}>¿Está el cliente activo en su ciclo? Mide si compró (o está próximo a comprar) en su ventana estacional.</td></tr>
-              <tr className="bg-slate-50"><td className={`${TD} font-semibold`}>E — Engagement</td><td className={`${TD_C} font-bold`}>25%</td><td className={TD + ' text-slate-500'}>Actividad de abono y plataforma digital post-compra. Sin datos → E=4 neutro.</td></tr>
-              <tr><td className={`${TD} font-semibold`}>N — NPS</td><td className={`${TD_C} font-bold`}>15%</td><td className={TD + ' text-slate-500'}>Puntaje de satisfacción (Net Promoter Score). Sin respuesta → peso redistribuido entre V, E y T.</td></tr>
-              <tr className="bg-slate-50"><td className="px-3 py-2 text-[12px] font-semibold">T — Tendencia YoY</td><td className="px-3 py-2 text-[12px] text-center font-bold">25%</td><td className="px-3 py-2 text-[12px] text-slate-500">Variación del volumen en su ventana de ciclo vs. el año anterior. Nulo si el ciclo está a más de 1 mes.</td></tr>
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[12px] rounded-lg overflow-hidden">
+              <thead><tr><th className={TH}>Variable</th><th className={TH_C}>Peso base</th><th className={TH}>Descripción</th></tr></thead>
+              <tbody>
+                <tr><td className={`${TD} font-semibold`}>V — Vigencia</td><td className={`${TD_C} font-bold`}>35%</td><td className={TD + ' text-slate-500'}>¿Está el cliente activo en su ciclo? Mide si compró (o está próximo a comprar) en su ventana estacional.</td></tr>
+                <tr className="bg-slate-50"><td className={`${TD} font-semibold`}>E — Engagement</td><td className={`${TD_C} font-bold`}>25%</td><td className={TD + ' text-slate-500'}>Actividad de abono y plataforma digital post-compra. Sin datos → E=4 neutro.</td></tr>
+                <tr><td className={`${TD} font-semibold`}>N — NPS</td><td className={`${TD_C} font-bold`}>15%</td><td className={TD + ' text-slate-500'}>Puntaje de satisfacción (Net Promoter Score). Sin respuesta → peso redistribuido entre V, E y T.</td></tr>
+                <tr className="bg-slate-50"><td className="px-3 py-2 text-[12px] font-semibold">T — Tendencia YoY</td><td className="px-3 py-2 text-[12px] text-center font-bold">25%</td><td className="px-3 py-2 text-[12px] text-slate-500">Variación del volumen en su ventana de ciclo vs. el año anterior. Nulo si el ciclo está a más de 1 mes.</td></tr>
+              </tbody>
+            </table>
+          </div>
           <div className="text-[11px] text-slate-500 mt-2 bg-violet-50 rounded-lg px-3 py-2">
             <strong>Sin NPS:</strong> V×40% + E×30% + T×30%. <strong>Sin T:</strong> V×47% + E×33% + N×20%. <strong>Sin ambas:</strong> V×57% + E×43%.
           </div>
@@ -471,37 +485,39 @@ function ScoreVentContent() {
         {/* 2. Criterios */}
         <div>
           <h3 className="text-[15px] font-extrabold text-[#146787] mb-3 pl-3 border-l-4 border-violet-300">2. Criterios de puntuación (1–4)</h3>
-          <table className="w-full border-collapse text-[11.5px] rounded-lg overflow-hidden">
-            <thead><tr>
-              <th className={TH}>Variable</th>
-              <th className="bg-[#1a1a2e] text-emerald-400 px-3 py-2 text-center font-bold text-[11px]">4</th>
-              <th className="bg-[#1a1a2e] text-amber-400 px-3 py-2 text-center font-bold text-[11px]">3</th>
-              <th className="bg-[#1a1a2e] text-orange-400 px-3 py-2 text-center font-bold text-[11px]">2</th>
-              <th className="bg-[#1a1a2e] text-red-400 px-3 py-2 text-center font-bold text-[11px]">1</th>
-            </tr></thead>
-            <tbody>
-              {[
-                ['V (Vigencia)', 'Compró en ciclo', 'Ciclo próximo\n≥ 2 meses', 'En ciclo / perdió 1', 'Perdió 2+ ciclos'],
-                ['E (Engagement)', 'Sin señales\nAbono y login OK', 'Riesgo leve\nInactividad 14–30d', 'Señales combinadas\nAbono + login atrasados', 'Múltiples severas\nAbono + login + 0 logins'],
-                ['N (NPS)', 'Promotor\n9–10', 'Pasivo\n7–8', 'Detractor\n5–6', 'Det. severo\n< 5'],
-                ['T (Tendencia)', 'Creciendo\n> +20%', 'Estable\n±20%', 'Cayendo\n-20% a -50%', 'Caída severa\n> -50%'],
-              ].map(([v, c4, c3, c2, c1], i) => {
-                const Cell = ({ val, color }: { val: string; color: string }) => {
-                  const [main, sub] = val.split('\n');
-                  return <td className={`px-3 py-2 border-b border-slate-100 text-center text-[11.5px] font-bold ${color}`}>{main}{sub && <><br/><span className="font-normal text-slate-400 text-[10px]">{sub}</span></>}</td>;
-                };
-                return (
-                  <tr key={v} className={i % 2 === 1 ? 'bg-slate-50' : ''}>
-                    <td className="px-3 py-2 border-b border-slate-100 text-[11.5px] font-semibold">{v}</td>
-                    <Cell val={c4} color="text-emerald-600" />
-                    <Cell val={c3} color="text-amber-500" />
-                    <Cell val={c2} color="text-orange-500" />
-                    <Cell val={c1} color="text-red-500" />
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[11.5px] rounded-lg overflow-hidden">
+              <thead><tr>
+                <th className={TH}>Variable</th>
+                <th className="bg-[#1a1a2e] text-emerald-400 px-3 py-2 text-center font-bold text-[11px]">4</th>
+                <th className="bg-[#1a1a2e] text-amber-400 px-3 py-2 text-center font-bold text-[11px]">3</th>
+                <th className="bg-[#1a1a2e] text-orange-400 px-3 py-2 text-center font-bold text-[11px]">2</th>
+                <th className="bg-[#1a1a2e] text-red-400 px-3 py-2 text-center font-bold text-[11px]">1</th>
+              </tr></thead>
+              <tbody>
+                {[
+                  ['V (Vigencia)', 'Compró en ciclo', 'Ciclo próximo\n≥ 2 meses', 'En ciclo / perdió 1', 'Perdió 2+ ciclos'],
+                  ['E (Engagement)', 'Sin señales\nAbono y login OK', 'Riesgo leve\nInactividad 14–30d', 'Señales combinadas\nAbono + login atrasados', 'Múltiples severas\nAbono + login + 0 logins'],
+                  ['N (NPS)', 'Promotor\n9–10', 'Pasivo\n7–8', 'Detractor\n5–6', 'Det. severo\n< 5'],
+                  ['T (Tendencia)', 'Creciendo\n> +20%', 'Estable\n±20%', 'Cayendo\n-20% a -50%', 'Caída severa\n> -50%'],
+                ].map(([v, c4, c3, c2, c1], i) => {
+                  const Cell = ({ val, color }: { val: string; color: string }) => {
+                    const [main, sub] = val.split('\n');
+                    return <td className={`px-3 py-2 border-b border-slate-100 text-center text-[11.5px] font-bold ${color}`}>{main}{sub && <><br/><span className="font-normal text-slate-400 text-[10px]">{sub}</span></>}</td>;
+                  };
+                  return (
+                    <tr key={v} className={i % 2 === 1 ? 'bg-slate-50' : ''}>
+                      <td className="px-3 py-2 border-b border-slate-100 text-[11.5px] font-semibold">{v}</td>
+                      <Cell val={c4} color="text-emerald-600" />
+                      <Cell val={c3} color="text-amber-500" />
+                      <Cell val={c2} color="text-orange-500" />
+                      <Cell val={c1} color="text-red-500" />
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* 3. Intervalos */}
@@ -509,47 +525,55 @@ function ScoreVentContent() {
           <h3 className="text-[15px] font-extrabold text-[#146787] mb-3 pl-3 border-l-4 border-violet-300">3. Intervalos detallados</h3>
 
           <p className="text-[12px] font-bold text-slate-700 mb-2">Vigencia (V) — estado respecto a su ciclo estacional</p>
-          <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
-            <thead><tr><th className={TH}>Situación</th><th className={TH_C}>V</th></tr></thead>
-            <tbody>
-              <tr className="bg-green-50"><td className={TD}>Compró en ventana de ciclo (mes_pico ±1 mes) en el año actual</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
-              <tr><td className={TD}>Ciclo próximo (≥ 2 meses hasta mes_pico) y compró en año anterior</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
-              <tr className="bg-orange-50/40"><td className={TD}>En ventana de ciclo pero no compró aún, o no compró en ciclo anterior</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
-              <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">No compró en ciclo actual ni en el anterior — 2+ ciclos perdidos</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td></tr>
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
+              <thead><tr><th className={TH}>Situación</th><th className={TH_C}>V</th></tr></thead>
+              <tbody>
+                <tr className="bg-green-50"><td className={TD}>Compró en ventana de ciclo (mes_pico ±1 mes) en el año actual</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
+                <tr><td className={TD}>Ciclo próximo (≥ 2 meses hasta mes_pico) y compró en año anterior</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
+                <tr className="bg-orange-50/40"><td className={TD}>En ventana de ciclo pero no compró aún, o no compró en ciclo anterior</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
+                <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">No compró en ciclo actual ni en el anterior — 2+ ciclos perdidos</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td></tr>
+              </tbody>
+            </table>
+          </div>
 
           <p className="text-[12px] font-bold text-slate-700 mb-2">Engagement (E) — engScore acumulado (0–5+)</p>
-          <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
-            <thead><tr><th className={TH_C}>engScore</th><th className={TH_C}>E</th><th className={TH}>Interpretación</th></tr></thead>
-            <tbody>
-              <tr className="bg-green-50"><td className="px-3 py-2 border-b border-slate-100 text-center font-bold text-emerald-600">0 / sin datos</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td><td className={TD}>Sin riesgo — abono y login al día</td></tr>
-              <tr><td className={TD_C + ' font-bold text-amber-500'}>1–2</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td><td className={TD}>Riesgo leve — señal temprana aislada</td></tr>
-              <tr className="bg-orange-50/40"><td className={TD_C + ' font-bold text-orange-500'}>3–4</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td><td className={TD}>Riesgo moderado — señales combinadas</td></tr>
-              <tr className="bg-red-50/40"><td className="px-3 py-2 text-center text-[11px] font-bold text-red-500">≥ 5</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td><td className="px-3 py-2 text-[11px]">Riesgo alto — múltiples señales severas</td></tr>
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden mb-4">
+              <thead><tr><th className={TH_C}>engScore</th><th className={TH_C}>E</th><th className={TH}>Interpretación</th></tr></thead>
+              <tbody>
+                <tr className="bg-green-50"><td className="px-3 py-2 border-b border-slate-100 text-center font-bold text-emerald-600">0 / sin datos</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td><td className={TD}>Sin riesgo — abono y login al día</td></tr>
+                <tr><td className={TD_C + ' font-bold text-amber-500'}>1–2</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td><td className={TD}>Riesgo leve — señal temprana aislada</td></tr>
+                <tr className="bg-orange-50/40"><td className={TD_C + ' font-bold text-orange-500'}>3–4</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td><td className={TD}>Riesgo moderado — señales combinadas</td></tr>
+                <tr className="bg-red-50/40"><td className="px-3 py-2 text-center text-[11px] font-bold text-red-500">≥ 5</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td><td className="px-3 py-2 text-[11px]">Riesgo alto — múltiples señales severas</td></tr>
+              </tbody>
+            </table>
+          </div>
 
           <p className="text-[12px] font-bold text-slate-700 mb-2">NPS (N) y Tendencia (T)</p>
           <div className="grid grid-cols-2 gap-3">
-            <table className="border-collapse text-[11px] rounded-lg overflow-hidden">
-              <thead><tr><th className={TH}>NPS (0–10)</th><th className={TH_C}>N</th></tr></thead>
-              <tbody>
-                <tr className="bg-green-50"><td className={TD}>9–10 Promotor</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
-                <tr><td className={TD}>7–8 Pasivo</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
-                <tr className="bg-orange-50/40"><td className={TD}>5–6 Detractor</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
-                <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">0–4 Det. severo</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td></tr>
-              </tbody>
-            </table>
-            <table className="border-collapse text-[11px] rounded-lg overflow-hidden">
-              <thead><tr><th className={TH}>Variación YoY</th><th className={TH_C}>T</th></tr></thead>
-              <tbody>
-                <tr className="bg-green-50"><td className={TD}>{'>'}+20% Creciendo</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
-                <tr><td className={TD}>±20% Estable</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
-                <tr className="bg-orange-50/40"><td className={TD}>-20% a -50%</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
-                <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">{'<'}-50% Severa</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td></tr>
-              </tbody>
-            </table>
+            <div className="tabla-scroll">
+              <table className="border-collapse text-[11px] rounded-lg overflow-hidden">
+                <thead><tr><th className={TH}>NPS (0–10)</th><th className={TH_C}>N</th></tr></thead>
+                <tbody>
+                  <tr className="bg-green-50"><td className={TD}>9–10 Promotor</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
+                  <tr><td className={TD}>7–8 Pasivo</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
+                  <tr className="bg-orange-50/40"><td className={TD}>5–6 Detractor</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
+                  <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">0–4 Det. severo</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="tabla-scroll">
+              <table className="border-collapse text-[11px] rounded-lg overflow-hidden">
+                <thead><tr><th className={TH}>Variación YoY</th><th className={TH_C}>T</th></tr></thead>
+                <tbody>
+                  <tr className="bg-green-50"><td className={TD}>{'>'}+20% Creciendo</td><td className="px-3 py-2 border-b border-slate-100 text-center font-extrabold text-emerald-600">4</td></tr>
+                  <tr><td className={TD}>±20% Estable</td><td className={TD_C + ' font-extrabold text-amber-500'}>3</td></tr>
+                  <tr className="bg-orange-50/40"><td className={TD}>-20% a -50%</td><td className={TD_C + ' font-extrabold text-orange-500'}>2</td></tr>
+                  <tr className="bg-red-50/40"><td className="px-3 py-2 text-[11px]">{'<'}-50% Severa</td><td className="px-3 py-2 text-center font-extrabold text-red-500">1</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -559,13 +583,15 @@ function ScoreVentContent() {
           <p className="text-[12px] text-slate-500 leading-relaxed mb-3">
             El <strong>ciclo</strong> de cada cliente es su mes de mayor compra en 2025 (<em>mes_pico</em>), con una ventana de ±1 mes. Se calcula desde <code className="bg-slate-100 px-1 rounded">Tabla_Analisis_Clientes</code>.
           </p>
-          <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden">
-            <thead><tr><th className={TH}>Situación del ciclo</th><th className={TH_C}>T incluida</th><th className={TH_C}>Pesos activos</th></tr></thead>
-            <tbody>
-              <tr className="bg-green-50"><td className={TD}>Ciclo abierto (≤ 1 mes hasta mes_pico)</td><td className={TD_C + ' text-emerald-600 font-bold'}>✓ Sí</td><td className={TD_C}>V×45% + N×20% + T×35%</td></tr>
-              <tr><td className="px-3 py-2 text-[11px]">Ciclo lejano ({'>'} 1 mes) o sin ref. 2025</td><td className="px-3 py-2 text-center text-[11px] text-slate-400 font-bold">✗ Nulo</td><td className="px-3 py-2 text-center text-[11px]">V×56% + N×44% (o solo V)</td></tr>
-            </tbody>
-          </table>
+          <div className="tabla-scroll">
+            <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden">
+              <thead><tr><th className={TH}>Situación del ciclo</th><th className={TH_C}>T incluida</th><th className={TH_C}>Pesos activos</th></tr></thead>
+              <tbody>
+                <tr className="bg-green-50"><td className={TD}>Ciclo abierto (≤ 1 mes hasta mes_pico)</td><td className={TD_C + ' text-emerald-600 font-bold'}>✓ Sí</td><td className={TD_C}>V×45% + N×20% + T×35%</td></tr>
+                <tr><td className="px-3 py-2 text-[11px]">Ciclo lejano ({'>'} 1 mes) o sin ref. 2025</td><td className="px-3 py-2 text-center text-[11px] text-slate-400 font-bold">✗ Nulo</td><td className="px-3 py-2 text-center text-[11px]">V×56% + N×44% (o solo V)</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Fórmula */}
@@ -609,12 +635,12 @@ export function ScoreInfoModal({ tipo, onClose }: { tipo: 'vent' | 'rent'; onClo
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-5" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl alto-modal overflow-y-auto relative"
         onClick={e => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-5 bg-transparent border-none text-[22px] text-slate-400 hover:text-slate-600 cursor-pointer z-10"
+          className="absolute top-4 right-5 grid place-items-center w-10 h-10 sm:block sm:w-auto sm:h-auto bg-transparent border-none text-[22px] text-slate-400 hover:text-slate-600 cursor-pointer z-10"
         >✕</button>
         {tipo === 'vent' ? <ScoreVentContent /> : <ScoreRentContent />}
       </div>
@@ -665,15 +691,17 @@ function SegRecContent() {
 
       <div>
         <h3 className={SSEC}>2. Score (variables activas)</h3>
-        <table className="w-full border-collapse text-[12px] rounded-lg overflow-hidden mb-2">
-          <thead><tr><th className={STH}>Variable</th><th className={STH_C}>Peso</th><th className={STH}>Criterio</th></tr></thead>
-          <tbody>
-            <tr><td className={STD}>Volumen de compra</td><td className={STD_C + ' font-bold'}>50%</td><td className={STD}>Pareto por contribución acumulada de ventas (últimos 12m)</td></tr>
-            <tr className="bg-slate-50"><td className={STD}>Meses con compra</td><td className={STD_C + ' font-bold'}>20%</td><td className={STD}>Meses distintos con compra en 12m</td></tr>
-            <tr><td className={STD}>Usuarios incentivados</td><td className={STD_C + ' font-bold'}>20%</td><td className={STD}>Percentil por país (solo entre empresas con usuarios &gt; 0)</td></tr>
-            <tr className="bg-slate-50"><td className="px-3 py-2 text-[11px] text-slate-600">Fee / SaaS (12m USD)</td><td className="px-3 py-2 text-center text-[11px] font-bold text-slate-600">10%</td><td className="px-3 py-2 text-[11px] text-slate-600">{'>'}$5k=4 · $1k–$5k=3 · &lt;$1k=2 · sin fee=1</td></tr>
-          </tbody>
-        </table>
+        <div className="tabla-scroll">
+          <table className="w-full border-collapse text-[12px] rounded-lg overflow-hidden mb-2">
+            <thead><tr><th className={STH}>Variable</th><th className={STH_C}>Peso</th><th className={STH}>Criterio</th></tr></thead>
+            <tbody>
+              <tr><td className={STD}>Volumen de compra</td><td className={STD_C + ' font-bold'}>50%</td><td className={STD}>Pareto por contribución acumulada de ventas (últimos 12m)</td></tr>
+              <tr className="bg-slate-50"><td className={STD}>Meses con compra</td><td className={STD_C + ' font-bold'}>20%</td><td className={STD}>Meses distintos con compra en 12m</td></tr>
+              <tr><td className={STD}>Usuarios incentivados</td><td className={STD_C + ' font-bold'}>20%</td><td className={STD}>Percentil por país (solo entre empresas con usuarios &gt; 0)</td></tr>
+              <tr className="bg-slate-50"><td className="px-3 py-2 text-[11px] text-slate-600">Fee / SaaS (12m USD)</td><td className="px-3 py-2 text-center text-[11px] font-bold text-slate-600">10%</td><td className="px-3 py-2 text-[11px] text-slate-600">{'>'}$5k=4 · $1k–$5k=3 · &lt;$1k=2 · sin fee=1</td></tr>
+            </tbody>
+          </table>
+        </div>
         <div className="bg-green-50 rounded-lg px-3 py-2 text-[11px] text-green-800 font-medium">
           Score = (Volumen × 0.50) + (Meses × 0.20) + (Usuarios × 0.20) + (Fee × 0.10) · Máx: 4.0
         </div>
@@ -681,15 +709,17 @@ function SegRecContent() {
 
       <div>
         <h3 className={SSEC}>3. Puntos por variable (escala 1–4)</h3>
-        <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden">
-          <thead><tr><th className={STH}>Variable</th><th className={STH_C}>4 pts</th><th className={STH_C}>3 pts</th><th className={STH_C}>2 pts</th><th className={STH_C}>1 pt</th></tr></thead>
-          <tbody>
-            <tr><td className={STD + ' font-medium'}>Volumen</td><td className={STD_C}>Acumula ≤50% vol.</td><td className={STD_C}>50–75%</td><td className={STD_C}>75–90%</td><td className={STD_C}>{'>'}90%</td></tr>
-            <tr className="bg-slate-50"><td className={STD + ' font-medium'}>Meses compra</td><td className={STD_C}>10–12</td><td className={STD_C}>8–9</td><td className={STD_C}>6–7</td><td className={STD_C}>4–5</td></tr>
-            <tr><td className={STD + ' font-medium'}>Usuarios incentivados</td><td className={STD_C}>Top 50% país</td><td className={STD_C}>Sig. 25%</td><td className={STD_C}>Sig. 15%</td><td className={STD_C}>Último 10% · 0 usu.</td></tr>
-            <tr className="bg-slate-50"><td className="px-3 py-2 text-[11px] text-slate-600 font-medium">Fee / SaaS</td><td className={STD_C}>{'>'}$5,000</td><td className={STD_C}>$1k–$5k</td><td className={STD_C}>&lt;$1,000</td><td className="px-3 py-2 text-center text-[11px] text-slate-600">Sin fee</td></tr>
-          </tbody>
-        </table>
+        <div className="tabla-scroll">
+          <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden">
+            <thead><tr><th className={STH}>Variable</th><th className={STH_C}>4 pts</th><th className={STH_C}>3 pts</th><th className={STH_C}>2 pts</th><th className={STH_C}>1 pt</th></tr></thead>
+            <tbody>
+              <tr><td className={STD + ' font-medium'}>Volumen</td><td className={STD_C}>Acumula ≤50% vol.</td><td className={STD_C}>50–75%</td><td className={STD_C}>75–90%</td><td className={STD_C}>{'>'}90%</td></tr>
+              <tr className="bg-slate-50"><td className={STD + ' font-medium'}>Meses compra</td><td className={STD_C}>10–12</td><td className={STD_C}>8–9</td><td className={STD_C}>6–7</td><td className={STD_C}>4–5</td></tr>
+              <tr><td className={STD + ' font-medium'}>Usuarios incentivados</td><td className={STD_C}>Top 50% país</td><td className={STD_C}>Sig. 25%</td><td className={STD_C}>Sig. 15%</td><td className={STD_C}>Último 10% · 0 usu.</td></tr>
+              <tr className="bg-slate-50"><td className="px-3 py-2 text-[11px] text-slate-600 font-medium">Fee / SaaS</td><td className={STD_C}>{'>'}$5,000</td><td className={STD_C}>$1k–$5k</td><td className={STD_C}>&lt;$1,000</td><td className="px-3 py-2 text-center text-[11px] text-slate-600">Sin fee</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div>
@@ -727,15 +757,17 @@ function SegEstContent() {
 
       <div>
         <h3 className={SSEC}>2. Variables utilizadas</h3>
-        <table className="w-full border-collapse text-[12px] rounded-lg overflow-hidden mb-2">
-          <thead><tr><th className={STH}>Variable</th><th className={STH_C}>Peso</th><th className={STH}>Criterio</th></tr></thead>
-          <tbody>
-            <tr><td className={STD}>Volumen (V)</td><td className={STD_C + ' font-bold'}>50%</td><td className={STD}>Percentil de facturación vs. estacionales del mismo país</td></tr>
-            <tr className="bg-slate-50"><td className={STD}>Producto (P)</td><td className={STD_C + ' font-bold'}>25%</td><td className={STD}>Categoría dominante por volumen (SaaS = mayor margen)</td></tr>
-            <tr><td className={STD}>Meses (M)</td><td className={STD_C + ' font-bold'}>12.5%</td><td className={STD}>Meses distintos con compra en últimos 13m</td></tr>
-            <tr className="bg-slate-50"><td className="px-3 py-2 text-[11px] text-slate-600">Margen (Mg)</td><td className="px-3 py-2 text-center text-[11px] font-bold text-slate-600">12.5%</td><td className="px-3 py-2 text-[11px] text-slate-600">Mix de productos ponderado por rentabilidad</td></tr>
-          </tbody>
-        </table>
+        <div className="tabla-scroll">
+          <table className="w-full border-collapse text-[12px] rounded-lg overflow-hidden mb-2">
+            <thead><tr><th className={STH}>Variable</th><th className={STH_C}>Peso</th><th className={STH}>Criterio</th></tr></thead>
+            <tbody>
+              <tr><td className={STD}>Volumen (V)</td><td className={STD_C + ' font-bold'}>50%</td><td className={STD}>Percentil de facturación vs. estacionales del mismo país</td></tr>
+              <tr className="bg-slate-50"><td className={STD}>Producto (P)</td><td className={STD_C + ' font-bold'}>25%</td><td className={STD}>Categoría dominante por volumen (SaaS = mayor margen)</td></tr>
+              <tr><td className={STD}>Meses (M)</td><td className={STD_C + ' font-bold'}>12.5%</td><td className={STD}>Meses distintos con compra en últimos 13m</td></tr>
+              <tr className="bg-slate-50"><td className="px-3 py-2 text-[11px] text-slate-600">Margen (Mg)</td><td className="px-3 py-2 text-center text-[11px] font-bold text-slate-600">12.5%</td><td className="px-3 py-2 text-[11px] text-slate-600">Mix de productos ponderado por rentabilidad</td></tr>
+            </tbody>
+          </table>
+        </div>
         <div className="bg-green-50 rounded-lg px-3 py-2 text-[11px] text-green-800 font-medium">
           Score = (V × 0.50) + (P × 0.25) + (M × 0.125) + (Mg × 0.125) · Máx: 4.0
         </div>
@@ -743,15 +775,17 @@ function SegEstContent() {
 
       <div>
         <h3 className={SSEC}>3. Puntos por variable (escala 1–4)</h3>
-        <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden">
-          <thead><tr><th className={STH}>Variable</th><th className={STH_C}>4 pts</th><th className={STH_C}>3 pts</th><th className={STH_C}>2 pts</th><th className={STH_C}>1 pt</th></tr></thead>
-          <tbody>
-            <tr><td className={STD + ' font-medium'}>Volumen</td><td className={STD_C}>Top 50% país</td><td className={STD_C}>Top 25–50%</td><td className={STD_C}>Top 10–25%</td><td className={STD_C}>Bottom 10%</td></tr>
-            <tr className="bg-slate-50"><td className={STD + ' font-medium'}>Producto</td><td className={STD_C}>SaaS</td><td className={STD_C}>Puntos</td><td className={STD_C}>SuperCard</td><td className={STD_C}>GiftCard</td></tr>
-            <tr><td className={STD + ' font-medium'}>Meses</td><td className={STD_C}>4+ meses</td><td className={STD_C}>3 meses</td><td className={STD_C}>2 meses</td><td className={STD_C}>1 mes</td></tr>
-            <tr className="bg-slate-50"><td className="px-3 py-2 text-[11px] text-slate-600 font-medium">Margen</td><td className={STD_C}>≥ 40%</td><td className={STD_C}>20–40%</td><td className={STD_C}>8–20%</td><td className="px-3 py-2 text-center text-[11px] text-slate-600">&lt; 8%</td></tr>
-          </tbody>
-        </table>
+        <div className="tabla-scroll">
+          <table className="w-full border-collapse text-[11px] rounded-lg overflow-hidden">
+            <thead><tr><th className={STH}>Variable</th><th className={STH_C}>4 pts</th><th className={STH_C}>3 pts</th><th className={STH_C}>2 pts</th><th className={STH_C}>1 pt</th></tr></thead>
+            <tbody>
+              <tr><td className={STD + ' font-medium'}>Volumen</td><td className={STD_C}>Top 50% país</td><td className={STD_C}>Top 25–50%</td><td className={STD_C}>Top 10–25%</td><td className={STD_C}>Bottom 10%</td></tr>
+              <tr className="bg-slate-50"><td className={STD + ' font-medium'}>Producto</td><td className={STD_C}>SaaS</td><td className={STD_C}>Puntos</td><td className={STD_C}>SuperCard</td><td className={STD_C}>GiftCard</td></tr>
+              <tr><td className={STD + ' font-medium'}>Meses</td><td className={STD_C}>4+ meses</td><td className={STD_C}>3 meses</td><td className={STD_C}>2 meses</td><td className={STD_C}>1 mes</td></tr>
+              <tr className="bg-slate-50"><td className="px-3 py-2 text-[11px] text-slate-600 font-medium">Margen</td><td className={STD_C}>≥ 40%</td><td className={STD_C}>20–40%</td><td className={STD_C}>8–20%</td><td className="px-3 py-2 text-center text-[11px] text-slate-600">&lt; 8%</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div>
@@ -769,12 +803,12 @@ export function SegInfoModal({ tipo, onClose }: { tipo: 'estacionales' | 'recurr
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-5" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto relative"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-xl alto-modal overflow-y-auto relative"
         onClick={e => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-5 bg-transparent border-none text-[22px] text-slate-400 hover:text-slate-600 cursor-pointer z-10"
+          className="absolute top-4 right-5 grid place-items-center w-10 h-10 sm:block sm:w-auto sm:h-auto bg-transparent border-none text-[22px] text-slate-400 hover:text-slate-600 cursor-pointer z-10"
         >✕</button>
         {tipo === 'estacionales' ? <SegEstContent /> : <SegRecContent />}
       </div>

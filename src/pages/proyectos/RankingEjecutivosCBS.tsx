@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card } from '../../components/ui';
+import { Card, OrdenadorMovil } from '../../components/ui';
 import type { FilaRanking } from '../../lib/cbs';
 import { fmtUSDCorto, fmtUSDExacto } from '../../lib/cbs';
 
@@ -51,8 +51,13 @@ export function RankingEjecutivosCBS({ filas, titulo, etiquetaVacia }: {
         <span className="text-[11px] text-slate-400">Clic en una columna para reordenar</span>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
+      <div className="overflow-x-auto tabla-scroll">
+        {/* Apilada, la tabla pierde el encabezado y con él el orden por clic. */}
+        <OrdenadorMovil id={`orden-${titulo}`} columnas={COLUMNAS} orden={orden} onChange={setOrden} />
+
+        {/* `min-w-[640px]` se conserva tal cual: la regla de apilado lo neutraliza
+            desde el CSS, así que en desktop la tabla mide exactamente lo de antes. */}
+        <table className="w-full text-sm min-w-[640px] tabla-apilable">
           <thead>
             <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
               <th className="text-left font-medium pb-2">Ejecutivo</th>
@@ -79,24 +84,24 @@ export function RankingEjecutivosCBS({ filas, titulo, etiquetaVacia }: {
               const enCero = f.sponsors === 0 && f.cuentas > 0;
               return (
                 <tr key={f.nombre} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
-                  <td className="py-2 pr-3">
+                  <td className="py-2 pr-3" data-titular>
                     <div className="text-slate-700 whitespace-nowrap">{f.nombre}</div>
                     {/* Barra de peso: cuánto de la plata del proyecto tiene en la mano */}
                     <div className="h-1 w-24 bg-slate-100 rounded-full mt-1 overflow-hidden">
                       <div className="h-full rounded-full bg-slate-300" style={{ width: `${(f.usd / maxUsd) * 100}%` }} />
                     </div>
                   </td>
-                  <td className="py-2 pl-3 text-right tabular-nums text-slate-600">{f.cuentas}</td>
+                  <td className="py-2 pl-3 text-right tabular-nums text-slate-600" data-label="Cuentas">{f.cuentas}</td>
                   <td className="py-2 pl-3 text-right tabular-nums text-slate-700 font-medium whitespace-nowrap"
-                      title={fmtUSDExacto(f.usd)}>
+                      data-label="USD 12m" title={fmtUSDExacto(f.usd)}>
                     {fmtUSDCorto(f.usd)}
                   </td>
-                  <td className={`py-2 pl-3 text-right tabular-nums font-semibold ${
+                  <td data-label="Sponsors" className={`py-2 pl-3 text-right tabular-nums font-semibold ${
                     enCero ? 'text-rose-600' : 'text-emerald-600'
                   }`}>
                     {f.sponsors}
                   </td>
-                  <td className="py-2 pl-3 text-right">
+                  <td className="py-2 pl-3 text-right" data-label="Avance">
                     <div className="flex items-center justify-end gap-2">
                       <div className="h-1.5 w-14 bg-slate-100 rounded-full overflow-hidden">
                         <div
@@ -112,7 +117,7 @@ export function RankingEjecutivosCBS({ filas, titulo, etiquetaVacia }: {
                       </span>
                     </div>
                   </td>
-                  <td className="py-2 pl-3 text-right tabular-nums">
+                  <td className="py-2 pl-3 text-right tabular-nums" data-label="Sin tocar">
                     {f.sinTocar > 0
                       ? <span className="text-rose-600 font-semibold" title={fmtUSDExacto(f.usdSinTocar)}>{f.sinTocar}</span>
                       : <span className="text-slate-300">—</span>}
