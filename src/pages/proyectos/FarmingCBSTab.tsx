@@ -140,7 +140,7 @@ export function FarmingCBSTab({ filas }: Props) {
           <h3 className="text-sm font-bold text-slate-700 mb-3">Dónde está el valor</h3>
           {tiers.length === 0 ? <SinDatos /> : (
             <div className="tabla-scroll">
-              <table className="w-full text-sm tabla-apilable">
+              <table className="w-full text-sm tabla-apilable-vp">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
                     <th className="text-left  font-medium pb-2">Tier</th>

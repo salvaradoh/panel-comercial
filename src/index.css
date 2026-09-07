@@ -244,3 +244,116 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Variante por VIEWPORT: `.tabla-apilable-vp`
+   ───────────────────────────────────────────────────────────────────────────
+   Mismo apilado, distinto disparador. Existe porque hay tablas para las que la
+   container query da la respuesta equivocada, y no por un umbral mal elegido
+   sino porque los dos casos se solapan y ningún umbral los separa:
+
+     ficha de cliente, media columna (escritorio)  332–412px
+     MovimientosTab, un tercio (escritorio)            ~370px
+     teléfono, columna completa                        ~358px
+
+   Esas tablas viven en columnas compactas por diseño —texto de 10px, pocas
+   columnas, pensadas para leerse densas al costado de otra cosa—. Apiladas en
+   escritorio ocupan cinco veces el alto sin ganar nada, que es exactamente lo
+   que se veía en "Evolución del score" y "Últimas ventas".
+
+   `.tabla-apilable` (contenedor) sigue siendo el caso normal, y es el correcto
+   para una tabla que aparece en varios contextos de ancho distinto. Esta
+   variante es para la tabla que vive en UN contexto compacto conocido.
+
+   Las reglas están duplicadas a propósito: CSS no permite un solo cuerpo bajo
+   la condición "@container O @media", y compartirlo con `:is()` obligaría igual
+   a repetir el bloque. Si se toca una, tocar la otra.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 40rem) {
+  /* Los min-w-[NNNpx] que ya tienen las tablas son justamente lo que impide
+     apilar. Se neutralizan acá, dentro de la consulta, en vez de tocar las
+     clases de cada tabla: así el desktop queda garantizado idéntico —la regla
+     no existe fuera de este bloque— y no hay 8 ediciones que revisar. */
+  .tabla-apilable-vp { min-width: 0 !important; }
+
+  /* tr como bloque dentro de una display:table se comporta de forma despareja
+     entre motores; se baja toda la cadena a bloque. */
+  .tabla-apilable-vp,
+  .tabla-apilable-vp tbody,
+  .tabla-apilable-vp tfoot { display: block; }
+
+  .tabla-apilable-vp thead,
+  .tabla-apilable-vp colgroup { display: none; }
+
+  .tabla-apilable-vp tr {
+    display: block;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .tabla-apilable-vp tr:last-child { border-bottom: 0; }
+
+  .tabla-apilable-vp td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.15rem 0;
+    text-align: right;
+    /* Las tablas traen border-b en las celdas para las líneas de la grilla;
+       apiladas, esas líneas cortan la tarjeta por dentro. */
+    border: 0;
+    /* whitespace-nowrap es común en las celdas y acá provoca desborde. */
+    white-space: normal;
+  }
+
+  .tabla-apilable-vp td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94a3b8;
+    text-align: left;
+    flex: none;
+    max-width: 45%;
+  }
+
+  /* Un `<th scope="row">` ya declara, semánticamente, que esa celda identifica
+     la fila. Así que encabeza la tarjeta sin necesidad de marcarlo con
+     `data-titular`: la tabla bien hecha se apila sola. */
+  .tabla-apilable-vp tbody th[scope="row"],
+  .tabla-apilable-vp tfoot th[scope="row"] {
+    display: block;
+    text-align: left;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+
+  /* La celda titular encabeza la tarjeta: sin etiqueta y a ancho completo. */
+  .tabla-apilable-vp td[data-titular] {
+    display: block;
+    text-align: left;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+  }
+  .tabla-apilable-vp td[data-titular]::before { content: none; }
+
+  /* Celdas de detalle: se esconden al apilar.
+     Una tabla de 11 columnas como tarjeta es una pared de 11 líneas por
+     cliente, así que solo quedan las que se barren de un vistazo.
+     El resto no se pierde: donde la fila abre una ficha —el caso de la tabla de
+     Clientes—, ahí esos datos se leen mejor que en una línea, y la ficha ya es
+     de ancho completo por debajo de 1280px. Para una tabla SIN ficha, poner
+     `data-abierta` en el <tr> los despliega en la tarjeta misma. */
+  .tabla-apilable-vp td[data-secundario] { display: none; }
+  .tabla-apilable-vp tr[data-abierta] td[data-secundario] { display: flex; }
+
+  /* Filas de estado vacío ("no hay datos") usan colspan y no tienen etiqueta. */
+  .tabla-apilable-vp td[colspan] {
+    display: block;
+    text-align: center;
+  }
+  .tabla-apilable-vp td[colspan]::before { content: none; }
+}

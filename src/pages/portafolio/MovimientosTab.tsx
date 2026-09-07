@@ -275,7 +275,7 @@ function VistaSemaforo({ data, kam }: { data: MovimientosResponse; kam?: string 
         <Card>
           <h3 className="text-sm font-semibold text-slate-700 mb-3">Detalle mensual</h3>
           <div className="overflow-x-auto tabla-scroll">
-            <table className="w-full text-sm tabla-apilable">
+            <table className="w-full text-sm tabla-apilable-vp">
               <caption className="sr-only">
                 Clientes por tramo de días sin comprar y movimientos entre tramos, por mes
               </caption>
@@ -318,7 +318,7 @@ function VistaSemaforo({ data, kam }: { data: MovimientosResponse; kam?: string 
             Foto de {etiquetaMes(ultimo.mes)}, ordenada por inactivos.
           </p>
           <div className="overflow-x-auto tabla-scroll">
-            <table className="w-full text-sm tabla-apilable">
+            <table className="w-full text-sm tabla-apilable-vp">
               <thead>
                 <tr className="text-slate-400 border-b border-slate-200 text-xs">
                   <th scope="col" className="text-left font-medium py-2">Ejecutivo</th>
@@ -955,7 +955,7 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
               Q{ult.trimestre} {ult.anio}, ordenado por clientes en churn.
             </p>
             <div className="overflow-x-auto tabla-scroll">
-              <table className="w-full text-sm tabla-apilable">
+              <table className="w-full text-sm tabla-apilable-vp">
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-200 text-xs">
                     <th scope="col" className="text-left font-medium py-2">Ejecutivo</th>
@@ -1027,7 +1027,7 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
           </p>
           {verClientes && (
             <div className="mt-3 overflow-x-auto max-h-[420px] overflow-y-auto tabla-scroll">
-              <table className="w-full text-sm tabla-apilable">
+              <table className="w-full text-sm tabla-apilable-vp">
                 <thead className="sticky top-0 bg-white">
                   <tr className="text-slate-400 border-b border-slate-200 text-xs">
                     <th scope="col" className="text-left font-medium py-2">Cliente</th>

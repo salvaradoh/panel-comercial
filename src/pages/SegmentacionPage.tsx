@@ -262,7 +262,7 @@ function Transacciones({ c }: { c: ClienteTabla }) {
         <>
           <div className="max-h-64 overflow-y-auto -mx-1 px-1">
             <div className="tabla-scroll">
-              <table className="w-full text-xs tabla-apilable">
+              <table className="w-full text-xs tabla-apilable-vp">
                 <caption className="sr-only">Últimas ventas del cliente</caption>
                 <thead className="sticky top-0 bg-white">
                   <tr className="text-slate-400 text-[10px] border-b border-slate-100">
@@ -1019,7 +1019,7 @@ function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; histo
           {hist.length > 0 && (
             <div className="mt-3">
               <div className="tabla-scroll">
-                <table className="w-full text-[10px] tabla-apilable">
+                <table className="w-full text-[10px] tabla-apilable-vp">
                   <thead>
                     <tr className="text-slate-400 border-b border-slate-100">
                       <th className="text-left pb-1 font-semibold">Semana</th>
