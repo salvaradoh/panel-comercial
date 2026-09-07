@@ -44,6 +44,55 @@ function bgHeat(valor: number, max: number) {
   return `rgba(0, 151, 167, ${alpha.toFixed(2)})`;
 }
 
+/** Columna por la que está ordenada la matriz. Las dos claves con guiones bajos
+    no son países: son la columna de nombre y la de total, que también ordenan. */
+type OrdenCol = string;
+interface Orden { col: OrdenCol; dir: 'asc' | 'desc' }
+
+const ORDEN_INICIAL: Orden = { col: '__total', dir: 'desc' };
+
+// Explícitas y no interpoladas: Tailwind extrae las clases del código fuente,
+// así que un `justify-${variable}` nunca se genera y la clase sale vacía.
+const JUSTIFY = { start: 'justify-start', center: 'justify-center', end: 'justify-end' } as const;
+
+/**
+ * Encabezado que ordena al hacer clic.
+ *
+ * El botón va DENTRO del <th> y el `aria-sort` en el <th>. Las otras tablas del
+ * panel ponen el `onClick` sobre el propio <th>, que se ve igual pero no se
+ * puede alcanzar con el teclado —un <th> no es enfocable ni responde a Enter—.
+ * Acá el <button> lo resuelve sin código extra: trae foco, activación por
+ * teclado y semántica de control.
+ */
+function ThOrden({ etiqueta, col, orden, onOrdenar, justify = 'center', className = '' }: {
+  etiqueta: string;
+  col: OrdenCol;
+  orden: Orden;
+  onOrdenar: (col: OrdenCol) => void;
+  justify?: 'start' | 'center' | 'end';
+  className?: string;
+}) {
+  const activo = orden.col === col;
+  return (
+    <th
+      aria-sort={activo ? (orden.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`font-semibold uppercase tracking-wide text-[10px] pb-2 ${className}`}
+    >
+      <button
+        type="button"
+        onClick={() => onOrdenar(col)}
+        className={`inline-flex w-full items-center gap-1 ${JUSTIFY[justify]} uppercase tracking-wide
+                    transition-colors ${activo ? 'text-[#0097A7]' : 'text-slate-500 hover:text-slate-700'}`}
+      >
+        {etiqueta}
+        <span aria-hidden="true" className={`text-[8px] ${activo ? 'opacity-100' : 'opacity-25'}`}>
+          {activo && orden.dir === 'asc' ? '▲' : '▼'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export function IndustriaPaisTab({ pais: filterPais }: { pais?: string } = {}) {
   const { data: todos, isLoading, isError, error } = useTablaClientes();
   const facturacion = useFacturacionMensual();
@@ -59,6 +108,7 @@ export function IndustriaPaisTab({ pais: filterPais }: { pais?: string } = {}) {
   const [periodoMes, setPeriodoMes] = useState('');
   const [detalle, setDetalle] = useState<{ titulo: string; subtitulo: string; clientes: ClienteConUsd[] } | null>(null);
   const [descargando, setDescargando] = useState(false);
+  const [orden, setOrden] = useState<Orden>(ORDEN_INICIAL);
 
   // Años/meses disponibles salen de la facturación mensual (últimos 48 meses,
   // ver useFacturacionMensual) — más reciente primero. Sin selección propia
@@ -182,12 +232,43 @@ export function IndustriaPaisTab({ pais: filterPais }: { pais?: string } = {}) {
   }, [todos, tipos, agruparPor, paisSel, verPor, escala, usdDe]);
 
   const industriasFiltradas = useMemo(() => {
-    if (agruparPor !== 'pais' || !soloConHueco) return datos.industrias;
-    return datos.industrias.filter(ind => {
-      const fila = datos.matriz.get(ind);
-      return datos.columnas.some(col => !fila?.get(col)?.count);
+    const base = (agruparPor !== 'pais' || !soloConHueco)
+      ? datos.industrias
+      : datos.industrias.filter(ind => {
+          const fila = datos.matriz.get(ind);
+          return datos.columnas.some(col => !fila?.get(col)?.count);
+        });
+
+    // La columna elegida puede dejar de existir: al pasar de agrupar por país a
+    // agrupar por tipo, o al filtrar a un solo país. En ese caso se cae al total
+    // en lugar de quedar ordenando por una columna que ya no está.
+    const col = (orden.col === '__total' || orden.col === '__industria'
+                 || datos.columnas.includes(orden.col))
+      ? orden.col
+      : '__total';
+
+    const valor = (ind: string) => col === '__total'
+      ? datos.valorTotalFila(ind)
+      : datos.valorCelda(ind, col);
+
+    const signo = orden.dir === 'asc' ? 1 : -1;
+    return [...base].sort((a, b) => {
+      if (col === '__industria') return signo * a.localeCompare(b, 'es');
+      const d = valor(a) - valor(b);
+      // El desempate alfabético no es cosmético: sin él, dos industrias con el
+      // mismo valor pueden intercambiar lugar entre renders y la tabla "salta".
+      return d !== 0 ? signo * d : a.localeCompare(b, 'es');
     });
-  }, [datos, agruparPor, soloConHueco]);
+  }, [datos, agruparPor, soloConHueco, orden]);
+
+  function ordenar(col: OrdenCol) {
+    setOrden(prev => prev.col === col
+      // Misma columna: alterna el sentido.
+      ? { col, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+      // Columna nueva: los nombres arrancan de la A, los números del más alto,
+      // que es lo que se espera de cada uno.
+      : { col, dir: col === '__industria' ? 'asc' : 'desc' });
+  }
 
   if (isLoading) return <div className="h-64 animate-pulse rounded-2xl bg-slate-50" />;
   if (isError) {
@@ -404,17 +485,14 @@ export function IndustriaPaisTab({ pais: filterPais }: { pais?: string } = {}) {
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr>
-                <th className="text-left font-semibold text-slate-500 uppercase tracking-wide text-[10px] pb-2 pr-3 sticky left-0 bg-white">
-                  Industria
-                </th>
+                <ThOrden etiqueta="Industria" col="__industria" orden={orden} onOrdenar={ordenar}
+                         justify="start" className="text-left pr-3 sticky left-0 bg-white" />
                 {datos.columnas.map(col => (
-                  <th key={col} className="text-center font-semibold text-slate-500 uppercase tracking-wide text-[10px] pb-2 px-2 min-w-[64px]">
-                    {datos.labelDe(col)}
-                  </th>
+                  <ThOrden key={col} etiqueta={datos.labelDe(col)} col={col} orden={orden} onOrdenar={ordenar}
+                           className="text-center px-2 min-w-[64px]" />
                 ))}
-                <th className="text-right font-semibold text-slate-500 uppercase tracking-wide text-[10px] pb-2 pl-3">
-                  Total
-                </th>
+                <ThOrden etiqueta="Total" col="__total" orden={orden} onOrdenar={ordenar}
+                         justify="end" className="text-right pl-3" />
               </tr>
             </thead>
             <tbody>

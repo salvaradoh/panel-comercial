@@ -13,6 +13,7 @@ import { useTransacciones } from '../hooks/useTransacciones';
 import { useTrack } from '../hooks/useTrack';
 import { useContactos } from '../hooks/useContactos';
 import { useActividad } from '../hooks/useActividad';
+import { ChipIndustria } from '../components/ClienteIndustriaChip';
 
 const POR_PAGINA = 50;
 
@@ -809,6 +810,9 @@ function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; histo
                   </span>
                 </>
               )}
+              {/* Mismo chip editable del Comparador (useIndustriaViva/useEditarIndustria):
+                  se puede corregir la industria acá mismo, sin ir a otro tab. */}
+              <ChipIndustria c={c} />
             </div>
           </div>
 
