@@ -127,8 +127,19 @@ export function OverviewTab({ metas, anio, mes, onSelectPais }: OverviewTabProps
       ? serieActual.reduce((s, pt) => s + pt.value, 0)
       : p.avanceAnualUSD;
 
+    // Año anterior al MISMO tramo, no a meses cerrados. `paisesMesAnt` trae los
+    // meses completos de 2025, así que en el mes en curso comparaba 8 meses y
+    // medio de 2026 contra 9 de 2025 —de ahí salían los 30.7M de LATAM cuando el
+    // tramo equivalente eran 28.2M—. `avanceAnt` de Cache_Reporte ya viene
+    // truncado a la semana en curso, que es el criterio del resto del panel.
+    const mesesPais = paisesMensualData[normPais(p.nombre)] ?? {};
+    const avanceAntTramo = Array.from({ length: mes }, (_, i) => i + 1)
+      .reduce((s, m) => s + (mesesPais[`${anio}-${m - 1}`]?.avanceAnt ?? 0), 0);
+    // Respaldo a la serie mensual mientras Cache_Reporte no tenga el año anterior.
     const serieAnt = filtraMes(paisesMesAnt?.[p.nombre] ?? []);
-    const avanceYoY = serieAnt.reduce((s, pt) => s + pt.value, 0);
+    const avanceYoY = avanceAntTramo > 0
+      ? avanceAntTramo
+      : serieAnt.reduce((s, pt) => s + pt.value, 0);
     const varYoY = avance - avanceYoY;
     const varYoYPct = avanceYoY > 0 ? (varYoY / avanceYoY) * 100 : undefined;
 

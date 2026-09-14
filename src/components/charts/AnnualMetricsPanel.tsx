@@ -53,6 +53,7 @@ function AvanceCombinedCard({
   mesAvance, mesMeta,
   semAvance, semMeta,
   mesAvanceAnt,
+  mesAvanceAntTramo,
   mesLoading, semLoading,
   compact = false,
   className,
@@ -62,6 +63,7 @@ function AvanceCombinedCard({
   mesAvance: number; mesMeta: number; proyeccionMes: number | null;
   semAvance: number; semMeta: number; proyeccionSem: number | null;
   mesAvanceAnt: number;
+  mesAvanceAntTramo: number;
   mesLoading: boolean; semLoading: boolean;
   compact?: boolean;
   className?: string;
@@ -70,7 +72,7 @@ function AvanceCombinedCard({
   const semCumpl  = semMeta > 0 ? semAvance / semMeta : 0;
   const mesColor  = mesCumpl >= 1 ? '#10b981' : mesCumpl >= 0.8 ? '#f59e0b' : '#ef4444';
   const semColor  = semCumpl >= 1 ? '#10b981' : semCumpl >= 0.8 ? '#f59e0b' : '#ef4444';
-  const yoy       = !compact && mesAvanceAnt > 0 ? ((mesAvance - mesAvanceAnt) / mesAvanceAnt) * 100 : null;
+  const yoy       = !compact && mesAvanceAntTramo > 0 ? ((mesAvance - mesAvanceAntTramo) / mesAvanceAntTramo) * 100 : null;
   const mesGap    = mesMeta - mesAvance;
   const semGap    = semMeta - semAvance;
 
@@ -197,6 +199,13 @@ export function AnnualMetricsPanel({ ytdActual, anio, mes, proyeccionYoY, horizo
   const semAvance    = sum(semMetas,    'avance');
   const semMeta      = sum(semMetas,    'meta');
   const mesAvanceAnt = sum(mesMetasAnt, 'avance');
+  // El cierre del mes del año pasado sirve como referencia de a dónde hay que
+  // llegar, y por eso se sigue mostrando. Pero el PORCENTAJE no puede salir de
+  // ahí: en el mes en curso compara días contra un mes entero. `avanceYoY` de
+  // useMetas es `avance_men_ant`, el mismo mes del año pasado acotado a la
+  // semana en curso —el criterio que usa el resto del panel.
+  const mesAvanceAntTramo = (mesMetas ?? { paises: [] }).paises
+    .reduce((s, p) => s + (p.avanceYoY ?? 0), 0);
 
   // Proyecciones precomputadas por GAS (cols 8 y 9 del Cache_Reporte) — fuente primaria
   const proyeccionMesGAS = sumProy(semMetas, 'proyeccionMes');
@@ -290,6 +299,7 @@ export function AnnualMetricsPanel({ ytdActual, anio, mes, proyeccionYoY, horizo
           semMeta={semMeta}
           proyeccionSem={proyeccionSem}
           mesAvanceAnt={mesAvanceAnt}
+          mesAvanceAntTramo={mesAvanceAntTramo}
           mesLoading={mesLoading}
           semLoading={semLoading}
           compact={horizontal}

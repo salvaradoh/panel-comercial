@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { useSeries } from '../../hooks/useSeries';
 import { useForecastAnual } from '../../hooks/useForecastAnual';
+import { usePaisesMensual } from '../../hooks/useMetas';
 import { useForecastKam } from '../../hooks/useForecastKam';
 import { useKamMensual } from '../../hooks/useKamMensual';
 
@@ -48,6 +49,11 @@ interface MonthData {
   forecast: number;       // valor raw de HubSpot
   forecastRemaining: number; // max(0, forecast - avance) para mes actual; forecast para futuros
   prevYear: number;
+  /** Año anterior acotado al mismo tramo que lleva el mes. Igual a `prevYear` en
+      los meses cerrados; solo difiere en el que está en curso. La barra sigue
+      mostrando `prevYear` —el mes entero del año pasado es la referencia de a
+      dónde hay que llegar— pero los porcentajes se calculan con esto. */
+  prevYearTramo: number;
   isCurrent: boolean;
   isFuture: boolean;
   isBest: boolean;
@@ -58,8 +64,8 @@ function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload as MonthData;
   if (!d) return null;
-  const yoyDiff = d.avance > 0 && d.prevYear > 0
-    ? ((d.avance - d.prevYear) / d.prevYear) * 100
+  const yoyDiff = d.avance > 0 && d.prevYearTramo > 0
+    ? ((d.avance - d.prevYearTramo) / d.prevYearTramo) * 100
     : null;
   return (
     <div className="bg-white border border-slate-100 rounded-xl px-3 py-2.5 shadow-lg text-xs min-w-[165px]">
@@ -168,6 +174,10 @@ export function MonthlyForecastChart({ anio, currentMes, ytdReal, latamSeries, l
     anio - 1, 'mes', isLatam ? undefined : selectedPais
   );
   const { data: forecastAnual } = useForecastAnual(anio);
+  // `avanceAnt` de Cache_Reporte: el año anterior ya truncado a la semana en
+  // curso. A nivel ejecutivo esas filas vienen en 0, así que la vista "Yo" se
+  // queda comparando contra el mes entero; se marca abajo.
+  const paisesMensualData = usePaisesMensual(anio);
 
   // Datos del ejecutivo. Los hooks se llaman siempre (regla de hooks) pero solo
   // se habilitan cuando hay nombre; su resultado se usa únicamente si verYo.
@@ -207,6 +217,15 @@ export function MonthlyForecastChart({ anio, currentMes, ytdReal, latamSeries, l
   const pastAvances = Array.from({ length: currentMes - 1 }, (_, i) => avanceByMes[i + 1] ?? 0);
   const maxPastAvance = pastAvances.length > 0 ? Math.max(...pastAvances) : 0;
 
+  // Año anterior al mismo tramo, por mes, desde Cache_Reporte.
+  const antTramoDe = (mesN: number): number => {
+    const key = `${anio}-${mesN - 1}`;
+    if (verYo) return 0;   // sin dato a nivel ejecutivo
+    if (isLatam) return Object.values(paisesMensualData)
+      .reduce((t, m) => t + (m[key]?.avanceAnt ?? 0), 0);
+    return paisesMensualData[selectedPais]?.[key]?.avanceAnt ?? 0;
+  };
+
   // Datos mensuales base
   const monthlyData: MonthData[] = Array.from({ length: 12 }, (_, i) => {
     const mesN = i + 1;
@@ -224,6 +243,8 @@ export function MonthlyForecastChart({ anio, currentMes, ytdReal, latamSeries, l
       forecast,
       forecastRemaining,
       prevYear: prevByMes[mesN] ?? 0,
+      // Solo el mes en curso puede diferir; en los cerrados el tramo es el mes.
+      prevYearTramo: isCurrent ? (antTramoDe(mesN) || (prevByMes[mesN] ?? 0)) : (prevByMes[mesN] ?? 0),
       isCurrent,
       isFuture,
       isBest,
@@ -238,6 +259,9 @@ export function MonthlyForecastChart({ anio, currentMes, ytdReal, latamSeries, l
     const forecast = months.reduce((s, d) => s + d.forecast, 0);
     const forecastRemaining = months.reduce((s, d) => s + d.forecastRemaining, 0);
     const prevYear = months.reduce((s, d) => s + d.prevYear, 0);
+    // El trimestre hereda el criterio de sus meses: los cerrados suman completo
+    // y el que está en curso suma solo su tramo.
+    const prevYearTramo = months.reduce((s, d) => s + d.prevYearTramo, 0);
     const isCurrent = q.meses.includes(currentMes);
     const isFuture = months.every(d => d.isFuture);
     const isBest = !isCurrent && !isFuture && avance === Math.max(
@@ -248,7 +272,7 @@ export function MonthlyForecastChart({ anio, currentMes, ytdReal, latamSeries, l
     return {
       mes: q.label,
       mesN: q.meses[0],
-      avance, forecast, forecastRemaining, prevYear,
+      avance, forecast, forecastRemaining, prevYear, prevYearTramo,
       isCurrent, isFuture, isBest,
       forecastLabel: isCurrent && forecast > 0 ? avance + forecastRemaining : undefined,
     };
@@ -285,7 +309,7 @@ export function MonthlyForecastChart({ anio, currentMes, ytdReal, latamSeries, l
   const projected = ytdDisplay + forecastPorCerrar;
   const ytdPrevYear = monthlyData
     .filter(d => !d.isFuture)
-    .reduce((s, d) => s + d.prevYear, 0);
+    .reduce((s, d) => s + d.prevYearTramo, 0);
   const yoyPct = ytdPrevYear > 0 ? ((ytdDisplay - ytdPrevYear) / ytdPrevYear) * 100 : null;
 
   // Aura María Ávila no tiene ninguna fila en Cache_Reporte (no existe su
