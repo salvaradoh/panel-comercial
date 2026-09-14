@@ -11,6 +11,7 @@ import { NovedadesTicker } from './components/layout/NovedadesTicker';
 import type { Tab } from './components/layout';
 import { useTrack } from './hooks/useTrack';
 import { useUserRole } from './hooks/useUserRole';
+import { usePreferencias } from './hooks/usePreferencias';
 import type { UserRoleData } from './hooks/useUserRole';
 
 const MetasPage        = React.lazy(() => import('./pages/MetasPage').then((m) => ({ default: m.MetasPage })));
@@ -132,6 +133,7 @@ function Dashboard() {
   // Preselección del filtro de cambios al saltar de Overview → Clientes
   const [presetCambio, setPresetCambio] = useState<'mejoraron' | 'empeoraron' | 'cualquiera' | undefined>();
   const { track } = useTrack();
+  const { prefs, cambiar } = usePreferencias();
 
   const isAdmin    = !roleLoading && userRole?.rol === 'Admin';
   const isExec     = !roleLoading && userRole?.rol === 'Ejecutivo';
@@ -218,6 +220,10 @@ function Dashboard() {
   const showPeriod = activeTab !== 'cartera' && activeTab !== 'herramientas'
     && activeTab !== 'novedades' && activeTab !== 'campanas' && activeTab !== 'proyectos';
 
+  // El ticker y el espacio que se le reserva son la MISMA decisión: si se
+  // separan, ocultarlo deja un margen muerto de 226px a la derecha.
+  const hayTicker = activeTab !== 'novedades' && prefs.tickerNovedades;
+
   return (
     <div className="flex flex-col h-screen shell-alto">
       <TopNav
@@ -225,6 +231,8 @@ function Dashboard() {
         isAdmin={isAdmin}
         viewAs={viewAs}
         onViewAs={setViewAs}
+        tickerVisible={prefs.tickerNovedades}
+        onTickerVisible={(v) => cambiar('tickerNovedades', v)}
       />
       <SubNav active={activeTab} onChange={handleTabChange} visibleTabs={visibleTabs} />
       {showPeriod && (
@@ -238,7 +246,7 @@ function Dashboard() {
           queda, así que ninguna página vuelve a quedar tapada.
           Se aplica solo cuando el ticker existe: en el tab de Novedades no se
           monta y sería un margen muerto. */}
-      <main className={`flex-1 overflow-auto bg-slate-50 ${activeTab !== 'novedades' ? 'xl:pr-[226px]' : ''}`}>
+      <main className={`flex-1 overflow-auto bg-slate-50 ${hayTicker ? 'xl:pr-[226px]' : ''}`}>
         <div className="mx-auto w-full px-4 sm:px-6" style={{ maxWidth: '1200px' }}>
           {activeTab === 'mivista' && effectiveRole && (
             <ErrorBoundary>
@@ -318,9 +326,12 @@ function Dashboard() {
         </div>
       </main>
       {/* Ticker fijo a la derecha; se oculta en el propio tab de Novedades para no duplicar */}
-      {activeTab !== 'novedades' && (
+      {hayTicker && (
         <ErrorBoundary fallback={() => null}>
-          <NovedadesTicker onOpen={() => handleTabChange('novedades')} />
+          <NovedadesTicker
+            onOpen={() => handleTabChange('novedades')}
+            onOcultar={() => cambiar('tickerNovedades', false)}
+          />
         </ErrorBoundary>
       )}
     </div>

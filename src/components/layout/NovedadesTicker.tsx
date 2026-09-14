@@ -33,6 +33,7 @@ const TIPO_LABEL: Record<string, string> = {
 
 interface NovedadesTickerProps {
   onOpen: () => void;
+  onOcultar?: () => void;
 }
 
 function TickerItem({ n, onOpen }: { n: Novedad; onOpen: () => void }) {
@@ -133,7 +134,7 @@ function ReaccionesCompactas({ lista }: { lista: { emoji: string; n: number }[] 
  * en pantallas anchas sobra espacio a la derecha. Va `fixed` para no reestructurar
  * el layout, y se oculta bajo xl donde se montaría encima del contenido.
  */
-export function NovedadesTicker({ onOpen }: NovedadesTickerProps) {
+export function NovedadesTicker({ onOpen, onOcultar }: NovedadesTickerProps) {
   const { data: novedades } = useNovedades();
 
   // Cupo por tipo, no los N más recientes a secas: si no, una racha de
@@ -178,6 +179,19 @@ export function NovedadesTicker({ onOpen }: NovedadesTickerProps) {
         <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400">
           Novedades
         </span>
+        {onOcultar && (
+          <button
+            onClick={onOcultar}
+            aria-label="Ocultar la barra de novedades"
+            title="Ocultar. Se vuelve a activar desde el menú de tu perfil."
+            className="ml-auto grid place-items-center w-6 h-6 -mr-1 rounded text-slate-300
+                       hover:text-slate-500 hover:bg-slate-100 transition-colors"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+              <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="nov-ticker-mask flex-1 overflow-hidden relative">

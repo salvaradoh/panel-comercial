@@ -15,6 +15,8 @@ interface TopNavProps {
   isAdmin?: boolean;
   viewAs?: UserRoleData | null;
   onViewAs?: (exec: UserRoleData | null) => void;
+  tickerVisible?: boolean;
+  onTickerVisible?: (visible: boolean) => void;
 }
 
 /**
@@ -34,7 +36,7 @@ function useCierreDeMenu(abierto: boolean, cerrar: () => void) {
   }, [abierto, cerrar]);
 }
 
-export function TopNav({ onLogout, isAdmin, viewAs, onViewAs }: TopNavProps) {
+export function TopNav({ onLogout, isAdmin, viewAs, onViewAs, tickerVisible, onTickerVisible }: TopNavProps) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [perfilAbierto, setPerfilAbierto] = useState(false);
@@ -192,6 +194,20 @@ export function TopNav({ onLogout, isAdmin, viewAs, onViewAs }: TopNavProps) {
                     <p className="text-sm font-semibold text-slate-700 truncate">{user?.name}</p>
                     <p className="text-xs text-slate-400 truncate">{user?.email}</p>
                   </div>
+                  {onTickerVisible && (
+                    <label className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-slate-600
+                                      hover:bg-slate-50 transition-colors cursor-pointer border-b border-slate-100">
+                      <span>Barra de novedades</span>
+                      {/* Checkbox nativo: trae foco, teclado y el estado que
+                          anuncia el lector de pantalla, sin nada que escribir. */}
+                      <input
+                        type="checkbox"
+                        checked={tickerVisible ?? true}
+                        onChange={e => onTickerVisible(e.target.checked)}
+                        className="w-4 h-4 accent-[#0097A7] cursor-pointer flex-shrink-0"
+                      />
+                    </label>
+                  )}
                   <button
                     onClick={() => { cerrarPerfil(); onLogout(); }}
                     className="w-full text-left px-4 py-3 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
