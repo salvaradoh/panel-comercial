@@ -88,7 +88,7 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
       {subActivo === 'overview'      && <OverviewTab pais={filterPais} onVerCambios={onVerCambios} />}
       {subActivo === 'salud'         && <SaludTab tipo={portafolioTab} anio={anio} />}
       {subActivo === 'segmentacion'  && <SegmentacionTab tipo={portafolioTab} />}
-      {subActivo === 'ipc'           && <IPCTab filterPais={filterPais} />}
+      {subActivo === 'ipc'           && <IPCTab />}
       {subActivo === 'cuentas-clave' && <ComparadorTab filterPais={filterPais} filterKam={filterKam} />}
       {subActivo === 'industria'     && <IndustriaPaisTab pais={filterPais} />}
       {subActivo === 'movimientos' && <MovimientosTab pais={filterPais} kam={filterKam} />}

@@ -193,7 +193,24 @@ export function useUserRole() {
         if (res.ok) {
           const json = await res.json();
           const rows: string[][] = json.values || [];
-          const row = rows.find(r => String(r[2] ?? '').toLowerCase().trim() === email);
+          // Se compara por la PARTE LOCAL del correo, no por el correo completo.
+          //
+          // La hoja registra un solo dominio por persona, pero apprecio.com y
+          // dcanje.com son el mismo Workspace y varios entran con el otro. Magda
+          // Sernaque figura como msernaque@apprecio.com y entra como
+          // msernaque@dcanje.com: con la comparación exacta no matcheaba, caía al
+          // fallback STATIC_ROLES —que la tiene como Ejecutivo— y el frontend la
+          // creía ejecutiva mientras el backend la resolvía como Admin. El síntoma
+          // era que el selector de país del IPC se dibujaba pero no cambiaba nada,
+          // porque `filterPais` de un rol restringido gana sobre el selector
+          // (verificado 2026-09-09).
+          //
+          // Es el mismo criterio que ya usa `useRolesPorLocal` más abajo, y el
+          // mismo que usa el backend en resolverAlcance.
+          const local = email.split('@')[0];
+          const row = rows.find(
+            (r) => String(r[2] ?? '').toLowerCase().trim().split('@')[0] === local,
+          );
           if (row) {
             return {
               nombre: String(row[0] ?? '').trim(),

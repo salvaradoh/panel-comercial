@@ -1,10 +1,20 @@
-import type { IPCResponse } from '../../hooks/useIPC';
+import type { IPCResponse, ClienteIPC } from '../../hooks/useIPC';
+
+/** Lo que el usuario tiene filtrado en pantalla al momento de descargar. */
+export interface FiltrosIPC {
+  /** Los clientes que la tabla está mostrando, ya filtrados y ordenados. */
+  clientes: ClienteIPC[];
+  ejecutivo: string;
+  alerta: string;
+  incluyeSinContactar: boolean;
+}
 
 /**
  * Excel del Análisis IPC: tres hojas.
  *
  *   Resumen        la foto que está en pantalla (KPIs, semáforo, mix de canales)
- *   Clientes       una fila por cliente A+, con TODAS las columnas del modelo
+ *   Clientes       una fila por cliente de la cartera —contactado o no—, con todas
+ *                  las columnas del modelo más la probabilidad de fuga
  *   Interacciones  una fila por interacción — el detalle crudo de la hoja
  *
  * Clientes e Interacciones van SIN los filtros de pantalla (chips de alerta,
@@ -16,17 +26,21 @@ import type { IPCResponse } from '../../hooks/useIPC';
  * exceljs se importa dinámicamente (~1MB): solo hace falta cuando alguien hace
  * clic, no en la carga del tab.
  */
-export async function descargarExcelIPC(data: IPCResponse) {
+export async function descargarExcelIPC(data: IPCResponse, filtros: FiltrosIPC) {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Panel Comercial Apprecio';
   wb.created = new Date();
 
-  const { resumen, periodo, clientes, trimestre } = data;
+  const { resumen, periodo, trimestre } = data;
+  const clientes = filtros.clientes;
+  // Las interacciones se recortan a los clientes exportados: si no, el detalle
+  // hablaría de empresas que no están en la hoja Clientes.
+  const enExport = new Set(clientes.map((c) => `${c.pais}|${c.empresa}`));
   // Frontend y backend se deployan por separado, así que pueden quedar desfasados:
   // si el navegador tiene la versión con el botón y Cloud Run todavía no devuelve
   // `interacciones`, la hoja sale vacía en vez de romper la descarga entera.
-  const interacciones = data.interacciones ?? [];
+  const interacciones = (data.interacciones ?? []).filter((x) => enExport.has(`${x.pais}|${x.empresa}`));
   const alcance = data.pais ?? 'LATAM · todos los países';
   const pct = (n: number) => (resumen.interacciones ? n / resumen.interacciones : 0);
 
@@ -46,16 +60,31 @@ export async function descargarExcelIPC(data: IPCResponse) {
   ws.addRow(['Avance del trimestre', periodo.cerrado
     ? `Cerrado · ${periodo.dias} días`
     : `Día ${periodo.transcurridos} de ${periodo.dias} · ${periodo.restantes} restantes`]);
+  ws.addRow(['Ejecutivo', filtros.ejecutivo || 'Todos']);
+  ws.addRow(['Filtro de alerta', filtros.alerta]);
+  ws.addRow(['Incluye clientes sin contactar', filtros.incluyeSinContactar ? 'Sí' : 'No']);
+  ws.addRow(['Clientes exportados', clientes.length]);
+  ws.addRow(['Cartera actualizada', data.cartera.actualizada || '(sin dato)']);
   ws.addRow(['Generado', new Date().toLocaleString('es-PE')]);
 
   titulo('Indicadores');
   ws.addRow(['IPC promedio de la cartera', resumen.ipcPromedio]);
   ws.addRow([`Interacciones ${trimestre.replace('-', ' ')}`, resumen.interacciones]);
   ws.addRow([`Interacciones ${data.trimestreAnterior.replace('-', ' ')}`, resumen.interaccionesPrev]);
-  ws.addRow(['Clientes en la vista', resumen.clientes]);
-  ws.addRow(['Sin interacción este trimestre', resumen.sinInteraccion]);
-  ws.addRow(['Clientes A+ sin ningún registro (fuera de la vista)', resumen.sinRegistro]);
-  ws.addRow(['Universo A+ del alcance', resumen.universo]);
+  ws.addRow(['Clientes contactados en el trimestre', resumen.clientes]);
+  ws.addRow(['Clientes sin contactar', resumen.sinContactar]);
+  ws.addRow(['Universo de la cartera (alcance)', resumen.universo]);
+  ws.addRow(['Cobertura global', resumen.cobertura / 100]);
+  ws.getCell(`B${ws.rowCount}`).numFmt = '0.0%';
+
+  titulo('Cobertura por segmento');
+  ws.addRow(['Segmento', 'Clientes', 'Contactados', 'Cobertura', 'Alerta']).font = { bold: true };
+  const filaCob = ws.rowCount;
+  data.coberturaPorSegmento.forEach((c) =>
+    ws.addRow([c.segmento, c.clientes, c.contactados, c.cobertura / 100, c.alerta]));
+  for (let i = filaCob + 1; i <= ws.rowCount; i++) ws.getCell(`D${i}`).numFmt = '0.0%';
+  ws.addRow([]);
+  ws.addRow(['Umbrales', 'Roja < 40%  ·  Amarilla 40–59%  ·  Verde ≥ 60%']);
 
   titulo('Semáforo de alerta');
   ws.addRow(['Estado', 'Clientes']).font = { bold: true };
@@ -91,16 +120,23 @@ export async function descargarExcelIPC(data: IPCResponse) {
   const wsC = wb.addWorksheet('Clientes');
   wsC.addRow([
     'País', 'Empresa', 'Panel ID', 'Ejecutivo', 'Tipo de cliente', 'Segmento',
+    'Contactado', 'Prob. fuga', 'Estado salud', 'Días sin compra',
     'Puntos', 'Meta', 'IPC (0-100)', 'Proyectado', 'Alerta',
     `Interacciones ${trimestre}`, `Tendencia vs ${data.trimestreAnterior}`,
     'Última interacción', 'Tipo de la última', 'Días sin interacción',
   ]).font = { bold: true };
   wsC.views = [{ state: 'frozen', ySplit: 1 }];
-  wsC.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 16 } };
+  wsC.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 20 } };
+  wsC.getColumn(8).numFmt = '0.0%';   // Prob. fuga
 
   clientes.forEach((c) => {
     wsC.addRow([
       c.pais, c.empresa, c.panelId, c.kam, c.tipo, c.segmento,
+      c.contactado ? 'Sí' : 'No',
+      // Fracción para que Excel lo formatee como porcentaje y se pueda ordenar y
+      // promediar; el string '75,5%' no serviría para ninguna de las dos cosas.
+      c.probFuga === null ? '' : c.probFuga / 100,
+      c.status, c.diasSinCompra,
       c.pts, c.meta, c.ipcScore, c.proyectado, c.alerta,
       c.interacciones,
       // `null` = no hay trimestre anterior con el cual comparar. Se escribe el
@@ -110,7 +146,9 @@ export async function descargarExcelIPC(data: IPCResponse) {
       c.diasSinInteraccion ?? '',
     ]);
   });
-  wsC.columns.forEach((col, i) => { col.width = [10, 44, 12, 26, 15, 10, 9, 8, 12, 12, 11, 16, 20, 18, 16, 18][i] ?? 14; });
+  wsC.columns.forEach((col, i) => {
+    col.width = [10, 44, 12, 26, 15, 10, 11, 10, 13, 15, 9, 8, 12, 12, 11, 16, 20, 18, 16, 18][i] ?? 14;
+  });
 
   // ── Interacciones ──────────────────────────────────────────────────────────
   const wsI = wb.addWorksheet('Interacciones');
@@ -134,12 +172,19 @@ export async function descargarExcelIPC(data: IPCResponse) {
   wsI.columns.forEach((col, i) => { col.width = [12, 14, 10, 44, 12, 26, 22, 18, 14, 30, 12, 8, 15, 12, 15, 15, 18, 10, 38][i] ?? 14; });
 
   const sufijoPais = data.pais ? `_${data.pais.normalize('NFD').replace(/[̀-ͯ]/g, '')}` : '';
+  // El segmento va en el nombre: si no, bajar A+ y después B deja dos archivos con
+  // el mismo nombre y el navegador los numera (1), (2), sin decir cuál es cuál.
+  const sufijoSeg = `_${String(data.segmento).replace('+', 'plus')}`;
+  // El ejecutivo va en el nombre por lo mismo que el segmento: dos descargas de
+  // ejecutivos distintos no pueden llamarse igual.
+  const sufijoKam = filtros.ejecutivo
+    ? `_${filtros.ejecutivo.split('@')[0].replace(/[^A-Za-z0-9]/g, '')}` : '';
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `IPC_${trimestre}${sufijoPais}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  a.download = `IPC${sufijoSeg}${sufijoKam}_${trimestre}${sufijoPais}_${new Date().toISOString().slice(0, 10)}.xlsx`;
   document.body.appendChild(a);
   a.click();
   a.remove();

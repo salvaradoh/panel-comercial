@@ -77,12 +77,12 @@ export function ChipIndustria({ c }: { c: ClienteTabla }) {
       disabled={!fila}
       title={fila ? 'Corregir la industria de esta cuenta' : 'Esta empresa todavía no tiene fila en la hoja de Industria — no se puede editar acá'}
       onClick={() => { setValor(industriaActual); setEditando(true); }}
-      className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-50 text-slate-500
-                 enabled:hover:bg-slate-100 enabled:hover:text-slate-700 transition-colors
-                 disabled:cursor-default flex items-center gap-1"
+      className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#0097A7]/10 text-[#0097A7]
+                 enabled:hover:bg-[#0097A7]/20 transition-colors
+                 disabled:cursor-default disabled:opacity-60 flex items-center gap-1"
     >
       {industriaActual}
-      {fila && <span aria-hidden className="text-slate-300">✎</span>}
+      {fila && <span aria-hidden className="text-[#0097A7]/50">✎</span>}
     </button>
   );
 }

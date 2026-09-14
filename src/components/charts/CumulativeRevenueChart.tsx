@@ -33,6 +33,20 @@ interface MonthPoint {
   growthPct: number | null;
   yoyPct: number | null;
   isCurrent: boolean;
+  /** Avance semana a semana del ÚLTIMO mes del período (índice 0 = Semana 1). */
+  semanal: number[];
+  /** Avance de los meses del período que ya están completos. En un punto
+      mensual es 0; en uno trimestral, la suma de sus dos primeros meses.
+      Con estos dos campos, `avanceHasta(N)` sirve igual para mes y trimestre. */
+  avanceBase: number;
+  /** El % contra el período anterior salió de una comparación truncada, porque
+      el período en curso todavía no terminó. */
+  growthEsParcial: boolean;
+}
+
+/** Avance del período contado solo hasta la semana N. */
+function avanceHasta(p: MonthPoint, n: number): number {
+  return p.avanceBase + p.semanal.slice(0, n).reduce((s, v) => s + v, 0);
 }
 
 interface CumulativeRevenueChartProps {
@@ -58,6 +72,21 @@ function buildPoints(
   const data: MonthPoint[] = [];
   let acumulado = 0;
 
+  // Avance semanal del mes, para la selección de país vigente.
+  const semanalDe = (mes: number, pais: string): number[] => {
+    const key = `${anio}-${mes - 1}`;
+    if (pais !== 'LATAM') return paisesMensual[pais]?.[key]?.semanal ?? [0, 0, 0, 0];
+    return [0, 1, 2, 3].map(i => Object.keys(paisesMensual)
+      .reduce((s, p) => s + (paisesMensual[p][key]?.semanal?.[i] ?? 0), 0));
+  };
+
+  // Hasta qué semana llegó el mes en curso. Se lee de los datos y no del
+  // calendario: las semanas que todavía no ocurrieron vienen en 0. Se mide
+  // siempre sobre LATAM —no sobre el país seleccionado— porque un país sin
+  // ventas esta semana no significa que la semana no haya pasado.
+  const semanasTranscurridas = semanalDe(currentMonthN, 'LATAM')
+    .reduce((n, v, i) => (v > 0 ? i + 1 : n), 0);
+
   for (let mes = 1; mes <= 12; mes++) {
     const key = `${anio}-${mes - 1}`;
     let avance = 0;
@@ -80,8 +109,17 @@ function buildPoints(
     }
 
     if (avance === 0 && meta === 0 && avanceAnt === 0) continue;
-    const prevAvance = data.length > 0 ? data[data.length - 1].avance : 0;
-    const prevAcumAnt = data.length > 0 ? (data[data.length - 1].acumuladoAnt ?? 0) : 0;
+    const anterior = data.length > 0 ? data[data.length - 1] : null;
+    // El mes en curso va a medio andar, así que compararlo contra el CIERRE del
+    // mes pasado mide el calendario, no el negocio: el día 14 daba -41% cuando
+    // el mes venía +57% contra el mismo tramo de agosto. Se trunca el mes
+    // anterior a las mismas semanas transcurridas. Es el mismo criterio de
+    // "período equivalente" que ya usa la línea del año anterior.
+    const truncar = mes === currentMonthN && semanasTranscurridas > 0 && semanasTranscurridas < 4;
+    const prevAvance = !anterior ? 0
+      : truncar ? avanceHasta(anterior, semanasTranscurridas)
+      : anterior.avance;
+    const prevAcumAnt = anterior ? (anterior.acumuladoAnt ?? 0) : 0;
     acumulado += avance;
     // Criterio único en todo el panel: MISMO PERÍODO. La línea del año anterior
     // acumula `avanceAnt` (hasta la semana equivalente), igual que el % YoY de la
@@ -100,6 +138,9 @@ function buildPoints(
       avance, meta, avanceAnt, cierreAnt, acumulado, acumuladoAnt,
       cumplimientoPct, growthPct, yoyPct,
       isCurrent: mes === currentMonthN,
+      semanal: semanalDe(mes, selectedPais),
+      avanceBase: 0,
+      growthEsParcial: truncar && prevAvance > 0,
     });
   }
   return data;
@@ -116,8 +157,21 @@ function toQuarterPoints(monthly: MonthPoint[]): MonthPoint[] {
     const meta      = slice.reduce((s, m) => s + m.meta,      0);
     const avanceAnt = slice.reduce((s, m) => s + m.avanceAnt, 0);
     const cierreAnt = slice.reduce((s, m) => s + m.cierreAnt, 0);
-    const prevAvance   = result.length > 0 ? result[result.length - 1].avance : 0;
-    const prevAcumAnt  = result.length > 0 ? (result[result.length - 1].acumuladoAnt ?? 0) : 0;
+    // El período del trimestre se describe igual que el de un mes: los meses ya
+    // cerrados como base, y el último desglosado por semana. Con eso
+    // `avanceHasta` trunca un trimestre exactamente igual que un mes —dos meses
+    // completos más N semanas del tercero— y la fórmula es una sola.
+    const ultimo     = slice[slice.length - 1];
+    const avanceBase = slice.slice(0, -1).reduce((s, m) => s + m.avance, 0);
+    const anterior   = result.length > 0 ? result[result.length - 1] : null;
+    const enCurso    = slice.some(m => m.isCurrent);
+    const nSemanas   = ultimo.semanal.reduce((n, v, i) => (v > 0 ? i + 1 : n), 0);
+
+    const truncar = enCurso && nSemanas > 0 && nSemanas < 4;
+    const prevAvance = !anterior ? 0
+      : truncar ? avanceHasta(anterior, nSemanas)
+      : anterior.avance;
+    const prevAcumAnt = anterior ? (anterior.acumuladoAnt ?? 0) : 0;
     acumulado += avance;
     // Mismo criterio que la vista mensual: período equivalente, no cierre completo
     const acumuladoAnt    = avanceAnt > 0 ? prevAcumAnt + avanceAnt : null;
@@ -128,7 +182,10 @@ function toQuarterPoints(monthly: MonthPoint[]): MonthPoint[] {
       mes: labels[q],
       avance, meta, avanceAnt, cierreAnt, acumulado, acumuladoAnt,
       cumplimientoPct, growthPct, yoyPct,
-      isCurrent: slice.some(m => m.isCurrent),
+      isCurrent: enCurso,
+      semanal: ultimo.semanal,
+      avanceBase,
+      growthEsParcial: truncar && prevAvance > 0,
     });
   }
   return result;
@@ -156,6 +213,19 @@ function CustomTooltip({ active, payload, label }: any) {
         <span className="text-slate-400">Acumulado</span>
         <span className="font-semibold tabular-nums text-[#0097A7]">{fmtUSD(d.acumulado)}</span>
       </div>
+      {d.growthPct !== null && (
+        <div className="flex justify-between gap-3">
+          <span className="text-slate-400">vs anterior</span>
+          <span className={`font-bold tabular-nums ${d.growthPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+            {d.growthPct >= 0 ? '+' : ''}{d.growthPct.toFixed(1)}%
+          </span>
+        </div>
+      )}
+      {d.growthEsParcial && (
+        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
+          Comparado contra el mismo tramo del período anterior, no contra su cierre.
+        </p>
+      )}
       {(cumplPct !== null || d.yoyPct !== null) && (
         <div className="mt-1 pt-1 border-t border-slate-100 flex flex-col gap-0.5">
           {cumplPct !== null && (
@@ -270,7 +340,10 @@ export function CumulativeRevenueChart({ series: _fallback, anio, isLoading, can
         const acum = arr.slice(0, i + 1).reduce((s, p) => s + p.value, 0);
         const prev = i > 0 ? arr[i - 1].value : 0;
         const growthPct = prev > 0 ? ((pt.value - prev) / prev) * 100 : null;
-        return { mes: MESES_SHORT[d.getMonth() + 1], avance: pt.value, meta: 0, avanceAnt: 0, cierreAnt: 0, acumulado: acum, acumuladoAnt: null, cumplimientoPct: null, growthPct, yoyPct: null, isCurrent: d.getMonth() + 1 === currentMonthN };
+        // Esta rama sale de una serie suelta, sin desglose semanal: no hay con
+        // qué truncar, así que el % del mes en curso queda contra el cierre del
+        // anterior. Se marca como parcial para que la UI lo diga.
+        return { mes: MESES_SHORT[d.getMonth() + 1], avance: pt.value, meta: 0, avanceAnt: 0, cierreAnt: 0, acumulado: acum, acumuladoAnt: null, cumplimientoPct: null, growthPct, yoyPct: null, isCurrent: d.getMonth() + 1 === currentMonthN, semanal: [], avanceBase: 0, growthEsParcial: false };
       });
 
   const data = granularity === 'trimestre' ? toQuarterPoints(monthPoints) : monthPoints;

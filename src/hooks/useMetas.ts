@@ -158,7 +158,14 @@ export function usePaisesAvanceMensual(anio: number): Record<string, Record<stri
   }, [allRows, anio]);
 }
 
-export interface MensualPoint { avance: number; meta: number; avanceAnt: number; cierreAnt: number; }
+export interface MensualPoint {
+  avance: number; meta: number; avanceAnt: number; cierreAnt: number;
+  /** Avance de cada semana del mes (índice 0 = Semana 1). Las semanas que
+      todavía no ocurrieron vienen en 0, y eso es lo que permite saber hasta
+      dónde va el mes en curso sin tener que replicar acá la convención de
+      "semana del mes" que usa el GAS. */
+  semanal: number[];
+}
 
 /** Devuelve avance_men + meta_men + avance_men_ant + cierre_men_ant por país y mes. Clave: "YYYY-M" (mes 0-indexed). */
 export function usePaisesMensual(anio: number): Record<string, Record<string, MensualPoint>> {
@@ -187,8 +194,20 @@ export function usePaisesMensual(anio: number): Record<string, Record<string, Me
         const avanceAnt  = Number(row[C.avance_men_ant]) || 0;
         const cierreAnt  = Number(row[C.cierre_men_ant]) || avanceAnt;
         if (!pais) continue;
+        // El desglose semanal vive en las OTRAS filas del mismo mes y país: cada
+        // una trae su `avance_sem_usd`. Los campos mensuales se repiten en las
+        // cuatro, así que arriba da igual cuál se tome; esto no.
+        const semanal = [1, 2, 3, 4].map(s => {
+          const fila = allRows.find(r =>
+            r[C.nivel] === 'pais' &&
+            Number(r[C.anio]) === anio &&
+            Number(r[C.mes])  === mes &&
+            r[C.semana] === `Semana ${s}` &&
+            normalizePais(r[C.pais] ?? '') === pais);
+          return fila ? (Number(fila[C.avance_usd]) || 0) : 0;
+        });
         if (!result[pais]) result[pais] = {};
-        result[pais][`${anio}-${mes - 1}`] = { avance, meta, avanceAnt, cierreAnt };
+        result[pais][`${anio}-${mes - 1}`] = { avance, meta, avanceAnt, cierreAnt, semanal };
       }
     }
     return result;

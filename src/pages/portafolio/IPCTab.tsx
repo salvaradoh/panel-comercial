@@ -47,6 +47,31 @@ const TIPO_INTERACCION_BARRA: Record<string, string> = {
   'Café':       'bg-stone-400',
 };
 
+/** Segmento como escala de intensidad (A+ el más fuerte), no como colores sueltos:
+ *  es un orden, no categorías. Fuera del verde/ámbar/rojo del semáforo. */
+const SEGMENTO_COLOR: Record<string, string> = {
+  'A+': 'bg-slate-800 text-white border-slate-800',
+  'A':  'bg-slate-200 text-slate-800 border-slate-300',
+  'B':  'bg-slate-100 text-slate-600 border-slate-200',
+  'C':  'bg-white text-slate-500 border-slate-200',
+};
+
+/** Semáforo del SEGMENTO por cobertura. Comparte la paleta del semáforo por cuenta
+ *  a propósito: es el mismo idioma —rojo urge, verde está bien— aplicado a otro
+ *  sujeto. Lo que los distingue es el rótulo, no el color. */
+const COBERTURA_ESTILO: Record<string, { borde: string; texto: string; barra: string }> = {
+  Verde:    { borde: 'border-emerald-500', texto: 'text-emerald-700', barra: 'bg-emerald-500' },
+  Amarilla: { borde: 'border-amber-500',   texto: 'text-amber-700',   barra: 'bg-amber-500' },
+  Roja:     { borde: 'border-rose-500',    texto: 'text-rose-700',    barra: 'bg-rose-500' },
+};
+
+/** Corte de fuga del panel, fijado por negocio el 2026-08-21. */
+function tonoFuga(pct: number): string {
+  if (pct >= 60) return 'text-rose-600 font-semibold';
+  if (pct >= 25) return 'text-amber-600';
+  return 'text-slate-600';
+}
+
 const TIPO_CORTO: Record<string, string> = {
   Recurrente: 'Rec.',
   Estacional: 'Est.',
@@ -55,11 +80,16 @@ const TIPO_CORTO: Record<string, string> = {
 
 type FiltroAlerta = 'Todos' | AlertaIPC | 'sin30';
 
-type SortKey = 'pais' | 'empresa' | 'tipo' | 'ipcScore' | 'pts' | 'tendencia'
-             | 'alerta' | 'interacciones' | 'ultima' | 'ultimoTipo' | 'diasSinInteraccion';
+type SortKey = 'pais' | 'empresa' | 'tipo' | 'segmento' | 'ipcScore' | 'pts' | 'tendencia'
+             | 'alerta' | 'interacciones' | 'ultima' | 'ultimoTipo' | 'diasSinInteraccion'
+             | 'probFuga';
 
 /** Orden del semáforo: lo urgente primero. No es alfabético. */
 const ORDEN_ALERTA: Record<AlertaIPC, number> = { Rojo: 0, Amarillo: 1, Verde: 2 };
+
+/** El segmento es una jerarquía, no un texto: alfabéticamente 'A' iría antes que
+ *  'A+', al revés de lo que significa. */
+const ORDEN_SEGMENTO: Record<string, number> = { 'A+': 0, 'A': 1, 'B': 2, 'C': 3 };
 
 function SortTh({ k, cur, dir, onSort, align = 'right', className, children }: {
   k: SortKey; cur: SortKey; dir: 'asc' | 'desc';
@@ -124,12 +154,12 @@ function Kpi({ valor, titulo, sub, acento }: {
   );
 }
 
-interface Props {
-  /** País impuesto por el rol. El backend lo aplica igual; esto solo evita ofrecer el selector. */
-  filterPais?: string;
-}
-
-export function IPCTab({ filterPais }: Props) {
+/**
+ * No recibe `filterPais` a propósito. El alcance de país de esta vista lo resuelve
+ * el backend desde el correo autenticado (`/api/ipc`), que es el único lugar donde
+ * puede imponerse de verdad; pasarlo desde acá solo podía contradecirlo.
+ */
+export function IPCTab() {
   const trimestreHoy = `Q${Math.floor(new Date().getMonth() / 3) + 1}-${new Date().getFullYear()}`;
   const [trimestre, setTrimestre] = useState(trimestreHoy);
   const [paisSel, setPaisSel] = useState<string>('');
@@ -137,7 +167,16 @@ export function IPCTab({ filterPais }: Props) {
   // Por defecto la vista muestra solo a quien SÍ fue atendido en el trimestre. Los
   // que figuran en la hoja pero no tuvieron interacción en este Q entran con el
   // checkbox: son los que se enfriaron, y verlos es opcional.
-  const [verNoAtendidos, setVerNoAtendidos] = useState(false);
+  // Arranca en true: la vista es sobre la CARTERA COMPLETA, así que por defecto
+  // tiene que mostrarla entera. Antes arrancaba apagado —heredado de cuando el
+  // universo eran las ~95 empresas con interacción registrada—, y con la cartera
+  // completa eso dejaba 7 filas de 1.921 y parecía que faltaban clientes.
+  const [verNoAtendidos, setVerNoAtendidos] = useState(true);
+  // Por defecto 'Todos': la pregunta que responde la vista es a quién no tocamos,
+  // y eso se ve sobre la cartera entera. La meta de puntos la fija el segmento de
+  // CADA cliente, no este filtro.
+  const [segmento, setSegmento] = useState('Todos');
+  const [ejecutivo, setEjecutivo] = useState('');
   const [pagina, setPagina] = useState(0);
   const [descargando, setDescargando] = useState(false);
   const [errorDescarga, setErrorDescarga] = useState<string | null>(null);
@@ -152,19 +191,44 @@ export function IPCTab({ filterPais }: Props) {
     setPagina(0);
   }
 
-  const { data, isLoading, error } = useIPC(trimestre, filterPais || paisSel || undefined);
+  // Se manda SOLO la selección del usuario, no `filterPais`.
+  //
+  // El país de esta ruta lo decide el backend a partir del correo autenticado, y
+  // para un rol restringido IGNORA este parámetro. Anteponer `filterPais` no
+  // agregaba seguridad —el servidor ya la impone— y sí rompía el selector cuando
+  // el rol que ve el frontend no coincide con el que resuelve el backend: pasó con
+  // Magda Sernaque, que entra con @dcanje.com (ver useUserRole). Mandando solo la
+  // selección, la vista nunca puede quedar más restringida que lo que el servidor
+  // permite, y tampoco menos.
+  const { data, isLoading, error } = useIPC(trimestre, paisSel || undefined, segmento);
 
   // Conjunto sobre el que se calcula TODO —KPIs, barras y tabla—, para que el
   // encabezado no diga "11 clientes" mientras la tabla muestra 5.
+  // `data.clientes` ahora trae TODA la cartera del alcance, contactados o no. Por
+  // defecto la tabla muestra solo a los contactados —si no, la primera página son 12
+  // filas vacías—; el checkbox trae al resto sin volver a pedir datos.
   const enAlcance = useMemo(() => {
-    const todos = data?.clientes ?? [];
-    return verNoAtendidos ? todos : todos.filter((c) => c.interacciones > 0);
-  }, [data?.clientes, verNoAtendidos]);
+    let todos = data?.clientes ?? [];
+    // El ejecutivo acota TODO el alcance, no solo la tabla: si no, los KPIs de
+    // arriba hablarían de la cartera entera mientras la tabla muestra a uno solo.
+    if (ejecutivo) todos = todos.filter((c) => c.kam === ejecutivo);
+    return verNoAtendidos ? todos : todos.filter((c) => c.contactado);
+  }, [data?.clientes, verNoAtendidos, ejecutivo]);
 
-  const noAtendidos = useMemo(
-    () => (data?.clientes ?? []).filter((c) => c.interacciones === 0).length,
-    [data?.clientes],
-  );
+  // Ejecutivos presentes en el alcance, para el selector. Se derivan de los datos y
+  // no de una lista fija: así aparecen los KAM nuevos sin tocar el código, y no se
+  // ofrecen los que no tienen ningún cliente en el país o segmento elegido.
+  const ejecutivos = useMemo(() => {
+    const set = new Set((data?.clientes ?? []).map((c) => c.kam).filter(Boolean));
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [data?.clientes]);
+
+  const sinContactar = useMemo(() => {
+    const base = ejecutivo
+      ? (data?.clientes ?? []).filter((c) => c.kam === ejecutivo)
+      : (data?.clientes ?? []);
+    return base.filter((c) => !c.contactado).length;
+  }, [data?.clientes, ejecutivo]);
 
   // Los conteos por alerta se recalculan acá y no se leen de `resumen`: el backend
   // los computa sobre todos los clientes y dejarían de cuadrar al filtrar.
@@ -176,7 +240,7 @@ export function IPCTab({ filterPais }: Props) {
     verde: enAlcance.filter((c) => c.alerta === 'Verde').length,
     amarillo: enAlcance.filter((c) => c.alerta === 'Amarillo').length,
     rojo: enAlcance.filter((c) => c.alerta === 'Rojo').length,
-    sinInteraccion: enAlcance.filter((c) => c.interacciones === 0).length,
+    sinContactar: enAlcance.filter((c) => !c.contactado).length,
   }), [enAlcance]);
 
   const clientes = useMemo(() => {
@@ -208,6 +272,10 @@ export function IPCTab({ filterPais }: Props) {
         case 'alerta':
           cmp = ORDEN_ALERTA[a.alerta] - ORDEN_ALERTA[b.alerta] || a.ipcScore - b.ipcScore;
           break;
+        case 'segmento':
+          cmp = (ORDEN_SEGMENTO[a.segmento] ?? 99) - (ORDEN_SEGMENTO[b.segmento] ?? 99)
+             || a.ipcScore - b.ipcScore;
+          break;
         case 'ultima': {
           if (alFinal(a.ultimaInteraccion) !== alFinal(b.ultimaInteraccion)) {
             return alFinal(a.ultimaInteraccion) ? 1 : -1;
@@ -216,6 +284,7 @@ export function IPCTab({ filterPais }: Props) {
           break;
         }
         case 'tendencia':
+        case 'probFuga':
         case 'diasSinInteraccion': {
           const va = a[sortKey];
           const vb = b[sortKey];
@@ -241,7 +310,14 @@ export function IPCTab({ filterPais }: Props) {
     setDescargando(true);
     setErrorDescarga(null);
     try {
-      await descargarExcelIPC(data);
+      await descargarExcelIPC(data, {
+        // `clientes` es la lista ya filtrada y ordenada que ve la tabla — todas las
+        // páginas, no solo la visible.
+        clientes,
+        ejecutivo,
+        alerta: filtro === 'sin30' ? 'Sin interacción 30 días' : filtro,
+        incluyeSinContactar: verNoAtendidos,
+      });
     } catch (e) {
       // Sin esto el botón volvía a "Descargar Excel" como si hubiera funcionado:
       // exceljs se carga por import dinámico y un chunk que no baja falla acá.
@@ -274,9 +350,11 @@ export function IPCTab({ filterPais }: Props) {
     );
   }
 
-  const { resumen, periodo, alcance } = data;
+  const { resumen, periodo } = data;
   const deltaInter = resumen.interacciones - resumen.interaccionesPrev;
-  const paisActivo = filterPais || paisSel;
+  // El país que se muestra es el que el BACKEND aplicó (`data.pais`), no el que
+  // el frontend pidió: si el rol es restringido, el servidor lo cambió por el suyo.
+  const paisActivo = data.pais ?? '';
 
   return (
     <div className="flex flex-col gap-5">
@@ -297,28 +375,27 @@ export function IPCTab({ filterPais }: Props) {
 
         <label className="flex items-center gap-2">
           <span className="uppercase tracking-wide text-slate-400 font-medium">Vista</span>
-          {alcance.puedeElegirPais ? (
-            <select
-              value={paisSel}
-              onChange={(e) => cambiar(setPaisSel)(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 font-semibold text-slate-700"
-            >
-              <option value="">LATAM · todos los países</option>
-              {PAISES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          ) : (
-            // El selector no se dibuja porque el rol no puede cambiarlo: el
-            // backend ignora el parámetro. Mostrarlo deshabilitado sugeriría que
-            // hay algo que desbloquear.
-            <span className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 font-semibold text-slate-600">
-              <BanderaPais pais={alcance.pais ?? ''} />
-              {alcance.pais} · {alcance.rol}
-            </span>
-          )}
+          {/* El selector va para TODOS los roles: el IPC no se acota por país
+              (decisión de Samuel, 2026-09-09). Antes había una rama que dibujaba
+              el país fijo cuando el rol no podía cambiarlo; se quitó porque con
+              la política actual `puedeElegirPais` siempre viene en true. Si se
+              vuelve a acotar, el interruptor está en routes/ipc.js. */}
+          <select
+            value={paisSel}
+            onChange={(e) => cambiar(setPaisSel)(e.target.value)}
+            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 font-semibold text-slate-700"
+          >
+            <option value="">LATAM · todos los países</option>
+            {PAISES.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
         </label>
 
         <span className="inline-flex items-center gap-2 text-slate-500">
-          <span className="uppercase tracking-wide text-slate-400 font-medium">Meta A+</span>
+          <span className="uppercase tracking-wide text-slate-400 font-medium">
+            Meta {segmento}
+          </span>
+          {/* Con 'Todos' no hay una meta única: se muestran las de los cuatro
+              segmentos en el tooltip y en la columna Pts / Meta de cada fila. */}
           {Object.entries(data.metaPorTipo).map(([tipo, pts]) => (
             <span key={tipo} className="inline-flex items-baseline gap-1 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1">
               <span>{TIPO_CORTO[tipo] ?? tipo}</span>
@@ -326,7 +403,39 @@ export function IPCTab({ filterPais }: Props) {
               <span className="text-slate-400">pts</span>
             </span>
           ))}
+          {!Object.keys(data.metaPorTipo).length && (
+            <span
+              className="text-slate-500 underline decoration-dotted decoration-slate-300 underline-offset-2"
+              title={Object.entries(data.metaPorSegmento)
+                .map(([seg, m]) => `${seg}: Rec. ${m.Recurrente} · Est. ${m.Estacional}`)
+                .join('   |   ')}
+            >
+              varía por segmento
+            </span>
+          )}
         </span>
+
+        <label className="flex items-center gap-2">
+          <span className="uppercase tracking-wide text-slate-400 font-medium">Ejecutivo</span>
+          <select
+            value={ejecutivo}
+            onChange={(e) => { setEjecutivo(e.target.value); setPagina(0); }}
+            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 font-semibold text-slate-700 max-w-[190px]"
+          >
+            <option value="">Todos los ejecutivos</option>
+            {ejecutivos.map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </label>
+
+        {data.cartera.actualizada && (
+          <span
+            className="text-slate-400 tabular-nums"
+            title={'La cartera la carga cargarCartera() del GAS cartera-clientes, a mano desde el '
+              + 'menú de la hoja. Si esta fecha quedó vieja, el universo de clientes también.'}
+          >
+            Cartera al {data.cartera.actualizada}
+          </span>
+        )}
 
         <span className="text-slate-400 ml-auto tabular-nums">
           {periodo.cerrado
@@ -358,7 +467,8 @@ export function IPCTab({ filterPais }: Props) {
       </div>
 
       <h2 className="text-xs uppercase tracking-wider text-slate-400 font-semibold -mb-2">
-        Clientes A+ con interacciones registradas · IPC {trimestre.replace('-', ' ')}
+        Cartera {segmento === 'Todos' ? 'completa' : segmento} · IPC {trimestre.replace('-', ' ')}
+        {ejecutivo ? ` · ${ejecutivo}` : ''}
         {paisActivo ? ` · ${paisActivo}` : ' · LATAM'}
       </h2>
 
@@ -389,6 +499,48 @@ export function IPCTab({ filterPais }: Props) {
           acento="#f43f5e"
         />
       </div>
+
+      {/* ── Cobertura por segmento ────────────────────────────────────────────── */}
+      <Card className="!p-4">
+        <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+          <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+            Cobertura por segmento
+          </span>
+          <span className="text-xs text-slate-400">
+            Qué porcentaje de la cartera fue contactado en el trimestre ·{' '}
+            <span className="text-rose-600">Roja &lt;40%</span>{' · '}
+            <span className="text-amber-600">Amarilla 40–59%</span>{' · '}
+            <span className="text-emerald-600">Verde ≥60%</span>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {data.coberturaPorSegmento.map((cs) => {
+            const est = COBERTURA_ESTILO[cs.alerta] ?? COBERTURA_ESTILO.Roja;
+            return (
+              <div key={cs.segmento} className={`border-l-4 ${est.borde} pl-3 py-1`}>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-lg font-bold tabular-nums text-slate-800">{cs.segmento}</span>
+                  <span className={`text-lg font-bold tabular-nums ${est.texto}`}>
+                    {cs.cobertura}%
+                  </span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wide ${est.texto}`}>
+                    Alerta {cs.alerta}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden my-1">
+                  {/* Se dibuja sobre 100%, no sobre el máximo del grupo: con coberturas
+                      de 2-4% una barra relativa las haría ver casi llenas. */}
+                  <div className={est.barra} style={{ width: `${Math.max(cs.cobertura, 0.5)}%`, height: '100%' }} />
+                </div>
+                <div className="text-xs text-slate-500 tabular-nums">
+                  {cs.contactados} de {cs.clientes} contactados
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
 
       {/* ── Distribución de alertas · Participación por tipo ─────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -422,7 +574,7 @@ export function IPCTab({ filterPais }: Props) {
               </span>
             ))}
             <span className="text-slate-400 ml-auto tabular-nums">
-              {resumen.sinInteraccion} sin interacción este trimestre
+              {resumen.cobertura}% de cobertura sobre {resumen.universo} clientes
             </span>
           </div>
         </Card>
@@ -483,6 +635,19 @@ export function IPCTab({ filterPais }: Props) {
 
       {/* ── Tabla ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs uppercase tracking-wide text-slate-400 font-medium mr-1">Segmento</span>
+        {data.segmentosDisponibles.map((seg) => (
+          <Chip
+            key={seg}
+            activo={segmento === seg}
+            onClick={() => { setSegmento(seg); setFiltro('Todos'); setPagina(0); }}
+          >
+            {seg}
+          </Chip>
+        ))}
+
+        <span className="w-px h-4 bg-slate-200 mx-1" aria-hidden />
+
         <span className="text-xs uppercase tracking-wide text-slate-400 font-medium mr-1">Alerta IPC</span>
         {(['Todos', 'Verde', 'Amarillo', 'Rojo'] as const).map((f) => (
           <Chip key={f} activo={filtro === f} onClick={() => cambiar(setFiltro)(f)}>
@@ -498,10 +663,10 @@ export function IPCTab({ filterPais }: Props) {
 
         <label
           className="ml-auto inline-flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none"
-          title={`Clientes A+ que figuran en Registro Interacciones pero no tuvieron `
-            + `ninguna interacción en ${trimestre.replace('-', ' ')}. Su IPC es 0 y su última `
-            + `interacción es de un trimestre anterior: son los que se enfriaron. `
-            + `Quedan fuera de la vista salvo que marques esta casilla.`}
+          title={`Clientes de la cartera sin ninguna interacción registrada en `
+            + `${trimestre.replace('-', ' ')}. Son la mayor parte del padrón y por eso quedan `
+            + `fuera de la tabla por defecto; su peso se ve en la cobertura de cada segmento. `
+            + `Marcá la casilla para listarlos y saber a quién falta tocar.`}
         >
           <input
             type="checkbox"
@@ -510,9 +675,9 @@ export function IPCTab({ filterPais }: Props) {
             className="w-3.5 h-3.5 rounded border-slate-300 text-[#0097A7] focus:ring-[#0097A7] cursor-pointer"
           />
           <span className="underline decoration-dotted decoration-slate-300 underline-offset-2">
-            Incluir aún no atendidos
+            Incluir clientes sin contactar
           </span>
-          {noAtendidos > 0 && <span className="tabular-nums text-slate-400">({noAtendidos})</span>}
+          {sinContactar > 0 && <span className="tabular-nums text-slate-400">({sinContactar})</span>}
         </label>
       </div>
 
@@ -525,6 +690,7 @@ export function IPCTab({ filterPais }: Props) {
                 <SortTh k="pais"     cur={sortKey} dir={sortDir} onSort={toggleSort} align="left"  className="font-semibold px-2.5 py-2">País</SortTh>
                 <SortTh k="empresa"  cur={sortKey} dir={sortDir} onSort={toggleSort} align="left"  className="font-semibold px-2.5 py-2">Empresa</SortTh>
                 <SortTh k="tipo"     cur={sortKey} dir={sortDir} onSort={toggleSort} align="left"  className="font-semibold px-2.5 py-2">Tipo</SortTh>
+                <SortTh k="segmento" cur={sortKey} dir={sortDir} onSort={toggleSort} align="left" className="font-semibold px-2.5 py-2">Seg.</SortTh>
                 <SortTh k="ipcScore" cur={sortKey} dir={sortDir} onSort={toggleSort} align="left"  className="font-semibold px-2.5 py-2 w-32">IPC (0–100)</SortTh>
                 <SortTh k="pts"      cur={sortKey} dir={sortDir} onSort={toggleSort} className="font-semibold px-2.5 py-2">Pts / Meta</SortTh>
                 <SortTh k="tendencia" cur={sortKey} dir={sortDir} onSort={toggleSort} className="font-semibold px-2.5 py-2">Tend. Q</SortTh>
@@ -533,6 +699,7 @@ export function IPCTab({ filterPais }: Props) {
                 <SortTh k="ultima"   cur={sortKey} dir={sortDir} onSort={toggleSort} align="left"  className="font-semibold px-2.5 py-2">Última inter.</SortTh>
                 <SortTh k="ultimoTipo" cur={sortKey} dir={sortDir} onSort={toggleSort} align="left" className="font-semibold px-2.5 py-2">Tipo</SortTh>
                 <SortTh k="diasSinInteraccion" cur={sortKey} dir={sortDir} onSort={toggleSort} className="font-semibold px-2.5 py-2">Días s/i</SortTh>
+                <SortTh k="probFuga" cur={sortKey} dir={sortDir} onSort={toggleSort} className="font-semibold px-2.5 py-2" >Prob. fuga</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -545,7 +712,7 @@ export function IPCTab({ filterPais }: Props) {
               ))}
               {!visibles.length && (
                 <tr>
-                  <td colSpan={12} className="px-3 py-8 text-center text-sm text-slate-400">
+                  <td colSpan={14} className="px-3 py-8 text-center text-sm text-slate-400">
                     Ningún cliente A+ con interacciones registradas cumple este filtro.
                   </td>
                 </tr>
@@ -557,7 +724,10 @@ export function IPCTab({ filterPais }: Props) {
 
       <div className="flex items-center justify-between text-xs text-slate-500">
         <span className="tabular-nums">
-          Mostrando {visibles.length} de {clientes.length} clientes · Pág. {paginaActual + 1}/{totalPaginas}
+          Mostrando {visibles.length} de {clientes.length} clientes
+          {clientes.length !== resumen.universo && ` (de ${resumen.universo} en la cartera)`}
+          {' · '}{resumen.clientes} contactados en {trimestre.replace('-', ' ')}
+          {' · '}Pág. {paginaActual + 1}/{totalPaginas}
         </span>
         <div className="flex gap-2">
           <button
@@ -592,6 +762,13 @@ function FilaCliente({ c, n }: { c: ClienteIPC; n: number }) {
         {c.empresa}
       </td>
       <td className="px-2.5 py-2 text-slate-500 whitespace-nowrap">{TIPO_CORTO[c.tipo] ?? c.tipo}</td>
+      <td className="px-2.5 py-2 whitespace-nowrap">
+        <span className={`px-1.5 py-0.5 rounded border text-[10px] font-semibold ${
+          SEGMENTO_COLOR[c.segmento] ?? 'bg-slate-100 text-slate-600 border-slate-200'
+        }`}>
+          {c.segmento}
+        </span>
+      </td>
       <td className="px-2.5 py-2">
         <div className="flex items-center gap-2">
           <span className={`inline-block min-w-9 text-center px-1.5 py-0.5 rounded-md text-xs font-bold tabular-nums border ${est.chip}`}>
@@ -645,6 +822,11 @@ function FilaCliente({ c, n }: { c: ClienteIPC; n: number }) {
         c.diasSinInteraccion === null || c.diasSinInteraccion >= 30 ? 'text-rose-600' : 'text-slate-600'
       }`}>
         {c.diasSinInteraccion === null ? '—' : `${c.diasSinInteraccion}d`}
+      </td>
+      <td className={`px-2.5 py-2 text-right tabular-nums whitespace-nowrap ${
+        c.probFuga === null ? 'text-slate-300' : tonoFuga(c.probFuga)
+      }`}>
+        {c.probFuga === null ? '—' : `${c.probFuga}%`}
       </td>
     </tr>
   );

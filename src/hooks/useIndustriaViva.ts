@@ -20,13 +20,15 @@ export const INDUSTRIA_TABS = ['México', 'Chile', 'Colombia', 'Perú'] as const
 // _novSyncIndustria en dashboard-clevel/Novedades.js — si se agrega una
 // categoría hay que tocar los tres lugares.
 export const TAXONOMIA_INDUSTRIA = [
-  'Educación', 'Salud', 'Banca, Seguros, AFP, Pasarelas de Pago', 'Consumo Masivo', 'Retail',
+  'Educación', 'Salud', 'Banca y Servicios Financieros', 'Seguros', 'Fintech y Pasarelas de Pago',
+  'Consumo Masivo', 'Retail',
   'Agroindustrial', 'Automotriz', 'Tecnología', 'Telecomunicaciones', 'Entretenimiento',
   'Energía, Oil and Gas', 'Minería y Contratistas', 'Inmobiliario',
   'Materiales de Construcción y Derivados, Fabricación de Maquinarias', 'Industria Textil',
   'Transporte y Logística', 'Turismo Aerolíneas / Agencias de Viajes', 'Outsourcing / Call Centers',
   'Laboratorios', 'Investigación de Mercado', 'Agencias de Marketing y Comunicaciones',
-  'Consultoría/Auditoría', 'Restaurantes/Gastronomía', 'Servicios y Otros',
+  'Consultoría/Auditoría', 'Restaurantes/Gastronomía', 'Incentivos y Beneficios Corporativos',
+  'Servicios y Otros',
 ] as const;
 
 export interface IndustriaFila {
