@@ -12,12 +12,20 @@ const FS_BASE    = `https://firestore.googleapis.com/v1/projects/${PROJECT}/data
  * la sincronización y la lectura ya funcionan para cualquier booleano.
  */
 export interface Preferencias {
-  /** Barra lateral de Novedades en la página principal. */
+  /** Existe la barra lateral de Novedades. Se apaga desde el menú del perfil y
+      libera los 226px que la página le reserva a la derecha. */
   tickerNovedades: boolean;
+  /** La barra muestra el feed. Apagado, queda solo su encabezado con el
+      interruptor: se corta el movimiento —que es lo que cansa la vista— sin
+      tener que ir a un menú para recuperarlo.
+      Ocultar y colapsar son cosas distintas a propósito: una libera espacio, la
+      otra solo calma la pantalla y deja el control a mano. */
+  tickerExpandido: boolean;
 }
 
 const DEFECTO: Preferencias = {
   tickerNovedades: true,
+  tickerExpandido: true,
 };
 
 /**

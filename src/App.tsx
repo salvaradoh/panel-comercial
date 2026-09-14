@@ -330,7 +330,8 @@ function Dashboard() {
         <ErrorBoundary fallback={() => null}>
           <NovedadesTicker
             onOpen={() => handleTabChange('novedades')}
-            onOcultar={() => cambiar('tickerNovedades', false)}
+            expandido={prefs.tickerExpandido}
+            onExpandido={(v) => cambiar('tickerExpandido', v)}
           />
         </ErrorBoundary>
       )}

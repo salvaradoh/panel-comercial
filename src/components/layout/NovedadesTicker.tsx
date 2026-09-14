@@ -33,7 +33,38 @@ const TIPO_LABEL: Record<string, string> = {
 
 interface NovedadesTickerProps {
   onOpen: () => void;
-  onOcultar?: () => void;
+  /** Con el feed apagado queda solo el encabezado y su interruptor. */
+  expandido?: boolean;
+  onExpandido?: (expandido: boolean) => void;
+}
+
+/**
+ * Interruptor del feed.
+ *
+ * Va como `<button role="switch">` y no como una X: una X se lee como
+ * "descartar esto ahora" y lo que hace es guardar una preferencia. El
+ * `role="switch"` con `aria-checked` le dice al lector de pantalla que es un
+ * estado de dos posiciones, y el <button> ya trae foco y activación por teclado.
+ */
+function InterruptorFeed({ activo, onCambiar }: { activo: boolean; onCambiar: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={activo}
+      onClick={() => onCambiar(!activo)}
+      title={activo ? 'Ocultar las novedades' : 'Mostrar las novedades'}
+      aria-label="Mostrar las novedades"
+      className={`ml-auto relative w-7 h-4 rounded-full flex-shrink-0 transition-colors
+                  ${activo ? 'bg-[#D97706]' : 'bg-slate-300 hover:bg-slate-400'}`}
+    >
+      <span
+        aria-hidden="true"
+        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-all
+                    ${activo ? 'left-3.5' : 'left-0.5'}`}
+      />
+    </button>
+  );
 }
 
 function TickerItem({ n, onOpen }: { n: Novedad; onOpen: () => void }) {
@@ -134,7 +165,7 @@ function ReaccionesCompactas({ lista }: { lista: { emoji: string; n: number }[] 
  * en pantallas anchas sobra espacio a la derecha. Va `fixed` para no reestructurar
  * el layout, y se oculta bajo xl donde se montaría encima del contenido.
  */
-export function NovedadesTicker({ onOpen, onOcultar }: NovedadesTickerProps) {
+export function NovedadesTicker({ onOpen, expandido = true, onExpandido }: NovedadesTickerProps) {
   const { data: novedades } = useNovedades();
 
   // Cupo por tipo, no los N más recientes a secas: si no, una racha de
@@ -155,7 +186,7 @@ export function NovedadesTicker({ onOpen, onOcultar }: NovedadesTickerProps) {
 
   return (
     <aside
-      className="hidden xl:flex flex-col fixed right-3 top-32 bottom-4 w-[210px] z-10 pointer-events-auto"
+      className={`hidden xl:flex flex-col fixed right-3 top-32 w-[210px] z-10 pointer-events-auto ${expandido ? 'bottom-4' : ''}`}
       aria-label="Últimas novedades"
     >
       <style>{`
@@ -179,42 +210,37 @@ export function NovedadesTicker({ onOpen, onOcultar }: NovedadesTickerProps) {
         <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400">
           Novedades
         </span>
-        {onOcultar && (
-          <button
-            onClick={onOcultar}
-            aria-label="Ocultar la barra de novedades"
-            title="Ocultar. Se vuelve a activar desde el menú de tu perfil."
-            className="ml-auto grid place-items-center w-6 h-6 -mr-1 rounded text-slate-300
-                       hover:text-slate-500 hover:bg-slate-100 transition-colors"
+        {onExpandido && <InterruptorFeed activo={expandido} onCambiar={onExpandido} />}
+      </div>
+
+      {/* Colapsado queda solo el encabezado con su interruptor: el feed se
+          desmonta, así la animación deja de correr en vez de seguir girando
+          detrás de un `display:none`. */}
+      {expandido && (
+        <>
+        <div className="nov-ticker-mask flex-1 overflow-hidden relative">
+          {/* Degradados para que las tarjetas entren y salgan sin cortarse en seco */}
+          <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-slate-50 to-transparent z-10 pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent z-10 pointer-events-none" />
+
+          <div
+            className="nov-ticker-track flex flex-col gap-2"
+            style={{ ['--nov-dur' as string]: `${duracion}s` }}
           >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-              <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-          </button>
-        )}
-      </div>
-
-      <div className="nov-ticker-mask flex-1 overflow-hidden relative">
-        {/* Degradados para que las tarjetas entren y salgan sin cortarse en seco */}
-        <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-slate-50 to-transparent z-10 pointer-events-none" />
-        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent z-10 pointer-events-none" />
-
-        <div
-          className="nov-ticker-track flex flex-col gap-2"
-          style={{ ['--nov-dur' as string]: `${duracion}s` }}
-        >
-          {duplicadas.map((n, i) => (
-            <TickerItem key={`${n.id}-${i}`} n={n} onOpen={onOpen} />
-          ))}
+            {duplicadas.map((n, i) => (
+              <TickerItem key={`${n.id}-${i}`} n={n} onOpen={onOpen} />
+            ))}
+          </div>
         </div>
-      </div>
 
-      <button
-        onClick={onOpen}
-        className="mt-2 text-[10px] font-bold text-slate-400 hover:text-[#D97706] transition-colors px-1 text-left"
-      >
-        Ver todas →
-      </button>
+        <button
+          onClick={onOpen}
+          className="mt-2 text-[10px] font-bold text-slate-400 hover:text-[#D97706] transition-colors px-1 text-left"
+        >
+          Ver todas →
+        </button>
+        </>
+      )}
     </aside>
   );
 }
