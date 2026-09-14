@@ -39,9 +39,6 @@ interface MonthPoint {
       mensual es 0; en uno trimestral, la suma de sus dos primeros meses.
       Con estos dos campos, `avanceHasta(N)` sirve igual para mes y trimestre. */
   avanceBase: number;
-  /** El % contra el período anterior salió de una comparación truncada, porque
-      el período en curso todavía no terminó. */
-  growthEsParcial: boolean;
 }
 
 /** Avance del período contado solo hasta la semana N. */
@@ -140,7 +137,6 @@ function buildPoints(
       isCurrent: mes === currentMonthN,
       semanal: semanalDe(mes, selectedPais),
       avanceBase: 0,
-      growthEsParcial: truncar && prevAvance > 0,
     });
   }
   return data;
@@ -185,7 +181,6 @@ function toQuarterPoints(monthly: MonthPoint[]): MonthPoint[] {
       isCurrent: enCurso,
       semanal: ultimo.semanal,
       avanceBase,
-      growthEsParcial: truncar && prevAvance > 0,
     });
   }
   return result;
@@ -220,11 +215,6 @@ function CustomTooltip({ active, payload, label }: any) {
             {d.growthPct >= 0 ? '+' : ''}{d.growthPct.toFixed(1)}%
           </span>
         </div>
-      )}
-      {d.growthEsParcial && (
-        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
-          Comparado contra el mismo tramo del período anterior, no contra su cierre.
-        </p>
       )}
       {(cumplPct !== null || d.yoyPct !== null) && (
         <div className="mt-1 pt-1 border-t border-slate-100 flex flex-col gap-0.5">
@@ -341,9 +331,10 @@ export function CumulativeRevenueChart({ series: _fallback, anio, isLoading, can
         const prev = i > 0 ? arr[i - 1].value : 0;
         const growthPct = prev > 0 ? ((pt.value - prev) / prev) * 100 : null;
         // Esta rama sale de una serie suelta, sin desglose semanal: no hay con
-        // qué truncar, así que el % del mes en curso queda contra el cierre del
-        // anterior. Se marca como parcial para que la UI lo diga.
-        return { mes: MESES_SHORT[d.getMonth() + 1], avance: pt.value, meta: 0, avanceAnt: 0, cierreAnt: 0, acumulado: acum, acumuladoAnt: null, cumplimientoPct: null, growthPct, yoyPct: null, isCurrent: d.getMonth() + 1 === currentMonthN, semanal: [], avanceBase: 0, growthEsParcial: false };
+        // qué truncar, así que acá el % del mes en curso sí queda contra el
+        // cierre del anterior. Es el camino de respaldo, cuando Cache_Reporte
+        // todavía no cargó; el camino normal es `buildPoints`.
+        return { mes: MESES_SHORT[d.getMonth() + 1], avance: pt.value, meta: 0, avanceAnt: 0, cierreAnt: 0, acumulado: acum, acumuladoAnt: null, cumplimientoPct: null, growthPct, yoyPct: null, isCurrent: d.getMonth() + 1 === currentMonthN, semanal: [], avanceBase: 0 };
       });
 
   const data = granularity === 'trimestre' ? toQuarterPoints(monthPoints) : monthPoints;
