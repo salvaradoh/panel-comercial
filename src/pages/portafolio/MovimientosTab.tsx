@@ -564,15 +564,15 @@ function DesgloseQ({ p, lado }: {
       </p>
       {lado === 'churn' ? (
         <>
-          {linea(p.churnQueSalio, 'salieron de la base', 'text-red-500')}
-          {linea(p.churnQueSigue, 'siguen en la base: cambiaron de rama y la ventana más larga todavía los alcanza', 'text-slate-400')}
+          {linea(p.churnQueSalio, 'son las mismas empresas que salieron de la base: cuentan en las dos cifras', 'text-red-500')}
+          {linea(p.churnQueSigue, 'no salieron de la base. Cambiaron de tipo de cliente (de recurrente a estacional) y a un estacional se le mide con una ventana más larga, así que sus compras anteriores todavía cuentan', 'text-slate-400')}
         </>
       ) : (
         <>
-          {linea(p.churnQueSalio, 'son el churn de este trimestre', 'text-red-500')}
-          {linea(p.bajaYaContada, 'su pérdida ya se contó en un trimestre anterior; el panel no la recuenta', 'text-slate-400')}
+          {linea(p.churnQueSalio, 'son las mismas empresas que cuentan como churn de este trimestre: cuentan en las dos cifras', 'text-red-500')}
+          {linea(p.bajaYaContada, 'ya habían contado como churn en un trimestre anterior. Dejan la base recién ahora, y no se cuentan dos veces', 'text-slate-400')}
           {p.bajaSinChurn > 0 &&
-            linea(p.bajaSinChurn, 'salieron sin figurar en el churn publicado: su pérdida es anterior al inicio de la serie', 'text-slate-400')}
+            linea(p.bajaSinChurn, 'salieron sin figurar en el churn publicado: se perdieron antes del primer trimestre de la serie', 'text-slate-400')}
         </>
       )}
     </div>
@@ -883,10 +883,10 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
             )}
             {verCambio && (
               <p className="text-[11px] text-slate-400 mb-2">
-                «Cambio de rama» son clientes que no salieron de la cartera: cambiaron
-                de {rama === 'recurrente' ? 'estacional a recurrente y al revés'
-                   : 'recurrente a estacional y al revés'}. Lo que esta rama suma, la
-                otra lo resta, y por eso en «Toda la base» no se ve.
+                «Cambió de tipo» son empresas que no salieron de la cartera: pasaron
+                de {rama === 'recurrente' ? 'estacionales a recurrentes, o al revés'
+                   : 'recurrentes a estacionales, o al revés'}. Lo que este grupo suma,
+                el otro lo resta, y por eso en «Toda la base» no se ve nada.
               </p>
             )}
             <div className="tabla-scroll">
@@ -898,7 +898,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
                     <th scope="col" className="text-right font-medium pb-1.5 px-2">Salieron</th>
                     <th scope="col" className="text-right font-medium pb-1.5 px-2">Entraron</th>
                     {verCambio && (
-                      <th scope="col" className="text-right font-medium pb-1.5 px-2">Cambio de rama</th>
+                      <th scope="col" className="text-right font-medium pb-1.5 px-2">Cambió de tipo</th>
                     )}
                     <th scope="col" className="text-right font-medium pb-1.5 pl-2">Base</th>
                   </tr>
@@ -932,7 +932,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
                       <td data-label="Salieron" className="py-2 px-2 text-right tabular-nums text-red-500 font-medium">−{nf.format(r.bajas)}</td>
                       <td data-label="Entraron" className="py-2 px-2 text-right tabular-nums text-emerald-600 font-medium">+{nf.format(r.altas)}</td>
                       {verCambio && (
-                        <td data-label="Cambio de rama" className={`py-2 px-2 text-right tabular-nums font-medium ${
+                        <td data-label="Cambió de tipo" className={`py-2 px-2 text-right tabular-nums font-medium ${
                           r.cambio > 0 ? 'text-emerald-600' : r.cambio < 0 ? 'text-red-500' : 'text-slate-300'}`}>
                           {r.cambio > 0 ? '+' : r.cambio < 0 ? '−' : ''}{nf.format(Math.abs(r.cambio))}
                         </td>
@@ -965,7 +965,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
         </p>
         <div className="overflow-x-auto -mx-2 tabla-scroll">
           <table className="w-full text-sm min-w-[420px] tabla-apilable">
-            <caption className="sr-only">Clientes en churn por rama, cartera y porcentaje</caption>
+            <caption className="sr-only">Clientes en churn separados en recurrentes y estacionales, cartera y porcentaje</caption>
             <thead>
               <tr className="border-b border-slate-200">
                 <th scope="col" className="text-left font-medium text-xs text-[#0097A7] pb-3 px-2">Trimestre</th>
@@ -1067,8 +1067,8 @@ function descargarMovimientosCsv(movs: MovimientoBase[], archivo: string) {
     // Un cambio de rama no es un movimiento de cartera: el cliente sigue ahí.
     // Sin esta columna las dos cosas se leen igual y el total no cierra.
     ['Motivo',      m => (m.motivo === 'reclasificacion'
-                          ? 'Cambio de rama' : 'Movimiento de cartera')],
-    ['Rama',        m => m.rama ?? ''],
+                          ? 'Cambió de tipo' : 'Movimiento de cartera')],
+    ['Tipo para el churn', m => m.rama ?? ''],
     ['País',        m => m.pais],
     ['Ejecutivo',   m => m.kam],
     ['Empresa',     m => m.nombre],

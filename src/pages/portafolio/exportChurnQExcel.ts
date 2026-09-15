@@ -127,8 +127,8 @@ export async function descargarExcelChurnQ(
   // ── Hoja 3: altas y bajas de la base ───────────────────────────────────────
   const wsM = wb.addWorksheet('Altas y bajas');
   wsM.addRow([
-    'Trimestre', 'Movimiento', 'Motivo', 'Rama', 'País', 'Ejecutivo', 'Empresa',
-    'ID panel', 'Tipo', 'USD 12m',
+    'Trimestre', 'Movimiento', 'Motivo', 'Tipo para el churn', 'País', 'Ejecutivo',
+    'Empresa', 'ID panel', 'Tipo en el panel', 'USD 12m',
   ]).font = { bold: true };
   movimientos
     .slice()
@@ -141,7 +141,7 @@ export async function descargarExcelChurnQ(
     .forEach(m => {
       wsM.addRow([
         m.trimestreId, m.movimiento === 'alta' ? 'Entró' : 'Salió',
-        m.motivo === 'reclasificacion' ? 'Cambio de rama' : 'Movimiento de cartera',
+        m.motivo === 'reclasificacion' ? 'Cambió de tipo' : 'Movimiento de cartera',
         m.rama ?? '', m.pais, m.kam, m.nombre, m.panelId, m.tipo,
         Math.round(m.usd12m || 0),
       ]);
@@ -155,12 +155,13 @@ export async function descargarExcelChurnQ(
   // Separado, es una baja de una rama y un alta de la otra, y esa columna es la
   // que explica por qué una rama crece mientras la otra encoge sin que entre ni
   // salga nadie. Las dos filas de cada trimestre suman el total de la hoja 1.
-  const wsR = wb.addWorksheet('Base por rama');
-  wsR.addRow(['Cómo se movió la base, por rama']).font = { bold: true, size: 14 };
+  const wsR = wb.addWorksheet('Base por tipo');
+  wsR.addRow(['Cómo se movió la base, separando recurrentes de estacionales'])
+    .font = { bold: true, size: 14 };
   wsR.addRow([]);
   wsR.addRow([
-    'Trimestre', 'Rama', 'Base anterior', 'Salieron', 'Entraron',
-    'Cambio de rama', 'Base',
+    'Trimestre', 'Tipo', 'Base anterior', 'Salieron', 'Entraron',
+    'Cambió de tipo', 'Base',
   ]).font = { bold: true };
 
   const baseRama = (tid: string, rama: 'recurrente' | 'estacional') =>
