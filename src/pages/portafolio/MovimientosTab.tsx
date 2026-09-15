@@ -536,8 +536,17 @@ function puenteQ(
   };
 }
 
-/** Las dos columnas del puente, con el mismo formato en las dos tablas. */
-function DesgloseQ({ p }: { p: ReturnType<typeof puenteQ> }) {
+/**
+ * Una mitad del puente. Cada tabla desglosa SU propia columna —la de arriba
+ * "Salieron", la de abajo "Churn"— porque mostrar las dos en ambas repetía el
+ * mismo bloque dos veces en la misma pantalla. El número que comparten (los que
+ * son las dos cosas a la vez) aparece igual en las dos mitades, que es lo que
+ * las conecta.
+ */
+function DesgloseQ({ p, lado }: {
+  p: ReturnType<typeof puenteQ>;
+  lado: 'salidas' | 'churn';
+}) {
   const linea = (n: number, txt: string, color: string) => (
     <div className="flex items-baseline gap-2 py-0.5">
       <span className={`tabular-nums font-semibold w-10 text-right flex-shrink-0 ${color}`}>
@@ -547,23 +556,25 @@ function DesgloseQ({ p }: { p: ReturnType<typeof puenteQ> }) {
     </div>
   );
   return (
-    <div className="grid gap-4 sm:grid-cols-2 text-[11px] py-2">
-      <div>
-        <p className="font-semibold text-slate-600 mb-1">
-          Los {nf.format(p.churn)} en churn
-        </p>
-        {linea(p.churnQueSalio, 'salieron de la base', 'text-red-500')}
-        {linea(p.churnQueSigue, 'siguen en la base: cambiaron de rama y la ventana más larga todavía los alcanza', 'text-slate-400')}
-      </div>
-      <div>
-        <p className="font-semibold text-slate-600 mb-1">
-          Los {nf.format(p.bajas)} que salieron
-        </p>
-        {linea(p.churnQueSalio, 'son el churn de este trimestre', 'text-red-500')}
-        {linea(p.bajaYaContada, 'su pérdida ya se contó en un trimestre anterior; el panel no la recuenta', 'text-slate-400')}
-        {p.bajaSinChurn > 0 &&
-          linea(p.bajaSinChurn, 'salieron sin figurar en el churn publicado: su pérdida es anterior al inicio de la serie', 'text-slate-400')}
-      </div>
+    <div className="text-[11px] py-2 max-w-xl">
+      <p className="font-semibold text-slate-600 mb-1">
+        {lado === 'churn'
+          ? `Los ${nf.format(p.churn)} en churn`
+          : `Los ${nf.format(p.bajas)} que salieron`}
+      </p>
+      {lado === 'churn' ? (
+        <>
+          {linea(p.churnQueSalio, 'salieron de la base', 'text-red-500')}
+          {linea(p.churnQueSigue, 'siguen en la base: cambiaron de rama y la ventana más larga todavía los alcanza', 'text-slate-400')}
+        </>
+      ) : (
+        <>
+          {linea(p.churnQueSalio, 'son el churn de este trimestre', 'text-red-500')}
+          {linea(p.bajaYaContada, 'su pérdida ya se contó en un trimestre anterior; el panel no la recuenta', 'text-slate-400')}
+          {p.bajaSinChurn > 0 &&
+            linea(p.bajaSinChurn, 'salieron sin figurar en el churn publicado: su pérdida es anterior al inicio de la serie', 'text-slate-400')}
+        </>
+      )}
     </div>
   );
 }
@@ -907,7 +918,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
                         <button
                           onClick={() => alternarDesglose(r.tid)}
                           aria-expanded={desglose === r.tid}
-                          aria-label={`Ver de qué está hecho ${etiquetaQ(r.tid)}`}
+                          aria-label={`Ver de qué están hechas las salidas de ${etiquetaQ(r.tid)}`}
                           className="ml-1.5 text-slate-300 hover:text-[#0097A7] transition-colors align-middle"
                         >
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
@@ -931,7 +942,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
                     {desglose === r.tid && (
                       <tr className="border-b border-slate-50 bg-slate-50/60">
                         <td colSpan={verCambio ? 6 : 5} className="px-2 pb-2">
-                          <DesgloseQ p={puenteQ(r.tid, clientes, movimientos)} />
+                          <DesgloseQ p={puenteQ(r.tid, clientes, movimientos)} lado="salidas" />
                         </td>
                       </tr>
                     )}
@@ -989,7 +1000,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
                     <button
                           onClick={() => alternarDesglose(d.trimestreId)}
                           aria-expanded={desglose === d.trimestreId}
-                          aria-label={`Ver de qué está hecho ${etiquetaQ(d.trimestreId)}`}
+                          aria-label={`Ver de qué está hecho el churn de ${etiquetaQ(d.trimestreId)}`}
                           className="ml-1.5 text-slate-300 hover:text-[#0097A7] transition-colors align-middle"
                         >
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
@@ -1010,7 +1021,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
                 {desglose === d.trimestreId && (
                   <tr className="border-b border-slate-100 bg-slate-50/60">
                     <td colSpan={6} className="px-2 pb-2">
-                      <DesgloseQ p={puenteQ(d.trimestreId, clientes, movimientos)} />
+                      <DesgloseQ p={puenteQ(d.trimestreId, clientes, movimientos)} lado="churn" />
                     </td>
                   </tr>
                 )}
