@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
@@ -489,13 +489,95 @@ function ordenarPaises(ps: string[]): string[] {
  *    año, no promediando las tasas trimestrales. Promediar tasas de bases distintas
  *    da un número que no corresponde a ninguna población.
  */
-function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, seleccion }: {
+/**
+ * De qué está hecho cada número del trimestre.
+ *
+ * "Churn" y "Salieron" parecen lo mismo y no lo son, y la diferencia entre los
+ * dos no es un puñado de clientes: son dos grupos distintos cruzándose en
+ * direcciones opuestas. Restar uno del otro no da nada interpretable —de ahí
+ * este desglose, que en vez de una resta muestra de qué se compone cada lado.
+ *
+ * Se cruza por (país, panel_id), que es la llave con la que el cliente existe
+ * en las dos listas.
+ */
+function puenteQ(
+  tid: string,
+  clientes: ClienteChurnQ[],
+  movimientos: MovimientoBase[],
+) {
+  const llave = (pais: string, panelId: string) => `${pais}||${panelId}`;
+  const churn = new Set(clientes
+    .filter(c => c.trimestreId === tid)
+    .map(c => llave(c.pais, c.panelId)));
+  // Su pérdida ya se contó en un trimestre anterior: el panel no la recuenta,
+  // pero la salida de la base recién ocurre ahora.
+  const churnAntes = new Set(clientes
+    .filter(c => c.trimestreId && c.trimestreId < tid)
+    .map(c => llave(c.pais, c.panelId)));
+  // Las reclasificaciones no son salidas: el cliente no dejó la cartera.
+  const bajas = movimientos
+    .filter(m => m.trimestreId === tid && m.movimiento === 'baja'
+                 && m.motivo !== 'reclasificacion')
+    .map(m => llave(m.pais, m.panelId));
+  const bajasSet = new Set(bajas);
+
+  const churnQueSalio = [...churn].filter(k => bajasSet.has(k)).length;
+  const bajaYaContada = bajas.filter(k => !churn.has(k) && churnAntes.has(k)).length;
+  return {
+    churn: churn.size,
+    churnQueSalio,
+    churnQueSigue: churn.size - churnQueSalio,
+    bajas: bajas.length,
+    bajaYaContada,
+    // Dejó la base sin figurar en el churn publicado. En el primer trimestre de
+    // la serie son los que se perdieron antes de donde arranca el histórico, y
+    // por eso el texto no afirma que nunca hubo churn.
+    bajaSinChurn: bajas.length - churnQueSalio - bajaYaContada,
+  };
+}
+
+/** Las dos columnas del puente, con el mismo formato en las dos tablas. */
+function DesgloseQ({ p }: { p: ReturnType<typeof puenteQ> }) {
+  const linea = (n: number, txt: string, color: string) => (
+    <div className="flex items-baseline gap-2 py-0.5">
+      <span className={`tabular-nums font-semibold w-10 text-right flex-shrink-0 ${color}`}>
+        {nf.format(n)}
+      </span>
+      <span className="text-slate-500">{txt}</span>
+    </div>
+  );
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 text-[11px] py-2">
+      <div>
+        <p className="font-semibold text-slate-600 mb-1">
+          Los {nf.format(p.churn)} en churn
+        </p>
+        {linea(p.churnQueSalio, 'salieron de la base', 'text-red-500')}
+        {linea(p.churnQueSigue, 'siguen en la base: cambiaron de rama y la ventana más larga todavía los alcanza', 'text-slate-400')}
+      </div>
+      <div>
+        <p className="font-semibold text-slate-600 mb-1">
+          Los {nf.format(p.bajas)} que salieron
+        </p>
+        {linea(p.churnQueSalio, 'son el churn de este trimestre', 'text-red-500')}
+        {linea(p.bajaYaContada, 'su pérdida ya se contó en un trimestre anterior; el panel no la recuenta', 'text-slate-400')}
+        {p.bajaSinChurn > 0 &&
+          linea(p.bajaSinChurn, 'salieron sin figurar en el churn publicado: su pérdida es anterior al inicio de la serie', 'text-slate-400')}
+      </div>
+    </div>
+  );
+}
+
+function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegir, seleccion }: {
   celdas: ChurnQPais[];
   serie: ChurnQTrimestre[];
   enCurso: ChurnQTrimestre | null;
   /** Altas y bajas de la base activa, para explicar por qué se mueve el
    *  denominador. Vacío mientras el GAS no haya corrido con la versión nueva. */
   movimientos: MovimientoBase[];
+  /** Clientes contados en churn, de todos los trimestres. Se usa para cruzarlos
+   *  contra las bajas y poder decir de qué está hecho cada número. */
+  clientes: ClienteChurnQ[];
   /** Abre el detalle de clientes de ese trimestre. Sin esto la etiqueta iría con
    *  color de enlace sin serlo, que es prometer una interacción que no existe. */
   onElegir?: (trimestreId: string) => void;
@@ -511,6 +593,12 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
   // rama es invisible —el cliente no se fue de la cartera, solo de una mitad a
   // la otra—, y es justo lo que el equipo pidió poder ver.
   const [ramaBase, setRamaBase] = useState<'todas' | 'recurrente' | 'estacional'>('todas');
+  // Trimestre con el desglose abierto. Es uno solo para las dos tablas: son el
+  // mismo trimestre visto de dos lados, y tenerlo abierto en dos lugares a la
+  // vez con números iguales es ruido.
+  const [desglose, setDesglose] = useState<string | null>(null);
+  const alternarDesglose = (tid: string) =>
+    setDesglose(d => (d === tid ? null : tid));
   const paises = ordenarPaises([...new Set(celdas.map(c => c.pais))]);
   const buscar = (tid: string, pais: string) =>
     celdas.find(c => c.trimestreId === tid && c.pais === pais) ?? null;
@@ -806,7 +894,8 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
                 </thead>
                 <tbody>
                   {filas.map(r => (
-                    <tr key={r.tid} className={`border-b border-slate-50 last:border-0 ${
+                    <Fragment key={r.tid}>
+                    <tr className={`border-b border-slate-50 ${
                       r.tid === seleccion ? 'bg-slate-50' : ''}`}>
                       <th scope="row" className="text-left py-2 pr-3 font-normal whitespace-nowrap">
                         {onElegir ? (
@@ -815,6 +904,18 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
                             {etiquetaQ(r.tid)}
                           </button>
                         ) : etiquetaQ(r.tid)}
+                        <button
+                          onClick={() => alternarDesglose(r.tid)}
+                          aria-expanded={desglose === r.tid}
+                          aria-label={`Ver de qué está hecho ${etiquetaQ(r.tid)}`}
+                          className="ml-1.5 text-slate-300 hover:text-[#0097A7] transition-colors align-middle"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                               stroke="currentColor" strokeWidth="3" aria-hidden="true"
+                               className={`transition-transform ${desglose === r.tid ? 'rotate-180' : ''}`}>
+                            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
                       </th>
                       <td data-label="Base anterior" className="py-2 px-2 text-right tabular-nums text-slate-400">{nf.format(r.baseAnt)}</td>
                       <td data-label="Salieron" className="py-2 px-2 text-right tabular-nums text-red-500 font-medium">−{nf.format(r.bajas)}</td>
@@ -827,6 +928,14 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
                       )}
                       <td data-label="Base" className="py-2 pl-2 text-right tabular-nums text-slate-700 font-semibold">{nf.format(r.base)}</td>
                     </tr>
+                    {desglose === r.tid && (
+                      <tr className="border-b border-slate-50 bg-slate-50/60">
+                        <td colSpan={verCambio ? 6 : 5} className="px-2 pb-2">
+                          <DesgloseQ p={puenteQ(r.tid, clientes, movimientos)} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -858,8 +967,8 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
             </thead>
             <tbody>
               {[...serie].reverse().map(d => (
-                <tr key={d.trimestreId}
-                    className={`border-b border-slate-100 transition-colors ${
+                <Fragment key={d.trimestreId}>
+                <tr className={`border-b border-slate-100 transition-colors ${
                       d.trimestreId === seleccion ? 'bg-slate-50' : 'hover:bg-slate-50/70'}`}>
                   <th scope="row" className="text-left py-3 px-2 whitespace-nowrap">
                     {onElegir ? (
@@ -877,6 +986,18 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
                     {d.coberturaParcial && (
                       <span className="ml-1.5 text-[10px] text-amber-600">parcial</span>
                     )}
+                    <button
+                          onClick={() => alternarDesglose(d.trimestreId)}
+                          aria-expanded={desglose === d.trimestreId}
+                          aria-label={`Ver de qué está hecho ${etiquetaQ(d.trimestreId)}`}
+                          className="ml-1.5 text-slate-300 hover:text-[#0097A7] transition-colors align-middle"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                               stroke="currentColor" strokeWidth="3" aria-hidden="true"
+                               className={`transition-transform ${desglose === d.trimestreId ? 'rotate-180' : ''}`}>
+                            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
                   </th>
                   <td data-label="Churn" className={`${td} font-semibold text-slate-800`}>{nf.format(d.churn)}</td>
                   <td data-label="Rec." className={`${td} text-slate-500`}>{nf.format(d.churnRec)}</td>
@@ -886,6 +1007,14 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
                     {d.pctChurn != null ? `${d.pctChurn.toFixed(1)}%` : '—'}
                   </td>
                 </tr>
+                {desglose === d.trimestreId && (
+                  <tr className="border-b border-slate-100 bg-slate-50/60">
+                    <td colSpan={6} className="px-2 pb-2">
+                      <DesgloseQ p={puenteQ(d.trimestreId, clientes, movimientos)} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -1139,6 +1268,7 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
           <div className="lg:col-span-2">
             <ResumenPorPais celdas={data.churnQPaises} serie={serie} enCurso={enCurso}
                             movimientos={data.movimientosBase}
+                            clientes={data.clientesQ}
                             onElegir={elegir} seleccion={qAbierto.trimestreId} />
           </div>
         )}
