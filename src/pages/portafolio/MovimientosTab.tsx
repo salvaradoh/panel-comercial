@@ -8,7 +8,6 @@ import type {
   MovMes, MovAgregado, MovimientosResponse, ChurnQTrimestre, ClienteChurnQ, ChurnQPais, MovimientoBase,
 } from '../../hooks/useMovimientos';
 import { useTrack } from '../../hooks/useTrack';
-import { mismoPais } from '../../lib/paises';
 
 /**
  * Movimientos de cartera. Dos vistas que responden preguntas distintas y NO son
@@ -702,36 +701,34 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
         </table>
       </div>
 
-      {/* Cómo se movió la base. El % cambia por dos motivos y el panel solo
-          mostraba uno: se pierde más o menos gente (numerador) o entra y sale
-          gente de la base activa (denominador). Esto explica el segundo. */}
+      {/* Cómo se movió la base, trimestre a trimestre. El % cambia por dos
+          motivos y el panel solo mostraba uno: se pierde más o menos gente
+          (numerador) o entra y sale gente de la base activa (denominador).
+          Esto explica el segundo, que era invisible. */}
       {movimientos.length > 0 && (() => {
-        const tid = seleccion && trimestres.includes(seleccion)
-          ? seleccion
-          : trimestres[trimestres.length - 1];
-        const prev = tid ? anteriorA(tid) : null;
-        if (!tid || !prev) return null;
-        const filas = paises.map(p => {
-          const del = movimientos.filter(m => m.trimestreId === tid && mismoPais(m.pais, p));
+        // Una fila por transición: el primer trimestre de la serie no tiene
+        // anterior contra qué compararse, así que arranca en el segundo.
+        const filas = trimestres.slice(1).map(tid => {
+          const prev = anteriorA(tid)!;
+          const del = movimientos.filter(m => m.trimestreId === tid);
+          const baseDe = (q: string) =>
+            paises.reduce((a, p) => a + (buscar(q, p)?.cartera ?? 0), 0);
           return {
-            pais: p,
-            baseAnt: buscar(prev, p)?.cartera ?? 0,
+            tid, prev,
+            baseAnt: baseDe(prev),
             bajas:   del.filter(m => m.movimiento === 'baja').length,
             altas:   del.filter(m => m.movimiento === 'alta').length,
-            base:    buscar(tid, p)?.cartera ?? 0,
+            base:    baseDe(tid),
           };
-        });
-        const sum = (f: (r: typeof filas[0]) => number) => filas.reduce((a, r) => a + f(r), 0);
+        }).filter(r => r.bajas > 0 || r.altas > 0);
+        if (!filas.length) return null;
         return (
           <div className="mt-6 pt-5 border-t border-slate-100">
             <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
-              <h4 className="text-sm font-semibold text-slate-700">
-                Cómo se movió la base de {prev} a {tid}
-              </h4>
+              <h4 className="text-sm font-semibold text-slate-700">Cómo se movió la base</h4>
               <button
                 onClick={() => descargarMovimientosCsv(
-                  movimientos.filter(m => m.trimestreId === tid), prev, tid,
-                  `churn-base-${tid}-${hoyISO()}.csv`)}
+                  movimientos, `churn-base-altas-bajas-${hoyISO()}.csv`)}
                 className="text-[11px] font-semibold text-slate-500 hover:text-[#0097A7] transition-colors flex-shrink-0"
               >
                 Descargar quiénes
@@ -739,36 +736,37 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
             </div>
             <p className="text-[11px] text-slate-400 mb-2">
               El porcentaje también se mueve cuando cambia la base, no solo cuando se
-              pierde más gente.
+              pierde más gente. La descarga trae el detalle por empresa y país.
             </p>
             <div className="tabla-scroll">
               <table className="w-full text-sm tabla-apilable-vp">
                 <thead>
                   <tr className="text-[10px] text-slate-400 border-b border-slate-100 uppercase tracking-wide">
-                    <th scope="col" className="text-left font-medium pb-1.5">País</th>
-                    <th scope="col" className="text-right font-medium pb-1.5 px-2">Base {prev}</th>
+                    <th scope="col" className="text-left font-medium pb-1.5">Trimestre</th>
+                    <th scope="col" className="text-right font-medium pb-1.5 px-2">Base anterior</th>
                     <th scope="col" className="text-right font-medium pb-1.5 px-2">Salieron</th>
                     <th scope="col" className="text-right font-medium pb-1.5 px-2">Entraron</th>
-                    <th scope="col" className="text-right font-medium pb-1.5 pl-2">Base {tid}</th>
+                    <th scope="col" className="text-right font-medium pb-1.5 pl-2">Base</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filas.map(r => (
-                    <tr key={r.pais} className="border-b border-slate-50">
-                      <td data-titular className="py-2 pr-3 text-slate-700">{r.pais}</td>
-                      <td data-label={`Base ${prev}`} className="py-2 px-2 text-right tabular-nums text-slate-400">{nf.format(r.baseAnt)}</td>
+                    <tr key={r.tid} className={`border-b border-slate-50 last:border-0 ${
+                      r.tid === seleccion ? 'bg-slate-50' : ''}`}>
+                      <th scope="row" className="text-left py-2 pr-3 font-normal whitespace-nowrap">
+                        {onElegir ? (
+                          <button onClick={() => onElegir(r.tid)}
+                                  className="text-[#0097A7] hover:underline focus-visible:underline">
+                            {etiquetaQ(r.tid)}
+                          </button>
+                        ) : etiquetaQ(r.tid)}
+                      </th>
+                      <td data-label="Base anterior" className="py-2 px-2 text-right tabular-nums text-slate-400">{nf.format(r.baseAnt)}</td>
                       <td data-label="Salieron" className="py-2 px-2 text-right tabular-nums text-red-500 font-medium">−{nf.format(r.bajas)}</td>
                       <td data-label="Entraron" className="py-2 px-2 text-right tabular-nums text-emerald-600 font-medium">+{nf.format(r.altas)}</td>
-                      <td data-label={`Base ${tid}`} className="py-2 pl-2 text-right tabular-nums text-slate-700 font-semibold">{nf.format(r.base)}</td>
+                      <td data-label="Base" className="py-2 pl-2 text-right tabular-nums text-slate-700 font-semibold">{nf.format(r.base)}</td>
                     </tr>
                   ))}
-                  <tr className="bg-slate-50/60">
-                    <td data-titular className="py-2 pr-3 font-semibold text-slate-600">Total</td>
-                    <td data-label={`Base ${prev}`} className="py-2 px-2 text-right tabular-nums text-slate-500">{nf.format(sum(r => r.baseAnt))}</td>
-                    <td data-label="Salieron" className="py-2 px-2 text-right tabular-nums text-red-500 font-semibold">−{nf.format(sum(r => r.bajas))}</td>
-                    <td data-label="Entraron" className="py-2 px-2 text-right tabular-nums text-emerald-600 font-semibold">+{nf.format(sum(r => r.altas))}</td>
-                    <td data-label={`Base ${tid}`} className="py-2 pl-2 text-right tabular-nums text-slate-700 font-bold">{nf.format(sum(r => r.base))}</td>
-                  </tr>
                 </tbody>
               </table>
             </div>
@@ -881,18 +879,22 @@ function descargarResumenCsv(celdas: ChurnQPais[], archivo: string) {
 /**
  * CSV de quiénes entraron y salieron de la base activa en un trimestre.
  *
- * Es el detalle que el bloque de conciliación resume: una fila por empresa, con
- * el movimiento, el ejecutivo y lo que facturaba. Permite contestar "¿y quiénes
- * son esos 143 que entraron en Colombia?" sin volver a la base.
+ * Es el detalle que el bloque de conciliación resume: una fila por empresa y
+ * trimestre, con el movimiento, el país, el ejecutivo y lo que facturaba.
+ * Permite contestar "¿y quiénes son esos 143 que entraron en Colombia?" sin
+ * volver a la base.
+ *
+ * Van TODOS los trimestres en un archivo: en pantalla la tabla muestra los
+ * totales por trimestre y el país se pierde, así que el corte por país tiene
+ * que estar acá o no está en ningún lado.
  */
-function descargarMovimientosCsv(
-  movs: MovimientoBase[], prev: string, tid: string, archivo: string,
-) {
+function descargarMovimientosCsv(movs: MovimientoBase[], archivo: string) {
   const esc = (v: string | number) => {
     const t = String(v ?? '');
     return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   const cols: [string, (m: MovimientoBase) => string | number][] = [
+    ['Trimestre',   m => m.trimestreId],
     ['Movimiento',  m => (m.movimiento === 'alta' ? 'Entró' : 'Salió')],
     ['País',        m => m.pais],
     ['Ejecutivo',   m => m.kam],
@@ -901,11 +903,13 @@ function descargarMovimientosCsv(
     ['Tipo',        m => m.tipo],
     ['USD 12m',     m => Math.round(m.usd12m || 0)],
   ];
-  const texto = [`Base ${prev} → ${tid}`, cols.map(c => c[0]).join(';')]
+  const texto = [cols.map(c => c[0]).join(';')]
     .concat(movs
       .slice()
-      // Las bajas primero: es lo que se mira antes al abrir el archivo.
-      .sort((a, b) => (a.movimiento === b.movimiento ? 0 : a.movimiento === 'baja' ? -1 : 1)
+      // Por trimestre y, dentro de cada uno, las bajas primero: es lo que se
+      // mira al abrir el archivo.
+      .sort((a, b) => a.trimestreId.localeCompare(b.trimestreId)
+                      || (a.movimiento === b.movimiento ? 0 : a.movimiento === 'baja' ? -1 : 1)
                       || a.pais.localeCompare(b.pais)
                       || (b.usd12m || 0) - (a.usd12m || 0))
       .map(m => cols.map(([, get]) => esc(get(m))).join(';')))
