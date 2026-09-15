@@ -487,10 +487,14 @@ function ordenarPaises(ps: string[]): string[] {
  *    año, no promediando las tasas trimestrales. Promediar tasas de bases distintas
  *    da un número que no corresponde a ninguna población.
  */
-function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
+function ResumenPorPais({ celdas, serie, enCurso, clientes, onElegir, seleccion }: {
   celdas: ChurnQPais[];
   serie: ChurnQTrimestre[];
   enCurso: ChurnQTrimestre | null;
+  /** Detalle por cliente de todos los trimestres. Alcanza para descomponer la
+   *  variación sin pedirle nada nuevo al GAS: cada fila trae trimestre, país,
+   *  rama y ejecutivo. */
+  clientes: ClienteChurnQ[];
   /** Abre el detalle de clientes de ese trimestre. Sin esto la etiqueta iría con
    *  color de enlace sin serlo, que es prometer una interacción que no existe. */
   onElegir?: (trimestreId: string) => void;
@@ -501,7 +505,7 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
   // celda tiene dos números y hay que elegir cuál mirar en cada una; con el
   // selector se compara una sola magnitud entre países de un barrido de ojo, que
   // es para lo que sirve una matriz.
-  const [medida, setMedida] = useState<'clientes' | 'pct'>('clientes');
+  const [medida, setMedida] = useState<'clientes' | 'pct' | 'delta'>('clientes');
   const paises = ordenarPaises([...new Set(celdas.map(c => c.pais))]);
   const buscar = (tid: string, pais: string) =>
     celdas.find(c => c.trimestreId === tid && c.pais === pais) ?? null;
@@ -510,6 +514,54 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
   const ultimo = trimestres.length ? trimestres[trimestres.length - 1] : null;
   const base = paises.map(p => (ultimo ? (buscar(ultimo, p)?.cartera ?? 0) : 0));
   const baseTotal = base.reduce((a, b) => a + b, 0);
+
+  // Variación contra el trimestre inmediatamente anterior de la serie. El primero
+  // publicado no tiene con qué compararse: el GAS recorta desde 2025 (necesita el
+  // histórico completo para la guarda de no-recontar, pero publica menos).
+  const anteriorA = (tid: string) => {
+    const i = trimestres.indexOf(tid);
+    return i > 0 ? trimestres[i - 1] : null;
+  };
+  const delta = (tid: string, pais: string): number | null => {
+    const prev = anteriorA(tid);
+    if (!prev) return null;
+    const a = buscar(prev, pais), b = buscar(tid, pais);
+    // Si alguno de los dos trimestres no es comparable, su diferencia tampoco.
+    if (!a || !b || a.coberturaParcial || b.coberturaParcial) return null;
+    return b.churn - a.churn;
+  };
+
+  /**
+   * De qué está hecha la variación de un trimestre.
+   *
+   * Los conjuntos de dos trimestres consecutivos NO se solapan —la guarda de
+   * no-recontar impide perder dos veces al mismo cliente sin reactivación—, así
+   * que "quién entró y quién salió" siempre daría "entraron todos los de este,
+   * salieron todos los del anterior". La pregunta con respuesta es por dónde se
+   * movió el número, y para eso se compara la composición de los dos.
+   */
+  const desglose = (tid: string) => {
+    const prev = anteriorA(tid);
+    if (!prev) return null;
+    const contar = (q: string, campo: 'tipo' | 'kam') => {
+      const m = new Map<string, number>();
+      for (const c of clientes) {
+        if (c.trimestreId !== q) continue;
+        const k = campo === 'tipo' ? (c.tipoRef || c.rama) : c.kam;
+        m.set(k, (m.get(k) ?? 0) + 1);
+      }
+      return m;
+    };
+    const armar = (campo: 'tipo' | 'kam') => {
+      const a = contar(prev, campo), b = contar(tid, campo);
+      return [...new Set([...a.keys(), ...b.keys()])]
+        .map(k => ({ k, ant: a.get(k) ?? 0, act: b.get(k) ?? 0,
+                     d: (b.get(k) ?? 0) - (a.get(k) ?? 0) }))
+        .filter(r => r.ant > 0 || r.act > 0)
+        .sort((x, y) => Math.abs(y.d) - Math.abs(x.d) || y.act - x.act);
+    };
+    return { prev, tipos: armar('tipo'), kams: armar('kam') };
+  };
 
   const anios = [...new Set(serie.map(d => d.anio))].sort();
   const promedio = (anio: number, pais?: string) => {
@@ -523,6 +575,9 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
     // trimestrales — son tasas de bases distintas y su promedio no corresponde a
     // ninguna población. En clientes: por trimestre, contando los trimestres
     // distintos y no las filas, que en la columna Total son país × trimestre.
+    // Un promedio de variaciones es el neto entre el primer y el último
+    // trimestre dividido por los saltos: no dice nada que la serie no diga.
+    if (medida === 'delta') return null;
     if (medida === 'pct') return Math.round((100 * ch / ca) * 10) / 10;
     const nQ = new Set(filas.map(f => f.trimestreId)).size;
     return nQ > 0 ? ch / nQ : null;
@@ -533,14 +588,24 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
       .filter((c): c is ChurnQPais => c != null && !c.coberturaParcial);
     const ch = cs.reduce((a, b) => a + b.churn, 0);
     const ca = cs.reduce((a, b) => a + b.cartera, 0);
+    if (medida === 'delta') {
+      const ds = cs.map(c => delta(tid, c.pais));
+      // Si a algún país le falta el dato, el total de la fila sería una suma
+      // parcial disfrazada de total.
+      return ds.some(d => d == null) ? null : ds.reduce<number>((a, b) => a + (b ?? 0), 0);
+    }
     return medida === 'pct' ? (ca > 0 ? Math.round((100 * ch / ca) * 10) / 10 : null) : ch;
   };
 
   const fmt = (v: number | null) =>
-    v == null ? '—' : medida === 'pct' ? `${v.toFixed(1)}%` : nf.format(Math.round(v));
+    v == null ? '—'
+    : medida === 'pct' ? `${v.toFixed(1)}%`
+    : medida === 'delta' ? `${v > 0 ? '+' : ''}${nf.format(Math.round(v))}`
+    : nf.format(Math.round(v));
 
   const valor = (c: ChurnQPais | null) => {
     if (!c) return null;
+    if (medida === 'delta') return delta(c.trimestreId, c.pais);
     return medida === 'pct' ? c.pctChurn : c.churn;
   };
 
@@ -557,7 +622,7 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
           </p>
         </div>
         <div className="flex gap-1 bg-slate-100 rounded-lg p-1" role="group" aria-label="Medida de la tabla">
-          {([['clientes', 'Clientes'], ['pct', '% de la base']] as const).map(([id, etq]) => (
+          {([['clientes', 'Clientes'], ['pct', '% de la base'], ['delta', 'Variación']] as const).map(([id, etq]) => (
             <button
               key={id}
               onClick={() => setMedida(id)}
@@ -575,7 +640,9 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
       <div className="overflow-x-auto -mx-2 tabla-scroll">
         <table className="w-full text-sm min-w-[440px] tabla-apilable">
           <caption className="sr-only">
-            {medida === 'pct' ? 'Porcentaje de churn' : 'Clientes en churn'} por trimestre y país
+            {medida === 'pct' ? 'Porcentaje de churn'
+             : medida === 'delta' ? 'Variación de clientes en churn contra el trimestre anterior'
+             : 'Clientes en churn'} por trimestre y país
           </caption>
           <thead>
             <tr className="border-b border-slate-200">
@@ -665,6 +732,70 @@ function ResumenPorPais({ celdas, serie, enCurso, onElegir, seleccion }: {
           </tbody>
         </table>
       </div>
+
+      {/* Qué explica la variación. Solo en el modo que la muestra: en los otros
+          dos sería un bloque hablando de una columna que no está en pantalla. */}
+      {medida === 'delta' && (() => {
+        const tid = seleccion && trimestres.includes(seleccion)
+          ? seleccion
+          : trimestres[trimestres.length - 1];
+        const d = tid ? desglose(tid) : null;
+        if (!d) return null;
+        const fila = (r: { k: string; ant: number; act: number; d: number }) => (
+          <tr key={r.k} className="border-b border-slate-50 last:border-0">
+            <td data-titular className="py-1.5 pr-3 text-slate-600">{r.k}</td>
+            <td data-label={d.prev} className="py-1.5 px-2 text-right tabular-nums text-slate-400">{r.ant}</td>
+            <td data-label={tid} className="py-1.5 px-2 text-right tabular-nums text-slate-700">{r.act}</td>
+            <td data-label="Variación" className={`py-1.5 pl-2 text-right tabular-nums font-semibold ${
+              r.d > 0 ? 'text-red-500' : r.d < 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+              {r.d > 0 ? '+' : ''}{r.d}
+            </td>
+          </tr>
+        );
+        const bloque = (titulo: string, filas: typeof d.tipos) => (
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">{titulo}</p>
+            <div className="tabla-scroll">
+              <table className="w-full text-xs tabla-apilable-vp">
+                <thead>
+                  <tr className="text-[10px] text-slate-400 border-b border-slate-100">
+                    <th scope="col" className="text-left font-medium pb-1">&nbsp;</th>
+                    <th scope="col" className="text-right font-medium pb-1 px-2">{d.prev}</th>
+                    <th scope="col" className="text-right font-medium pb-1 px-2">{tid}</th>
+                    <th scope="col" className="text-right font-medium pb-1 pl-2">Var.</th>
+                  </tr>
+                </thead>
+                <tbody>{filas.map(fila)}</tbody>
+              </table>
+            </div>
+          </div>
+        );
+        return (
+          <div className="mt-5 pt-4 border-t border-slate-100">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap mb-2">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">
+                  Qué explica el cambio de {d.prev} a {tid}
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Los dos trimestres no comparten clientes —nadie se pierde dos veces sin
+                  haber vuelto a comprar—, así que lo que se compara es su composición.
+                </p>
+              </div>
+              <button
+                onClick={() => descargarDeltaCsv(d, tid, `churn-variacion-${tid}-${hoyISO()}.csv`)}
+                className="text-[11px] font-semibold text-slate-500 hover:text-[#0097A7] transition-colors flex-shrink-0"
+              >
+                Descargar desglose
+              </button>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-5">
+              {bloque('Por tipo de cliente', d.tipos)}
+              {bloque('Por ejecutivo', d.kams)}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Detalle por trimestre. Vive en esta card y no en una propia porque es la
           misma tabla vista de otro lado —los mismos trimestres, abiertos por rama
@@ -759,6 +890,46 @@ function descargarResumenCsv(celdas: ChurnQPais[], archivo: string) {
       .slice()
       .sort((a, b) => a.trimestreId.localeCompare(b.trimestreId) || a.pais.localeCompare(b.pais))
       .map(f => cols.map(([, get]) => esc(get(f))).join(';')))
+    .join('\r\n');
+  const url = URL.createObjectURL(
+    new Blob(['\ufeff' + texto], { type: 'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = archivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Escapado de CSV con `;`, que es lo que espera el Excel en español. */
+function escCsv(v: string | number) {
+  const t = String(v ?? '');
+  return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+
+/**
+ * CSV del desglose de la variación.
+ *
+ * Una fila por corte —tipo de cliente y ejecutivo— con el valor de cada
+ * trimestre y la diferencia. Es lo que responde "por qué subió" sin tener que
+ * armar una tabla dinámica sobre el detalle de clientes.
+ *
+ * No incluye la lista de empresas a propósito: los dos trimestres no comparten
+ * ninguna, así que un "entró/salió" por cliente sería la concatenación de las
+ * dos listas con una etiqueta que no agrega nada. Para los nombres está la
+ * descarga de detalle, que ya trae el trimestre en cada fila.
+ */
+function descargarDeltaCsv(
+  d: { prev: string; tipos: { k: string; ant: number; act: number; d: number }[];
+       kams: { k: string; ant: number; act: number; d: number }[] },
+  tid: string,
+  archivo: string,
+) {
+  const filas = [
+    ...d.tipos.map(r => ({ corte: 'Tipo de cliente', ...r })),
+    ...d.kams.map(r  => ({ corte: 'Ejecutivo',       ...r })),
+  ];
+  const texto = [['Trimestre', 'Corte', 'Detalle', d.prev, tid, 'Variación'].join(';')]
+    .concat(filas.map(f => [tid, f.corte, f.k, f.ant, f.act,
+                            (f.d > 0 ? '+' : '') + f.d].map(escCsv).join(';')))
     .join('\r\n');
   const url = URL.createObjectURL(
     new Blob(['\ufeff' + texto], { type: 'text/csv;charset=utf-8;' }));
@@ -944,6 +1115,7 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
         {data.churnQPaises.length > 0 && (
           <div className="lg:col-span-2">
             <ResumenPorPais celdas={data.churnQPaises} serie={serie} enCurso={enCurso}
+                            clientes={data.clientesQ}
                             onElegir={elegir} seleccion={qAbierto.trimestreId} />
           </div>
         )}
