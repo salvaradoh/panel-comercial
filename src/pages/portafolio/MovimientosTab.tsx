@@ -507,6 +507,10 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
   // selector se compara una sola magnitud entre países de un barrido de ojo, que
   // es para lo que sirve una matriz.
   const [medida, setMedida] = useState<'clientes' | 'pct' | 'delta'>('clientes');
+  // Rama sobre la que se lee el movimiento de la base. En 'todas' el cambio de
+  // rama es invisible —el cliente no se fue de la cartera, solo de una mitad a
+  // la otra—, y es justo lo que el equipo pidió poder ver.
+  const [ramaBase, setRamaBase] = useState<'todas' | 'recurrente' | 'estacional'>('todas');
   const paises = ordenarPaises([...new Set(celdas.map(c => c.pais))]);
   const buscar = (tid: string, pais: string) =>
     celdas.find(c => c.trimestreId === tid && c.pais === pais) ?? null;
@@ -709,20 +713,38 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
       {movimientos.length > 0 && (() => {
         // Una fila por transición: el primer trimestre de la serie no tiene
         // anterior contra qué compararse, así que arranca en el segundo.
+        // El payload viejo no traía rama: sin ella el selector mentiría, así que
+        // no se ofrece y la tabla se comporta como antes.
+        const hayRama = movimientos.some(m => m.rama);
+        const rama = hayRama ? ramaBase : 'todas';
         const filas = trimestres.slice(1).map(tid => {
           const prev = anteriorA(tid)!;
-          const del = movimientos.filter(m => m.trimestreId === tid);
+          const del = movimientos.filter(m =>
+            m.trimestreId === tid && (rama === 'todas' || m.rama === rama));
           const baseDe = (q: string) =>
-            paises.reduce((a, p) => a + (buscar(q, p)?.cartera ?? 0), 0);
+            paises.reduce((a, p) => {
+              const c = buscar(q, p);
+              if (!c) return a;
+              return a + (rama === 'todas' ? c.cartera
+                        : rama === 'recurrente' ? c.carteraRec : c.carteraEst);
+            }, 0);
+          // Las reclasificaciones se separan de las salidas y entradas reales:
+          // mezcladas, "salieron 121" se lee como 121 clientes perdidos cuando
+          // ninguno se fue de la cartera. Van en su propia columna, con signo.
+          const cuenta = (mov: string, recl: boolean) =>
+            del.filter(m => m.movimiento === mov &&
+              (m.motivo === 'reclasificacion') === recl).length;
           return {
             tid, prev,
             baseAnt: baseDe(prev),
-            bajas:   del.filter(m => m.movimiento === 'baja').length,
-            altas:   del.filter(m => m.movimiento === 'alta').length,
+            bajas:   cuenta('baja', false),
+            altas:   cuenta('alta', false),
+            cambio:  cuenta('alta', true) - cuenta('baja', true),
             base:    baseDe(tid),
           };
-        }).filter(r => r.bajas > 0 || r.altas > 0);
+        }).filter(r => r.bajas > 0 || r.altas > 0 || r.cambio !== 0);
         if (!filas.length) return null;
+        const verCambio = rama !== 'todas';
         return (
           <div className="mt-6 pt-5 border-t border-slate-100">
             <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
@@ -739,6 +761,35 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
               El porcentaje también se mueve cuando cambia la base, no solo cuando se
               pierde más gente. La descarga trae el detalle por empresa y país.
             </p>
+            {hayRama && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {([
+                  ['todas', 'Toda la base'],
+                  ['recurrente', 'Recurrentes'],
+                  ['estacional', 'Estacionales'],
+                ] as const).map(([id, txt]) => (
+                  <button
+                    key={id}
+                    onClick={() => setRamaBase(id)}
+                    aria-pressed={ramaBase === id}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
+                      ramaBase === id
+                        ? 'bg-[#0097A7] text-white'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                  >
+                    {txt}
+                  </button>
+                ))}
+              </div>
+            )}
+            {verCambio && (
+              <p className="text-[11px] text-slate-400 mb-2">
+                «Cambio de rama» son clientes que no salieron de la cartera: cambiaron
+                de {rama === 'recurrente' ? 'estacional a recurrente y al revés'
+                   : 'recurrente a estacional y al revés'}. Lo que esta rama suma, la
+                otra lo resta, y por eso en «Toda la base» no se ve.
+              </p>
+            )}
             <div className="tabla-scroll">
               <table className="w-full text-sm tabla-apilable-vp">
                 <thead>
@@ -747,6 +798,9 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
                     <th scope="col" className="text-right font-medium pb-1.5 px-2">Base anterior</th>
                     <th scope="col" className="text-right font-medium pb-1.5 px-2">Salieron</th>
                     <th scope="col" className="text-right font-medium pb-1.5 px-2">Entraron</th>
+                    {verCambio && (
+                      <th scope="col" className="text-right font-medium pb-1.5 px-2">Cambio de rama</th>
+                    )}
                     <th scope="col" className="text-right font-medium pb-1.5 pl-2">Base</th>
                   </tr>
                 </thead>
@@ -765,6 +819,12 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
                       <td data-label="Base anterior" className="py-2 px-2 text-right tabular-nums text-slate-400">{nf.format(r.baseAnt)}</td>
                       <td data-label="Salieron" className="py-2 px-2 text-right tabular-nums text-red-500 font-medium">−{nf.format(r.bajas)}</td>
                       <td data-label="Entraron" className="py-2 px-2 text-right tabular-nums text-emerald-600 font-medium">+{nf.format(r.altas)}</td>
+                      {verCambio && (
+                        <td data-label="Cambio de rama" className={`py-2 px-2 text-right tabular-nums font-medium ${
+                          r.cambio > 0 ? 'text-emerald-600' : r.cambio < 0 ? 'text-red-500' : 'text-slate-300'}`}>
+                          {r.cambio > 0 ? '+' : r.cambio < 0 ? '−' : ''}{nf.format(Math.abs(r.cambio))}
+                        </td>
+                      )}
                       <td data-label="Base" className="py-2 pl-2 text-right tabular-nums text-slate-700 font-semibold">{nf.format(r.base)}</td>
                     </tr>
                   ))}
@@ -781,7 +841,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
       <div className="mt-6 pt-5 border-t border-slate-100">
         <h4 className="text-sm font-semibold text-slate-700">Detalle por trimestre</h4>
         <p className="text-[11px] text-slate-400 mt-0.5 mb-2">
-          Tocá un trimestre para ver y descargar sus empresas.
+          Toca un trimestre para ver y descargar sus empresas.
         </p>
         <div className="overflow-x-auto -mx-2 tabla-scroll">
           <table className="w-full text-sm min-w-[420px] tabla-apilable">
@@ -864,6 +924,11 @@ function descargarMovimientosCsv(movs: MovimientoBase[], archivo: string) {
   const cols: [string, (m: MovimientoBase) => string | number][] = [
     ['Trimestre',   m => m.trimestreId],
     ['Movimiento',  m => (m.movimiento === 'alta' ? 'Entró' : 'Salió')],
+    // Un cambio de rama no es un movimiento de cartera: el cliente sigue ahí.
+    // Sin esta columna las dos cosas se leen igual y el total no cierra.
+    ['Motivo',      m => (m.motivo === 'reclasificacion'
+                          ? 'Cambio de rama' : 'Movimiento de cartera')],
+    ['Rama',        m => m.rama ?? ''],
     ['País',        m => m.pais],
     ['Ejecutivo',   m => m.kam],
     ['Empresa',     m => m.nombre],

@@ -77,6 +77,10 @@ export interface ChurnQTrimestre {
   usdChurn: number;
   /** Clientes del país con historial HASTA ESE CIERRE, no la foto de hoy. */
   cartera: number;
+  /** El mismo denominador abierto por rama. carteraRec + carteraEst = cartera:
+   *  cada cliente vive en una sola rama en cada cierre. */
+  carteraRec: number;
+  carteraEst: number;
   pctChurn: number | null;
   /** La historia del país no alcanza para armar la referencia: no es comparable. */
   coberturaParcial: boolean;
@@ -90,7 +94,11 @@ export interface ChurnQPais {
   trimestreId: string;
   pais: string;
   churn: number;
+  churnRec: number;
+  churnEst: number;
   cartera: number;
+  carteraRec: number;
+  carteraEst: number;
   pctChurn: number | null;
   /** Sin cobertura: la historia del país no llega. Se muestra 'n/d', no 0. */
   coberturaParcial: boolean;
@@ -148,6 +156,12 @@ export interface MovimientoBase {
   /** 'alta' entró a la base ese trimestre, 'baja' dejó de estar. */
   movimiento: 'alta' | 'baja' | string;
   usd12m: number;
+  /** Rama de la que entra o sale. Ausente en el payload anterior. */
+  rama?: string;
+  /** 'entrada' / 'salida' son movimientos reales de la base. 'reclasificacion'
+   *  es el mismo cliente cambiando de rama: emite una baja y un alta que se
+   *  anulan en el total y solo se ven al separar por rama. */
+  motivo?: string;
 }
 
 export interface MovimientosResponse {
@@ -178,6 +192,9 @@ interface FilaQ {
   pais: string; kam: string;
   churn: number; churnRec: number; churnEst: number; usdChurn: number;
   cartera: number; coberturaParcial: boolean;
+  /** Ausentes en el payload anterior al desglose por rama: caen a 0 y el panel
+   *  muestra el total, que es lo que había antes. */
+  carteraRec?: number; carteraEst?: number;
   /** Trimestre en curso: la ventana de silencio no cerró. Ausente en el
    *  payload anterior al 2026-08-25, donde solo iban trimestres cerrados. */
   ventanaAbierta?: boolean;
@@ -294,7 +311,8 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
           trimestreId: f.trimestreId, cierre: f.cierre,
           anio: Number(f.anio) || 0, trimestre: Number(f.trimestre) || 0,
           churn: 0, churnRec: 0, churnEst: 0, usdChurn: 0,
-          cartera: 0, pctChurn: null, coberturaParcial: false,
+          cartera: 0, carteraRec: 0, carteraEst: 0,
+          pctChurn: null, coberturaParcial: false,
           ventanaAbierta: false,
         };
         porQ.set(f.trimestreId, d);
@@ -304,6 +322,8 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
       d.churnEst += Number(f.churnEst) || 0;
       d.usdChurn += Number(f.usdChurn) || 0;
       d.cartera  += Number(f.cartera) || 0;
+      d.carteraRec += Number(f.carteraRec) || 0;
+      d.carteraEst += Number(f.carteraEst) || 0;
       if (f.coberturaParcial) d.coberturaParcial = true;
       if (f.ventanaAbierta) d.ventanaAbierta = true;
     }
@@ -347,12 +367,17 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
       const k = `${f.trimestreId}||${f.pais}`;
       let d = porPaisQ.get(k);
       if (!d) {
-        d = { trimestreId: f.trimestreId, pais: f.pais, churn: 0, cartera: 0,
+        d = { trimestreId: f.trimestreId, pais: f.pais, churn: 0,
+              churnRec: 0, churnEst: 0, cartera: 0, carteraRec: 0, carteraEst: 0,
               pctChurn: null, coberturaParcial: false, ventanaAbierta: false };
         porPaisQ.set(k, d);
       }
-      d.churn   += Number(f.churn) || 0;
-      d.cartera += Number(f.cartera) || 0;
+      d.churn     += Number(f.churn) || 0;
+      d.churnRec  += Number(f.churnRec) || 0;
+      d.churnEst  += Number(f.churnEst) || 0;
+      d.cartera   += Number(f.cartera) || 0;
+      d.carteraRec += Number(f.carteraRec) || 0;
+      d.carteraEst += Number(f.carteraEst) || 0;
       if (f.coberturaParcial) d.coberturaParcial = true;
       if (f.ventanaAbierta) d.ventanaAbierta = true;
     }

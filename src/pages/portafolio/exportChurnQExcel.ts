@@ -61,7 +61,11 @@ export async function descargarExcelChurnQ(
     const total = sumaQ(tid, 'churn');
     const base = sumaQ(tid, 'cartera');
     const anterior = i > 0 ? sumaQ(trimestres[i - 1], 'churn') : null;
-    const delQ = movimientos.filter(m => m.trimestreId === tid);
+    // Las reclasificaciones quedan fuera: son un cliente cambiando de rama sin
+    // salir de la cartera, y sumadas acá el total dejaría de cerrar
+    // (base anterior − salieron + entraron ≠ base).
+    const delQ = movimientos.filter(m =>
+      m.trimestreId === tid && m.motivo !== 'reclasificacion');
     // El primer trimestre de la serie no tiene anterior: su variación y su
     // movimiento de base quedan vacíos en vez de en cero, que se leería como
     // "no se movió nada".
@@ -123,7 +127,8 @@ export async function descargarExcelChurnQ(
   // ── Hoja 3: altas y bajas de la base ───────────────────────────────────────
   const wsM = wb.addWorksheet('Altas y bajas');
   wsM.addRow([
-    'Trimestre', 'Movimiento', 'País', 'Ejecutivo', 'Empresa', 'ID panel', 'Tipo', 'USD 12m',
+    'Trimestre', 'Movimiento', 'Motivo', 'Rama', 'País', 'Ejecutivo', 'Empresa',
+    'ID panel', 'Tipo', 'USD 12m',
   ]).font = { bold: true };
   movimientos
     .slice()
@@ -136,10 +141,52 @@ export async function descargarExcelChurnQ(
     .forEach(m => {
       wsM.addRow([
         m.trimestreId, m.movimiento === 'alta' ? 'Entró' : 'Salió',
-        m.pais, m.kam, m.nombre, m.panelId, m.tipo, Math.round(m.usd12m || 0),
+        m.motivo === 'reclasificacion' ? 'Cambio de rama' : 'Movimiento de cartera',
+        m.rama ?? '', m.pais, m.kam, m.nombre, m.panelId, m.tipo,
+        Math.round(m.usd12m || 0),
       ]);
     });
-  wsM.columns.forEach((col, i) => { col.width = [12, 12, 11, 18, 46, 14, 13, 14][i] ?? 14; });
+  wsM.columns.forEach((col, i) => {
+    col.width = [12, 12, 22, 12, 11, 18, 46, 14, 13, 14][i] ?? 14;
+  });
+
+  // ── Hoja 4: la misma base, abierta por rama ────────────────────────────────
+  // En el total un cambio de rama no se ve: el cliente nunca dejó la cartera.
+  // Separado, es una baja de una rama y un alta de la otra, y esa columna es la
+  // que explica por qué una rama crece mientras la otra encoge sin que entre ni
+  // salga nadie. Las dos filas de cada trimestre suman el total de la hoja 1.
+  const wsR = wb.addWorksheet('Base por rama');
+  wsR.addRow(['Cómo se movió la base, por rama']).font = { bold: true, size: 14 };
+  wsR.addRow([]);
+  wsR.addRow([
+    'Trimestre', 'Rama', 'Base anterior', 'Salieron', 'Entraron',
+    'Cambio de rama', 'Base',
+  ]).font = { bold: true };
+
+  const baseRama = (tid: string, rama: 'recurrente' | 'estacional') =>
+    paises.reduce((a, p) => {
+      const c = buscar(tid, p);
+      return a + (!c ? 0 : rama === 'recurrente' ? c.carteraRec : c.carteraEst);
+    }, 0);
+
+  trimestres.forEach((tid, i) => {
+    if (i === 0) return;   // sin trimestre anterior no hay movimiento que contar
+    (['recurrente', 'estacional'] as const).forEach(rama => {
+      const del = movimientos.filter(m => m.trimestreId === tid && m.rama === rama);
+      const cuenta = (mov: string, recl: boolean) =>
+        del.filter(m => m.movimiento === mov &&
+          (m.motivo === 'reclasificacion') === recl).length;
+      wsR.addRow([
+        tid, rama === 'recurrente' ? 'Recurrentes' : 'Estacionales',
+        baseRama(trimestres[i - 1], rama),
+        -cuenta('baja', false),
+        cuenta('alta', false),
+        cuenta('alta', true) - cuenta('baja', true),
+        baseRama(tid, rama),
+      ]);
+    });
+  });
+  wsR.columns.forEach((col, i) => { col.width = [12, 14, 14, 11, 11, 16, 11][i] ?? 14; });
 
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
