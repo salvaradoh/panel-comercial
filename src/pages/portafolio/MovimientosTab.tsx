@@ -708,11 +708,26 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
     };
   })();
 
+  // La misma relación en todos los trimestres publicados. Uno solo se lee como
+  // una casualidad del trimestre; la serie muestra que es una identidad.
+  const serieModal = serie
+    .map(d => {
+      const p = puenteQ(d.trimestreId, clientes, movimientos);
+      if (!p.churn || !p.bajas) return null;
+      return {
+        etiqueta: etiquetaQ(d.trimestreId),
+        churn: p.churn, salieron: p.bajas, sigue: p.churnQueSigue,
+        yaContada: p.bajaYaContada, sinChurn: p.bajaSinChurn,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
   return (
     <Card>
       <AnimatePresence>
         {verComoSeCalcula && (
-          <ComoSeCalculaChurn ejemplo={ejemplo} onCerrar={() => setVerComoSeCalcula(false)} />
+          <ComoSeCalculaChurn ejemplo={ejemplo} serie={serieModal}
+                              onCerrar={() => setVerComoSeCalcula(false)} />
         )}
       </AnimatePresence>
       <div className="flex items-start justify-between gap-4 flex-wrap mb-1">

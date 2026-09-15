@@ -65,12 +65,16 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
  * ejemplo y explicando el malentendido más común —restar los que salieron del
  * churn— antes de que lo cometa.
  */
-export function ComoSeCalculaChurn({ onCerrar, ejemplo }: {
+export function ComoSeCalculaChurn({ onCerrar, ejemplo, serie = [] }: {
   onCerrar: () => void;
   /** Números reales del último trimestre cerrado, para que el ejemplo no sea
    *  inventado. Si no hay, el texto se explica igual sin cifras. */
   ejemplo?: { etiqueta: string; churn: number; salieron: number;
               ambas: number; sigue: number; yaContada: number } | null;
+  /** Todos los trimestres, para mostrar que la relación no es de uno solo.
+   *  Vacío en el payload viejo: la sección simplemente no se dibuja. */
+  serie?: { etiqueta: string; churn: number; salieron: number;
+            sigue: number; yaContada: number; sinChurn: number }[];
 }) {
   const caja = useRef<HTMLDivElement>(null);
   const cerrar = useRef<HTMLButtonElement>(null);
@@ -259,6 +263,66 @@ export function ComoSeCalculaChurn({ onCerrar, ejemplo }: {
               para ver estos mismos tres grupos con sus números.
             </p>
           </Seccion>
+
+          {serie.length > 0 && (
+            <Seccion titulo="5. La relación entre los dos números, trimestre a trimestre">
+              <p>
+                Los dos números nunca coinciden por casualidad: su diferencia es
+                exactamente la de los dos grupos que no se superponen.
+              </p>
+              <p className="rounded-lg bg-slate-50 px-3 py-2.5 text-[12px] text-slate-700">
+                churn − salieron ={' '}
+                <span className={CASOS.sigueEnBase.texto}>siguen en la base</span> −{' '}
+                <span className={CASOS.yaContada.texto}>ya contadas</span> − salieron sin
+                figurar en churn
+              </p>
+              <div className="tabla-scroll -mx-1">
+                <table className="w-full text-[12px] tabla-apilable-vp">
+                  <caption className="sr-only">
+                    Diferencia entre churn y salidas, y los grupos que la explican, por trimestre
+                  </caption>
+                  <thead>
+                    <tr className="text-[10px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
+                      <th scope="col" className="text-left font-medium pb-1.5 px-1">Trimestre</th>
+                      <th scope="col" className="text-right font-medium pb-1.5 px-1">Churn − salieron</th>
+                      <th scope="col" className="text-right font-medium pb-1.5 px-1">Siguen en la base</th>
+                      <th scope="col" className="text-right font-medium pb-1.5 px-1">Ya contadas</th>
+                      <th scope="col" className="text-right font-medium pb-1.5 px-1">Sin figurar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {serie.map(q => (
+                      <tr key={q.etiqueta} className="border-b border-slate-50 last:border-0">
+                        <th scope="row" className="text-left py-1.5 px-1 font-normal whitespace-nowrap text-slate-600">
+                          {q.etiqueta}
+                        </th>
+                        <td data-label="Churn − salieron" className="py-1.5 px-1 text-right tabular-nums font-semibold text-slate-800">
+                          {q.churn - q.salieron > 0 ? '+' : ''}{n(q.churn - q.salieron)}
+                        </td>
+                        <td data-label="Siguen en la base" className={`py-1.5 px-1 text-right tabular-nums ${CASOS.sigueEnBase.texto}`}>{n(q.sigue)}</td>
+                        <td data-label="Ya contadas" className={`py-1.5 px-1 text-right tabular-nums ${CASOS.yaContada.texto}`}>{n(q.yaContada)}</td>
+                        <td data-label="Sin figurar" className="py-1.5 px-1 text-right tabular-nums text-slate-400">{n(q.sinChurn)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p>
+                La última columna casi siempre es cero. Deja de serlo en el primer
+                trimestre de la serie, donde hay empresas que salieron de la base pero
+                se habían perdido antes de donde arranca el histórico, así que su churn
+                nunca se publicó. Por eso ahí la diferencia puede ser negativa: salieron
+                más de las que entraron en churn.
+              </p>
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-slate-700">
+                <strong className="text-amber-800">Cuidado con la diferencia en cero.</strong>{' '}
+                Que los dos números den igual no significa que sean las mismas empresas.
+                Puede haber un grupo en churn que sigue en la base y otro, distinto y del
+                mismo tamaño, que salió sin volver a contarse: se cancelan y la resta da
+                cero. Por eso la resta no sirve para comprobar nada.
+              </p>
+            </Seccion>
+          )}
         </div>
       </motion.div>
     </>
