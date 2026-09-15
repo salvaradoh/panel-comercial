@@ -487,6 +487,55 @@ function ordenarPaises(ps: string[]): string[] {
  *    año, no promediando las tasas trimestrales. Promediar tasas de bases distintas
  *    da un número que no corresponde a ninguna población.
  */
+/**
+ * Cortes con los que se puede leer la variación.
+ *
+ * "Por qué subió" tiene varias respuestas según por dónde se mire, y son
+ * distintas: en Chile, de Q4-25 a Q1-26 el salto es de recurrentes por tipo,
+ * pero por antigüedad no son clientes nuevos sino de 1-2 años y de más de 2.
+ * Ambas son ciertas y ninguna sola alcanza, así que se elige el corte en vez de
+ * fijar uno.
+ */
+type Corte = 'antiguedad' | 'tipo' | 'cadencia' | 'tamano' | 'kam';
+
+const CORTES: [Corte, string][] = [
+  ['antiguedad', 'Antigüedad'],
+  ['tipo',       'Tipo'],
+  ['cadencia',   'Cadencia'],
+  ['tamano',     'Tamaño'],
+  ['kam',        'Ejecutivo'],
+];
+
+const ANTIGUEDAD = ['menos de 6 meses', '6 a 12 meses', '1 a 2 años', 'más de 2 años'];
+const CADENCIA   = ['1 mes (compra aislada)', '2 meses', '3 meses (cadencia)'];
+const TAMANO     = ['menos de 500', '500 a 2.000', '2.000 a 10.000', 'más de 10.000'];
+
+/** Los cortes ordinales tienen orden propio; los nominales se ordenan por variación. */
+const ORDEN_CORTE: Record<Corte, string[] | null> = {
+  antiguedad: ANTIGUEDAD, cadencia: CADENCIA, tamano: TAMANO, tipo: null, kam: null,
+};
+
+function claveDe(c: ClienteChurnQ, corte: Corte): string {
+  switch (corte) {
+    case 'tipo': return c.tipoRef || c.rama || 'sin dato';
+    case 'kam':  return c.kam || 'Otros';
+    case 'cadencia':
+      return c.mesesRef == null ? 'sin dato'
+        : c.mesesRef <= 1 ? CADENCIA[0] : c.mesesRef === 2 ? CADENCIA[1] : CADENCIA[2];
+    case 'antiguedad': {
+      // Ausente en el payload anterior al 2026-09-15: se marca en vez de
+      // meterlo en una banda y hacer creer que el dato está.
+      const m = c.antiguedadMeses;
+      if (m == null) return 'sin dato';
+      return m < 6 ? ANTIGUEDAD[0] : m < 12 ? ANTIGUEDAD[1] : m < 24 ? ANTIGUEDAD[2] : ANTIGUEDAD[3];
+    }
+    case 'tamano': {
+      const u = c.usdReferencia ?? 0;
+      return u < 500 ? TAMANO[0] : u < 2000 ? TAMANO[1] : u < 10000 ? TAMANO[2] : TAMANO[3];
+    }
+  }
+}
+
 function ResumenPorPais({ celdas, serie, enCurso, clientes, onElegir, seleccion }: {
   celdas: ChurnQPais[];
   serie: ChurnQTrimestre[];
@@ -506,6 +555,7 @@ function ResumenPorPais({ celdas, serie, enCurso, clientes, onElegir, seleccion 
   // selector se compara una sola magnitud entre países de un barrido de ojo, que
   // es para lo que sirve una matriz.
   const [medida, setMedida] = useState<'clientes' | 'pct' | 'delta'>('clientes');
+  const [corte, setCorte] = useState<Corte>('antiguedad');
   const paises = ordenarPaises([...new Set(celdas.map(c => c.pais))]);
   const buscar = (tid: string, pais: string) =>
     celdas.find(c => c.trimestreId === tid && c.pais === pais) ?? null;
@@ -537,30 +587,34 @@ function ResumenPorPais({ celdas, serie, enCurso, clientes, onElegir, seleccion 
    * Los conjuntos de dos trimestres consecutivos NO se solapan —la guarda de
    * no-recontar impide perder dos veces al mismo cliente sin reactivación—, así
    * que "quién entró y quién salió" siempre daría "entraron todos los de este,
-   * salieron todos los del anterior". La pregunta con respuesta es por dónde se
-   * movió el número, y para eso se compara la composición de los dos.
+   * salieron todos los del anterior". La pregunta con respuesta es QUÉ tipo de
+   * cliente se perdió de más, y para eso se compara la composición de los dos.
    */
-  const desglose = (tid: string) => {
+  const desglose = (tid: string, corte: Corte) => {
     const prev = anteriorA(tid);
     if (!prev) return null;
-    const contar = (q: string, campo: 'tipo' | 'kam') => {
+    const contar = (q: string) => {
       const m = new Map<string, number>();
       for (const c of clientes) {
         if (c.trimestreId !== q) continue;
-        const k = campo === 'tipo' ? (c.tipoRef || c.rama) : c.kam;
+        const k = claveDe(c, corte);
         m.set(k, (m.get(k) ?? 0) + 1);
       }
       return m;
     };
-    const armar = (campo: 'tipo' | 'kam') => {
-      const a = contar(prev, campo), b = contar(tid, campo);
-      return [...new Set([...a.keys(), ...b.keys()])]
-        .map(k => ({ k, ant: a.get(k) ?? 0, act: b.get(k) ?? 0,
-                     d: (b.get(k) ?? 0) - (a.get(k) ?? 0) }))
-        .filter(r => r.ant > 0 || r.act > 0)
-        .sort((x, y) => Math.abs(y.d) - Math.abs(x.d) || y.act - x.act);
-    };
-    return { prev, tipos: armar('tipo'), kams: armar('kam') };
+    const a = contar(prev), b = contar(tid);
+    const orden = ORDEN_CORTE[corte];
+    const filas = [...new Set([...a.keys(), ...b.keys()])]
+      .map(k => ({ k, ant: a.get(k) ?? 0, act: b.get(k) ?? 0,
+                   d: (b.get(k) ?? 0) - (a.get(k) ?? 0) }))
+      .filter(r => r.ant > 0 || r.act > 0);
+    // Los cortes ordinales van en su orden natural: "1 a 2 años" después de
+    // "6 a 12 meses" se lee solo, ordenado por variación no. Los nominales
+    // —tipo, ejecutivo— sí, porque ahí lo que interesa es quién se movió más.
+    filas.sort(orden
+      ? (x, y) => orden.indexOf(x.k) - orden.indexOf(y.k)
+      : (x, y) => Math.abs(y.d) - Math.abs(x.d) || y.act - x.act);
+    return { prev, filas };
   };
 
   const anios = [...new Set(serie.map(d => d.anio))].sort();
@@ -739,22 +793,43 @@ function ResumenPorPais({ celdas, serie, enCurso, clientes, onElegir, seleccion 
         const tid = seleccion && trimestres.includes(seleccion)
           ? seleccion
           : trimestres[trimestres.length - 1];
-        const d = tid ? desglose(tid) : null;
+        const d = tid ? desglose(tid, corte) : null;
         if (!d) return null;
-        const fila = (r: { k: string; ant: number; act: number; d: number }) => (
-          <tr key={r.k} className="border-b border-slate-50 last:border-0">
-            <td data-titular className="py-1.5 pr-3 text-slate-600">{r.k}</td>
-            <td data-label={d.prev} className="py-1.5 px-2 text-right tabular-nums text-slate-400">{r.ant}</td>
-            <td data-label={tid} className="py-1.5 px-2 text-right tabular-nums text-slate-700">{r.act}</td>
-            <td data-label="Variación" className={`py-1.5 pl-2 text-right tabular-nums font-semibold ${
-              r.d > 0 ? 'text-red-500' : r.d < 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
-              {r.d > 0 ? '+' : ''}{r.d}
-            </td>
-          </tr>
-        );
-        const bloque = (titulo: string, filas: typeof d.tipos) => (
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">{titulo}</p>
+        return (
+          <div className="mt-5 pt-4 border-t border-slate-100">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
+              <h4 className="text-sm font-semibold text-slate-700">
+                Qué se perdió de más entre {d.prev} y {tid}
+              </h4>
+              <button
+                onClick={() => descargarDeltaCsv(clientes, d.prev, tid,
+                                                 `churn-variacion-${tid}-${hoyISO()}.csv`)}
+                className="text-[11px] font-semibold text-slate-500 hover:text-[#0097A7] transition-colors flex-shrink-0"
+              >
+                Descargar los cinco cortes
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 mb-3">
+              Los dos trimestres no comparten ni un cliente —nadie se pierde dos veces sin
+              haber vuelto a comprar—, así que lo que se compara es de qué están hechos.
+            </p>
+
+            <div className="flex gap-1 flex-wrap mb-3">
+              {CORTES.map(([id, etq]) => (
+                <button
+                  key={id}
+                  onClick={() => setCorte(id)}
+                  aria-pressed={corte === id}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all active:scale-95 ${
+                    corte === id
+                      ? 'bg-[#0097A7] text-white shadow-sm'
+                      : 'bg-slate-50 text-slate-500 hover:text-slate-700'}`}
+                >
+                  {etq}
+                </button>
+              ))}
+            </div>
+
             <div className="tabla-scroll">
               <table className="w-full text-xs tabla-apilable-vp">
                 <thead>
@@ -765,33 +840,20 @@ function ResumenPorPais({ celdas, serie, enCurso, clientes, onElegir, seleccion 
                     <th scope="col" className="text-right font-medium pb-1 pl-2">Var.</th>
                   </tr>
                 </thead>
-                <tbody>{filas.map(fila)}</tbody>
+                <tbody>
+                  {d.filas.map(r => (
+                    <tr key={r.k} className="border-b border-slate-50 last:border-0">
+                      <td data-titular className="py-1.5 pr-3 text-slate-600">{r.k}</td>
+                      <td data-label={d.prev} className="py-1.5 px-2 text-right tabular-nums text-slate-400">{r.ant}</td>
+                      <td data-label={tid} className="py-1.5 px-2 text-right tabular-nums text-slate-700">{r.act}</td>
+                      <td data-label="Variación" className={`py-1.5 pl-2 text-right tabular-nums font-semibold ${
+                        r.d > 0 ? 'text-red-500' : r.d < 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                        {r.d > 0 ? '+' : ''}{r.d}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
-            </div>
-          </div>
-        );
-        return (
-          <div className="mt-5 pt-4 border-t border-slate-100">
-            <div className="flex items-baseline justify-between gap-3 flex-wrap mb-2">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-700">
-                  Qué explica el cambio de {d.prev} a {tid}
-                </h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Los dos trimestres no comparten clientes —nadie se pierde dos veces sin
-                  haber vuelto a comprar—, así que lo que se compara es su composición.
-                </p>
-              </div>
-              <button
-                onClick={() => descargarDeltaCsv(d, tid, `churn-variacion-${tid}-${hoyISO()}.csv`)}
-                className="text-[11px] font-semibold text-slate-500 hover:text-[#0097A7] transition-colors flex-shrink-0"
-              >
-                Descargar desglose
-              </button>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-5">
-              {bloque('Por tipo de cliente', d.tipos)}
-              {bloque('Por ejecutivo', d.kams)}
             </div>
           </div>
         );
@@ -906,11 +968,11 @@ function escCsv(v: string | number) {
 }
 
 /**
- * CSV del desglose de la variación.
+ * CSV del desglose de la variación, con LOS CINCO CORTES en un solo archivo.
  *
- * Una fila por corte —tipo de cliente y ejecutivo— con el valor de cada
- * trimestre y la diferencia. Es lo que responde "por qué subió" sin tener que
- * armar una tabla dinámica sobre el detalle de clientes.
+ * En pantalla se ve uno por vez para que la tabla siga siendo legible; en el
+ * Excel van todos, porque ahí el costo de tener más filas es cero y evita bajar
+ * cinco archivos o cambiar el selector cinco veces.
  *
  * No incluye la lista de empresas a propósito: los dos trimestres no comparten
  * ninguna, así que un "entró/salió" por cliente sería la concatenación de las
@@ -918,18 +980,32 @@ function escCsv(v: string | number) {
  * descarga de detalle, que ya trae el trimestre en cada fila.
  */
 function descargarDeltaCsv(
-  d: { prev: string; tipos: { k: string; ant: number; act: number; d: number }[];
-       kams: { k: string; ant: number; act: number; d: number }[] },
-  tid: string,
-  archivo: string,
+  clientes: ClienteChurnQ[], prev: string, tid: string, archivo: string,
 ) {
-  const filas = [
-    ...d.tipos.map(r => ({ corte: 'Tipo de cliente', ...r })),
-    ...d.kams.map(r  => ({ corte: 'Ejecutivo',       ...r })),
-  ];
-  const texto = [['Trimestre', 'Corte', 'Detalle', d.prev, tid, 'Variación'].join(';')]
-    .concat(filas.map(f => [tid, f.corte, f.k, f.ant, f.act,
-                            (f.d > 0 ? '+' : '') + f.d].map(escCsv).join(';')))
+  const filas: (string | number)[][] = [];
+  for (const [id, etq] of CORTES) {
+    const contar = (q: string) => {
+      const m = new Map<string, number>();
+      for (const c of clientes) {
+        if (c.trimestreId !== q) continue;
+        const k = claveDe(c, id);
+        m.set(k, (m.get(k) ?? 0) + 1);
+      }
+      return m;
+    };
+    const a = contar(prev), b = contar(tid);
+    const orden = ORDEN_CORTE[id];
+    const claves = [...new Set([...a.keys(), ...b.keys()])];
+    claves.sort(orden
+      ? (x, y) => orden.indexOf(x) - orden.indexOf(y)
+      : (x, y) => ((b.get(y) ?? 0) - (a.get(y) ?? 0)) - ((b.get(x) ?? 0) - (a.get(x) ?? 0)));
+    for (const k of claves) {
+      const ant = a.get(k) ?? 0, act = b.get(k) ?? 0;
+      filas.push([etq, k, ant, act, (act - ant > 0 ? '+' : '') + (act - ant)]);
+    }
+  }
+  const texto = [['Corte', 'Detalle', prev, tid, 'Variación'].join(';')]
+    .concat(filas.map(f => f.map(escCsv).join(';')))
     .join('\r\n');
   const url = URL.createObjectURL(
     new Blob(['\ufeff' + texto], { type: 'text/csv;charset=utf-8;' }));

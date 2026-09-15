@@ -131,6 +131,10 @@ export interface ClienteChurnQ {
   usd12m?: number;
   /** El trimestre todavía no cerró: es un candidato, no una pérdida firme. */
   abierta?: boolean;
+  /** Meses entre la primera compra del cliente y el cierre de su referencia.
+   *  Distingue al que nunca terminó de arrancar del que se fue después de años.
+   *  Ausente en el payload anterior al 2026-09-15. */
+  antiguedadMeses?: number;
 }
 
 export interface MovimientosResponse {
