@@ -137,6 +137,19 @@ export interface ClienteChurnQ {
   antiguedadMeses?: number;
 }
 
+/** Un cliente que entró o salió de la base activa en un trimestre. */
+export interface MovimientoBase {
+  trimestreId: string;
+  pais: string;
+  kam: string;
+  panelId: string;
+  nombre: string;
+  tipo: string;
+  /** 'alta' entró a la base ese trimestre, 'baja' dejó de estar. */
+  movimiento: 'alta' | 'baja' | string;
+  usd12m: number;
+}
+
 export interface MovimientosResponse {
   meses: MovMes[];
   kams: MovKam[];
@@ -144,6 +157,8 @@ export interface MovimientosResponse {
   /** Vista trimestral. Independiente del año: se publican los últimos 8 cerrados. */
   churnQ: ChurnQTrimestre[];
   churnQPaises: ChurnQPais[];
+  /** Altas y bajas de la base. Vacío en el payload anterior al 2026-09-15. */
+  movimientosBase: MovimientoBase[];
   churnQKams: ChurnQKam[];
   clientesQ: ClienteChurnQ[];
   ultimoQ: string | null;
@@ -177,6 +192,8 @@ interface CacheMovimientos {
   ultimoQ?: string | null;
   /** Clientes de todos los trimestres publicados. */
   clientesQ?: ClienteChurnQ[];
+  /** Altas y bajas de la base activa. Ausente hasta que corra el GAS nuevo. */
+  movimientosBase?: MovimientoBase[];
   /** Payload anterior: solo el último trimestre, sin `trimestreId`. Se sigue
    *  leyendo para que el tab no quede vacío entre el deploy y el próximo
    *  refresco del GAS. */
@@ -355,6 +372,8 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
       meses, kams,
       total: cerrar({ ...ultimo }),
       churnQ, churnQPaises, churnQKams, clientesQ, ultimoQ,
+      movimientosBase: (raw.movimientosBase ?? []).filter((m: MovimientoBase) =>
+        (!pais || mismoPais(m.pais, pais)) && (!kam || m.kam === kam)),
       anio: raw.anio ?? anio,
       pais: pais ?? null,
       kam:  kam  ?? null,
