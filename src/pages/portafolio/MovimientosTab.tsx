@@ -1,8 +1,10 @@
 import { Fragment, useMemo, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import { Card } from '../../components/ui/Card';
+import { ComoSeCalculaChurn, EtiquetaCaso, CASOS, type CasoId } from './ComoSeCalculaChurn';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import type {
   MovMes, MovAgregado, MovimientosResponse, ChurnQTrimestre, ClienteChurnQ, ChurnQPais, MovimientoBase,
@@ -547,12 +549,19 @@ function DesgloseQ({ p, lado }: {
   p: ReturnType<typeof puenteQ>;
   lado: 'salidas' | 'churn';
 }) {
-  const linea = (n: number, txt: string, color: string) => (
-    <div className="flex items-baseline gap-2 py-0.5">
-      <span className={`tabular-nums font-semibold w-10 text-right flex-shrink-0 ${color}`}>
+  // El número lleva el color del caso y, al lado, su nombre: el color solo
+  // sirve a quien ya lo aprendió en el modal y a quien lo distingue. Los dos
+  // juntos funcionan para cualquiera.
+  const linea = (n: number, caso: CasoId | null, txt: string) => (
+    <div className="flex items-baseline gap-2 py-1">
+      <span className={`tabular-nums font-semibold w-10 text-right flex-shrink-0 ${
+        caso ? CASOS[caso].texto : 'text-slate-400'}`}>
         {nf.format(n)}
       </span>
-      <span className="text-slate-500">{txt}</span>
+      <span className="text-slate-500 min-w-0">
+        {caso && <EtiquetaCaso caso={caso} className="mr-1.5" />}
+        {txt}
+      </span>
     </div>
   );
   return (
@@ -564,15 +573,15 @@ function DesgloseQ({ p, lado }: {
       </p>
       {lado === 'churn' ? (
         <>
-          {linea(p.churnQueSalio, 'son las mismas empresas que salieron de la base: cuentan en las dos cifras', 'text-red-500')}
-          {linea(p.churnQueSigue, 'no salieron de la base. Cambiaron de tipo de cliente (de recurrente a estacional) y a un estacional se le mide con una ventana más larga, así que sus compras anteriores todavía cuentan', 'text-slate-400')}
+          {linea(p.churnQueSalio, 'perdidaNueva', 'son las mismas empresas que salieron de la base: cuentan en las dos cifras')}
+          {linea(p.churnQueSigue, 'sigueEnBase', 'cambiaron de tipo de cliente (de recurrente a estacional) y a un estacional se le mide con un plazo más largo, así que sus compras anteriores todavía cuentan')}
         </>
       ) : (
         <>
-          {linea(p.churnQueSalio, 'son las mismas empresas que cuentan como churn de este trimestre: cuentan en las dos cifras', 'text-red-500')}
-          {linea(p.bajaYaContada, 'ya habían contado como churn en un trimestre anterior. Dejan la base recién ahora, y no se cuentan dos veces', 'text-slate-400')}
+          {linea(p.churnQueSalio, 'perdidaNueva', 'son las mismas empresas que cuentan como churn de este trimestre: cuentan en las dos cifras')}
+          {linea(p.bajaYaContada, 'yaContada', 'ya se habían contado como perdidas en un trimestre anterior. Dejan la base recién ahora, y no se cuentan dos veces')}
           {p.bajaSinChurn > 0 &&
-            linea(p.bajaSinChurn, 'salieron sin figurar en el churn publicado: se perdieron antes del primer trimestre de la serie', 'text-slate-400')}
+            linea(p.bajaSinChurn, null, 'salieron sin figurar en el churn publicado: se perdieron antes del primer trimestre de la serie')}
         </>
       )}
     </div>
@@ -608,6 +617,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
   // mismo trimestre visto de dos lados, y tenerlo abierto en dos lugares a la
   // vez con números iguales es ruido.
   const [desglose, setDesglose] = useState<string | null>(null);
+  const [verComoSeCalcula, setVerComoSeCalcula] = useState(false);
   const alternarDesglose = (tid: string) =>
     setDesglose(d => (d === tid ? null : tid));
   const paises = ordenarPaises([...new Set(celdas.map(c => c.pais))]);
@@ -684,11 +694,38 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
   const th = 'text-right font-medium text-xs text-[#0097A7] pb-3 px-2';
   const td = 'text-right py-3 px-2 tabular-nums text-slate-700';
 
+  // El ejemplo del modal son los números del último trimestre cerrado, no cifras
+  // inventadas: quien lo lee acaba de verlos en la tabla de arriba.
+  const ultimoCerrado = serie.length ? serie[serie.length - 1] : null;
+  const ejemplo = (() => {
+    if (!ultimoCerrado) return null;
+    const p = puenteQ(ultimoCerrado.trimestreId, clientes, movimientos);
+    if (!p.churn || !p.bajas) return null;
+    return {
+      etiqueta: etiquetaQ(ultimoCerrado.trimestreId),
+      churn: p.churn, salieron: p.bajas, ambas: p.churnQueSalio,
+      sigue: p.churnQueSigue, yaContada: p.bajaYaContada,
+    };
+  })();
+
   return (
     <Card>
+      <AnimatePresence>
+        {verComoSeCalcula && (
+          <ComoSeCalculaChurn ejemplo={ejemplo} onCerrar={() => setVerComoSeCalcula(false)} />
+        )}
+      </AnimatePresence>
       <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
         <div>
-          <h3 className="text-sm font-semibold text-slate-700">Resumen por país</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-sm font-semibold text-slate-700">Resumen por país</h3>
+            <button
+              onClick={() => setVerComoSeCalcula(true)}
+              className="text-[11px] font-semibold text-[#0097A7] hover:underline focus-visible:underline"
+            >
+              ¿Cómo se calcula?
+            </button>
+          </div>
           <p className="text-[11px] text-slate-400 mt-0.5">
             Sobre la cartera de cada país congelada al cierre de cada trimestre.
           </p>
