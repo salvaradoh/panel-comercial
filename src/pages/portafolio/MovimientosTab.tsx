@@ -8,6 +8,7 @@ import type {
   MovMes, MovAgregado, MovimientosResponse, ChurnQTrimestre, ClienteChurnQ, ChurnQPais, MovimientoBase,
 } from '../../hooks/useMovimientos';
 import { useTrack } from '../../hooks/useTrack';
+import { descargarExcelChurnQ } from './exportChurnQExcel';
 
 /**
  * Movimientos de cartera. Dos vistas que responden preguntas distintas y NO son
@@ -844,39 +845,6 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, onElegir, selecci
 }
 
 /**
- * CSV del resumen, en formato largo (una fila por trimestre y país) y no como la
- * matriz que se ve en pantalla: en largo se pivotea en Excel en dos clics y se
- * puede filtrar, mientras que la matriz solo sirve para mirarla.
- */
-function descargarResumenCsv(celdas: ChurnQPais[], archivo: string) {
-  const cols: [string, (c: ChurnQPais) => string | number][] = [
-    ['Trimestre',        c => c.trimestreId],
-    ['País',             c => c.pais],
-    ['Clientes perdidos', c => c.churn],
-    ['Clientes en la base', c => c.cartera],
-    ['% de churn',       c => (c.pctChurn != null ? String(c.pctChurn).replace('.', ',') : '')],
-    ['Comparable',       c => (c.coberturaParcial ? 'No · sin cobertura'
-                              : c.ventanaAbierta ? 'No · ventana sin cerrar' : 'Sí')],
-  ];
-  const esc = (v: string | number) => {
-    const t = String(v ?? '');
-    return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-  };
-  const texto = [cols.map(c => c[0]).join(';')]
-    .concat(celdas
-      .slice()
-      .sort((a, b) => a.trimestreId.localeCompare(b.trimestreId) || a.pais.localeCompare(b.pais))
-      .map(f => cols.map(([, get]) => esc(get(f))).join(';')))
-    .join('\r\n');
-  const url = URL.createObjectURL(
-    new Blob(['\ufeff' + texto], { type: 'text/csv;charset=utf-8;' }));
-  const a = document.createElement('a');
-  a.href = url; a.download = archivo;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-/**
  * CSV de quiénes entraron y salieron de la base activa en un trimestre.
  *
  * Es el detalle que el bloque de conciliación resume: una fila por empresa y
@@ -963,6 +931,10 @@ function TooltipQ({ active, payload }: { active?: boolean; payload?: { payload: 
 
 function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string }) {
   const [verClientes, setVerClientes] = useState(false);
+  // Qué lista muestra la tabla de abajo: los perdidos del trimestre, o los
+  // que entraron o salieron de la base. Son tres preguntas distintas sobre el
+  // mismo trimestre y antes solo se podía ver la primera.
+  const [vistaDet, setVistaDet] = useState<'perdidos' | 'bajas' | 'altas'>('perdidos');
   // null = el último cerrado. Se guarda el id y no el índice para que no se
   // desalinee cuando entra un trimestre nuevo y el arreglo se corre.
   const [qSel, setQSel] = useState<string | null>(null);
@@ -992,6 +964,9 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
   // Trimestre abierto en el detalle. Si el seleccionado ya no existe se cae al último.
   const qAbierto = data.churnQ.find(d => d.trimestreId === qSel) ?? ult;
   const clientes = data.clientesQ.filter(c => c.trimestreId === qAbierto.trimestreId);
+  const movsQ = data.movimientosBase.filter(m => m.trimestreId === qAbierto.trimestreId);
+  const bajas = movsQ.filter(m => m.movimiento === 'baja');
+  const altas = movsQ.filter(m => m.movimiento === 'alta');
   const elegir = (id: string) => {
     setQSel(id);
     setVerClientes(true);
@@ -1166,12 +1141,15 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
               {data.churnQPaises.length > 0 && (
                 <button
                   onClick={() => {
-                    track('analisis:movimientos:csv', 'resumen-pais');
-                    descargarResumenCsv(data.churnQPaises, `churn-resumen-pais-${hoyISO()}.csv`);
+                    track('analisis:movimientos:excel', 'churn-trimestral');
+                    descargarExcelChurnQ(
+                      data.churnQPaises, data.clientesQ, data.movimientosBase,
+                      ordenarPaises([...new Set(data.churnQPaises.map(c => c.pais))]),
+                      `churn-trimestral-${hoyISO()}.xlsx`);
                   }}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-[#0097A7] hover:text-[#0097A7] transition-colors active:scale-95"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-[#0097A7] text-white hover:bg-[#00838f] transition-colors active:scale-95 shadow-sm"
                 >
-                  Descargar resumen por país
+                  Descargar Excel
                 </button>
               )}
             </div>
@@ -1180,7 +1158,64 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
             Ordenadas por lo que facturaron en su trimestre de referencia. El CSV
             incluye la ventana con la que se declaró la pérdida, para poder verificarla.
           </p>
-          {verClientes && (
+          {/* Filtro de la tabla. Los tres números del trimestre son accionables:
+              se toca el que interesa y la lista de abajo cambia, en vez de tener
+              que bajarse un archivo para ver quiénes son. */}
+          {verClientes && movsQ.length > 0 && (
+            <div className="flex gap-1 flex-wrap mt-3">
+              {([['perdidos', 'Se perdieron', clientes.length],
+                 ['bajas',    'Salieron de la base', bajas.length],
+                 ['altas',    'Entraron a la base', altas.length]] as const).map(([id, etq, n]) => (
+                <button
+                  key={id}
+                  onClick={() => setVistaDet(id)}
+                  aria-pressed={vistaDet === id}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all active:scale-95 ${
+                    vistaDet === id
+                      ? 'bg-[#0097A7] text-white shadow-sm'
+                      : 'bg-slate-50 text-slate-500 hover:text-slate-700'}`}
+                >
+                  {etq} · {nf.format(n)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {verClientes && vistaDet !== 'perdidos' && (
+            <div className="mt-3 overflow-x-auto max-h-[420px] overflow-y-auto tabla-scroll">
+              <table className="w-full text-sm tabla-apilable-vp">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="text-slate-400 border-b border-slate-200 text-xs">
+                    <th scope="col" className="text-left font-medium py-2">Empresa</th>
+                    <th scope="col" className="text-left font-medium">País</th>
+                    <th scope="col" className="text-left font-medium">Ejecutivo</th>
+                    <th scope="col" className="text-left font-medium">Tipo</th>
+                    <th scope="col" className="text-right font-medium">USD 12m</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(vistaDet === 'bajas' ? bajas : altas)
+                    .slice()
+                    .sort((a, b) => (b.usd12m || 0) - (a.usd12m || 0))
+                    .map(m => (
+                      <tr key={`${m.pais}|${m.panelId}`} className="border-b border-slate-100">
+                        <td data-titular className="py-2 text-slate-700">
+                          <span className="block max-w-[240px] truncate" title={m.nombre}>{m.nombre}</span>
+                        </td>
+                        <td data-label="País" className="text-slate-500 text-xs">{m.pais}</td>
+                        <td data-label="Ejecutivo" className="text-slate-500 text-xs">{m.kam}</td>
+                        <td data-label="Tipo" className="text-slate-500 text-xs">{m.tipo}</td>
+                        <td data-label="USD 12m" className="text-right tabular-nums text-slate-600">
+                          {nf.format(Math.round(m.usd12m || 0))}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {verClientes && vistaDet === 'perdidos' && (
             <div className="mt-3 overflow-x-auto max-h-[420px] overflow-y-auto tabla-scroll">
               <table className="w-full text-sm tabla-apilable-vp">
                 <thead className="sticky top-0 bg-white">
