@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { Card } from '../../components/ui/Card';
 import { ComoSeCalculaChurn, EtiquetaCaso, CASOS, type CasoId } from './ComoSeCalculaChurn';
+import { puenteQ } from './churnPuente';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import type {
   MovMes, MovAgregado, MovimientosResponse, ChurnQTrimestre, ClienteChurnQ, ChurnQPais, MovimientoBase,
@@ -491,53 +492,6 @@ function ordenarPaises(ps: string[]): string[] {
  *    año, no promediando las tasas trimestrales. Promediar tasas de bases distintas
  *    da un número que no corresponde a ninguna población.
  */
-/**
- * De qué está hecho cada número del trimestre.
- *
- * "Churn" y "Salieron" parecen lo mismo y no lo son, y la diferencia entre los
- * dos no es un puñado de clientes: son dos grupos distintos cruzándose en
- * direcciones opuestas. Restar uno del otro no da nada interpretable —de ahí
- * este desglose, que en vez de una resta muestra de qué se compone cada lado.
- *
- * Se cruza por (país, panel_id), que es la llave con la que el cliente existe
- * en las dos listas.
- */
-function puenteQ(
-  tid: string,
-  clientes: ClienteChurnQ[],
-  movimientos: MovimientoBase[],
-) {
-  const llave = (pais: string, panelId: string) => `${pais}||${panelId}`;
-  const churn = new Set(clientes
-    .filter(c => c.trimestreId === tid)
-    .map(c => llave(c.pais, c.panelId)));
-  // Su pérdida ya se contó en un trimestre anterior: el panel no la recuenta,
-  // pero la salida de la base recién ocurre ahora.
-  const churnAntes = new Set(clientes
-    .filter(c => c.trimestreId && c.trimestreId < tid)
-    .map(c => llave(c.pais, c.panelId)));
-  // Las reclasificaciones no son salidas: el cliente no dejó la cartera.
-  const bajas = movimientos
-    .filter(m => m.trimestreId === tid && m.movimiento === 'baja'
-                 && m.motivo !== 'reclasificacion')
-    .map(m => llave(m.pais, m.panelId));
-  const bajasSet = new Set(bajas);
-
-  const churnQueSalio = [...churn].filter(k => bajasSet.has(k)).length;
-  const bajaYaContada = bajas.filter(k => !churn.has(k) && churnAntes.has(k)).length;
-  return {
-    churn: churn.size,
-    churnQueSalio,
-    churnQueSigue: churn.size - churnQueSalio,
-    bajas: bajas.length,
-    bajaYaContada,
-    // Dejó la base sin figurar en el churn publicado. En el primer trimestre de
-    // la serie son los que se perdieron antes de donde arranca el histórico, y
-    // por eso el texto no afirma que nunca hubo churn.
-    bajaSinChurn: bajas.length - churnQueSalio - bajaYaContada,
-  };
-}
-
 /**
  * Una mitad del puente. Cada tabla desglosa SU propia columna —la de arriba
  * "Salieron", la de abajo "Churn"— porque mostrar las dos en ambas repetía el
