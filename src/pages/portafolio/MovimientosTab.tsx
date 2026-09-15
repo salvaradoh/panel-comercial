@@ -1133,11 +1133,11 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
               <BotonCsv filas={clientes} base={`churn-${qAbierto.trimestreId}`}>
                 Descargar {qAbierto.trimestreId}
               </BotonCsv>
-              {serie.length > 1 && (
-                <BotonCsv filas={data.clientesQ} base="churn-trimestral">
-                  Descargar todo
-                </BotonCsv>
-              )}
+              {/* "Descargar todo" es el Excel de tres hojas y no un CSV más: si
+                  fueran dos botones distintos, el de al lado del trimestre invita
+                  a bajar el CSV y perderse el resumen y las altas/bajas, que es
+                  justo lo que se pidió que estuviera. El CSV del trimestre queda
+                  para bajar una lista puntual y pegarla en otro lado. */}
               {data.churnQPaises.length > 0 && (
                 <button
                   onClick={() => {
@@ -1149,7 +1149,7 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
                   }}
                   className="text-xs px-3 py-1.5 rounded-lg bg-[#0097A7] text-white hover:bg-[#00838f] transition-colors active:scale-95 shadow-sm"
                 >
-                  Descargar Excel
+                  Descargar todo (Excel)
                 </button>
               )}
             </div>
