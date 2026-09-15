@@ -5,9 +5,10 @@ import type {
 /**
  * Excel del churn trimestral: tres hojas.
  *
- *   Resumen por trimestre  la matriz que está en pantalla —churn por país— más
- *                          la variación contra el trimestre anterior y el
- *                          movimiento de la base (salieron / entraron)
+ *   Resumen por trimestre  la matriz que está en pantalla —churn por país—, cómo
+ *                          se reparte su variación entre países, y aparte el
+ *                          movimiento de la base (salieron / entraron), que es
+ *                          del denominador y no del churn
  *   Clientes perdidos      una fila por empresa contada como churn
  *   Altas y bajas          una fila por empresa que entró o salió de la base
  *
@@ -45,8 +46,14 @@ export async function descargarExcelChurnQ(
   ]);
   ws.addRow([]);
 
+  ws.addRow(['Clientes perdidos por país']).font = { bold: true, size: 12 };
   const cab = ws.addRow([
-    'Trimestre', ...paises, 'Total', 'Variación', 'Base', 'Salieron', 'Entraron', '% de churn',
+    'Trimestre', ...paises, 'Total', 'Variación', '% de churn',
+    // La base y su movimiento son del DENOMINADOR, no del churn. Van separadas
+    // por una columna vacía y con el nombre completo porque pegadas a
+    // "Variación" se leen como si la explicaran, y no tienen nada que ver: la
+    // variación del churn se explica por país, unas filas más abajo.
+    '', 'Base (denominador)', 'Salieron de la base', 'Entraron a la base',
   ]);
   cab.font = { bold: true };
 
@@ -64,14 +71,32 @@ export async function descargarExcelChurnQ(
       ...paises.map(p => buscar(tid, p)?.churn ?? null),
       total,
       anterior == null ? null : total - anterior,
+      base > 0 ? total / base : null,
+      null,
       base,
       hayPrevio ? -delQ.filter(m => m.movimiento === 'baja').length : null,
       hayPrevio ? delQ.filter(m => m.movimiento === 'alta').length : null,
-      base > 0 ? total / base : null,
     ]);
   });
-  ws.getColumn(paises.length + 7).numFmt = '0.0%';
-  ws.columns.forEach((col, i) => { col.width = i === 0 ? 12 : 12; });
+  ws.getColumn(paises.length + 4).numFmt = '0.0%';
+
+  // ── Cómo se reparte la variación ───────────────────────────────────────────
+  // Es la pregunta que el bloque de arriba deja abierta: el total subió 93,
+  // ¿de dónde salieron? Sin esto hay que restar a mano columna por columna.
+  ws.addRow([]);
+  ws.addRow(['Variación del churn, por país']).font = { bold: true, size: 12 };
+  ws.addRow([
+    'Trimestre', ...paises, 'Total',
+  ]).font = { bold: true };
+  trimestres.forEach((tid, i) => {
+    if (i === 0) return;   // sin trimestre anterior no hay variación
+    const prev = trimestres[i - 1];
+    const dp = paises.map(p =>
+      (buscar(tid, p)?.churn ?? 0) - (buscar(prev, p)?.churn ?? 0));
+    ws.addRow([`${prev} → ${tid}`, ...dp, dp.reduce((a, b) => a + b, 0)]);
+  });
+
+  ws.columns.forEach((col, i) => { col.width = i === 0 ? 16 : 18; });
 
   // ── Hoja 2: clientes perdidos ──────────────────────────────────────────────
   const wsC = wb.addWorksheet('Clientes perdidos');
