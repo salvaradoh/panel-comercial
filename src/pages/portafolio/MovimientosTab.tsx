@@ -468,7 +468,7 @@ function BotonCsv({ filas, base, children }: {
  * muevan entre semanas: la tabla se lee comparando con la de la semana anterior.
  * Cualquier país que aparezca y no esté acá se agrega al final.
  */
-const ORDEN_PAISES = ['México', 'Chile', 'Colombia', 'Perú'];
+const ORDEN_PAISES = ['México', 'Chile', 'Colombia', 'Perú', 'Ecuador'];
 
 function ordenarPaises(ps: string[]): string[] {
   const conocidos = ORDEN_PAISES.filter(p => ps.includes(p));
@@ -533,7 +533,7 @@ function DesgloseQ({ p, lado }: {
       ) : (
         <>
           {linea(p.churnQueSalio, 'perdidaNueva', 'son las mismas empresas que cuentan como churn de este trimestre: cuentan en las dos cifras')}
-          {linea(p.bajaYaContada, 'yaContada', 'ya se habían contado como perdidas en un trimestre anterior. Dejan la base recién ahora, y no se cuentan dos veces')}
+          {linea(p.bajaYaContada, 'yaContada', 'ya se habían contado como perdidas en un trimestre anterior. Siguieron en la base porque también pasaron a estacional y el plazo largo todavía las alcanzaba; recién ahora quedan fuera. No se cuentan dos veces')}
           {p.bajaSinChurn > 0 &&
             linea(p.bajaSinChurn, null, 'salieron sin figurar en el churn publicado: se perdieron antes del primer trimestre de la serie')}
         </>
@@ -583,8 +583,18 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
   const base = paises.map(p => (ultimo ? (buscar(ultimo, p)?.cartera ?? 0) : 0));
   const baseTotal = base.reduce((a, b) => a + b, 0);
 
+  // Nota de cobertura parcial: se arma sola desde `celdas`, no con una fecha
+  // fija. Cuando un país acumule los meses que le faltan (típicamente el que
+  // recién arrancó: la ventana estacional pide 15 meses de historia previa),
+  // esta franja se corre sin tocar código — deja de haber celdas 'parcial' y
+  // el bloque no se renderiza más.
+  const trimestresParciales = serie.filter(d => d.coberturaParcial).map(d => d.trimestreId);
+  const paisesParciales = [...new Set(
+    celdas.filter(c => c.coberturaParcial).map(c => c.pais)
+  )].sort();
+
   // Variación contra el trimestre inmediatamente anterior de la serie. El primero
-  // publicado no tiene con qué compararse: el GAS recorta desde 2025 (necesita el
+  // publicado no tiene con qué compararse: el GAS recorta desde 2024 (necesita el
   // histórico completo para la guarda de no-recontar, pero publica menos).
   const anteriorA = (tid: string) => {
     const i = trimestres.indexOf(tid);
@@ -1036,6 +1046,17 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
             </tbody>
           </table>
         </div>
+        {trimestresParciales.length > 0 && (
+          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">
+            <strong>{etiquetaQ(trimestresParciales[0])} a {etiquetaQ(trimestresParciales[trimestresParciales.length - 1])}
+            {' '}vienen marcados "parcial"</strong>: {paisesParciales.join(' y ')} todavía no
+            acumula{paisesParciales.length === 1 ? '' : 'n'} los meses de historial que pide la
+            ventana de referencia (hasta 15 meses atrás para clientes estacionales). El churn de
+            esos trimestres está subestimado para {paisesParciales.length === 1 ? 'ese país' : 'esos países'} y
+            no es comparable con el resto de la serie. La franja se acorta sola a medida que pasan
+            los trimestres.
+          </p>
+        )}
       </div>
 
       {enCurso && (

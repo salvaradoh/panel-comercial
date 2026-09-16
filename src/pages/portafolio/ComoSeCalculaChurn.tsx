@@ -206,9 +206,11 @@ export function ComoSeCalculaChurn({ onCerrar, ejemplo, serie = [] }: {
                 <EtiquetaCaso caso="yaContada" />
                 <p className="text-[12px] mt-1 text-slate-600">
                   Salió de la base ahora, pero <strong>ya lo contamos como perdido en
-                  un trimestre anterior</strong>. Un recurrente se declara perdido a los
-                  4 meses de silencio, pero recién deja la base cuando pasan 13. Entre
-                  una cosa y la otra puede haber tres trimestres. No se cuenta dos veces.
+                  un trimestre anterior</strong>. Es el mismo cambio de tipo del caso
+                  anterior, corrido en el tiempo: se declaró perdido siendo recurrente, a
+                  los 4 meses de silencio, y después pasó a estacional. Con el plazo de 13
+                  meses siguió contando en la base dos o tres trimestres más, y recién
+                  ahora queda fuera. No se cuenta dos veces.
                 </p>
               </div>
             </div>
