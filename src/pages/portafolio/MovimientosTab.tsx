@@ -1199,6 +1199,19 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
   }
 
   const ult = serie[serie.length - 1];
+
+  // Trimestre de la tabla por ejecutivo. Va aparte del que abre el detalle de
+  // clientes: son dos preguntas distintas y el equipo pidió poder moverlas por
+  // separado. Del más reciente al más viejo, como el resto de la pantalla.
+  const trimestresKam = [...new Set(data.churnQKams.map(k => k.trimestreId))]
+    .sort().reverse();
+  const [qKams, setQKams] = useState<string | null>(null);
+  const qKamsActivo = qKams && trimestresKam.includes(qKams)
+    ? qKams
+    : (data.ultimoQ ?? trimestresKam[0] ?? '');
+  const kamsDelQ = data.churnQKams
+    .filter(k => k.trimestreId === qKamsActivo)
+    .sort((a, b) => b.churn - a.churn);
   const ant = serie.length > 1 ? serie[serie.length - 2] : null;
 
   // Trimestre abierto en el detalle. Si el seleccionado ya no existe se cae al último.
@@ -1321,9 +1334,27 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
 
         {!propio && data.churnQKams.length > 1 && (
           <Card>
-            <h3 className="text-sm font-semibold text-slate-700 mb-1">Por ejecutivo</h3>
+            <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+              <h3 className="text-sm font-semibold text-slate-700">Por ejecutivo</h3>
+              {/* El churn por ejecutivo es de un trimestre, no acumulado: sumar
+                  varios mezclaría pérdidas con reactivaciones. Por eso se elige
+                  uno en vez de ofrecer un rango. */}
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <span>Trimestre</span>
+                <select
+                  value={qKamsActivo}
+                  onChange={e => setQKams(e.target.value)}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 focus-visible:outline-2 focus-visible:outline-[#0097A7]"
+                >
+                  {trimestresKam.map(tid => (
+                    <option key={tid} value={tid}>{etiquetaQ(tid)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <p className="text-[11px] text-slate-400 mb-3">
-              Q{ult.trimestre} {ult.anio}, ordenado por clientes en churn.
+              Ordenado por clientes en churn.
+              {enCurso?.trimestreId === qKams && ' Este trimestre todavía no cerró: la tasa está inflada.'}
             </p>
             <div className="overflow-x-auto tabla-scroll">
               <table className="w-full text-sm tabla-apilable-vp">
@@ -1338,7 +1369,14 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
                   </tr>
                 </thead>
                 <tbody>
-                  {data.churnQKams.map(k => (
+                  {kamsDelQ.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-4 text-center text-[11px] text-slate-400">
+                        Sin datos por ejecutivo en este trimestre.
+                      </td>
+                    </tr>
+                  )}
+                  {kamsDelQ.map(k => (
                     <tr key={`${k.pais}|${k.nombre}`} className="border-b border-slate-100">
                       <td data-titular className="py-2 text-slate-700">{k.nombre}</td>
                       <td data-label="País" className="text-slate-500 text-xs">{k.pais}</td>

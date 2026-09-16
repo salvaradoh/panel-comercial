@@ -106,6 +106,8 @@ export interface ChurnQPais {
 }
 
 export interface ChurnQKam {
+  /** Van todos los trimestres publicados: el tab elige cuál muestra. */
+  trimestreId: string;
   pais: string;
   nombre: string;
   churn: number;
@@ -334,19 +336,21 @@ export function useMovimientos(anio: number, pais?: string, kam?: string) {
         pctChurn: d.cartera > 0 ? Math.round((100 * d.churn / d.cartera) * 10) / 10 : null,
       }));
 
-    // Por ejecutivo, solo el último trimestre cerrado: es un evento del trimestre,
-    // no un stock, pero sumar 8 trimestres mezclaría reactivaciones con pérdidas.
+    // Por ejecutivo, un trimestre por vez: es un evento del trimestre, no un
+    // stock, y sumar 8 trimestres mezclaría reactivaciones con pérdidas. Van
+    // todos publicados y el tab elige; por defecto abre el último cerrado.
     // Si el GAS no publicó ultimoQ (payload viejo), se cae al último CERRADO y no
     // al último a secas: con el trimestre en curso publicado, ese sería el abierto.
     const cerradosQ = churnQ.filter(q => !q.ventanaAbierta);
     const ultimoQ = raw.ultimoQ
       ?? (cerradosQ.length ? cerradosQ[cerradosQ.length - 1].trimestreId : null);
     const porKamQ = new Map<string, ChurnQKam>();
-    for (const f of filasQ.filter(x => x.trimestreId === ultimoQ)) {
-      const k = `${f.pais}||${f.kam}`;
+    for (const f of filasQ) {
+      const k = `${f.trimestreId}||${f.pais}||${f.kam}`;
       let d = porKamQ.get(k);
       if (!d) {
-        d = { pais: f.pais, nombre: f.kam, churn: 0, cartera: 0, usdChurn: 0, pctChurn: null };
+        d = { trimestreId: f.trimestreId, pais: f.pais, nombre: f.kam,
+              churn: 0, cartera: 0, usdChurn: 0, pctChurn: null };
         porKamQ.set(k, d);
       }
       d.churn    += Number(f.churn) || 0;
