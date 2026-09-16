@@ -172,14 +172,11 @@ function MisCuentasDeCampana({ slug, activo, color }: { slug: string; activo: bo
   if (isLoading) {
     return <p className="text-[12px] text-slate-500">Buscando tus cuentas…</p>;
   }
-  // Un fallo acá no puede romper la tarjeta: el resto de la campaña sigue siendo útil.
-  if (error) {
-    return (
-      <p className="text-[12px] text-slate-500">
-        No se pudieron cargar tus cuentas en este momento.
-      </p>
-    );
-  }
+  // Un fallo acá no muestra nada, igual que cuando el ejecutivo no tiene cuentas en la
+  // campaña. Es una sección de apoyo: si el backend todavía no expone el endpoint —pasa
+  // mientras el panel va por delante del deploy— un aviso de error en cada tarjeta se lee
+  // como si la campaña estuviera rota, y no lo está.
+  if (error) return null;
   if (!data?.cuentas.length) return null;
 
   return (

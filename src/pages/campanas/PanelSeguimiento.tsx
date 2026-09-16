@@ -418,7 +418,7 @@ export function PanelSeguimiento({ campana: publicada, puedeEditar, onCerrar }: 
               <Campo etiqueta="En qué consiste el incentivo">
                 <textarea className={`${INPUT} min-h-[64px] resize-y`} value={borrador.incentivo_descripcion}
                           disabled={!puedeEditar}
-                          placeholder="Puntos Apprecio por cuenta cerrada, viaje para el primer lugar, bono por meta de equipo…"
+                          placeholder="Puntos Apprecio por cuenta cerrada, horas libres por Apprecio Beat, viaje para el primer lugar, bono por meta de equipo…"
                           onChange={(e) => aplicar({ incentivo_descripcion: e.target.value })} />
               </Campo>
 

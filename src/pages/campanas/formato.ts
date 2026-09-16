@@ -11,12 +11,13 @@ import type { EstadoCampana } from '../../hooks/useCampanas';
  * sostienen solas —recuperar una cuenta grande, abrir un país— y obligarlas a inventar
  * un incentivo para poder enviarse era pedir presupuesto que nadie pidió.
  */
-export const TIPOS_INCENTIVO = ['puntos', 'viaje', 'bono', 'otro', 'ninguno'] as const;
+export const TIPOS_INCENTIVO = ['puntos', 'beat', 'viaje', 'bono', 'otro', 'ninguno'] as const;
 export type TipoIncentivo = (typeof TIPOS_INCENTIVO)[number] | '';
 
 export const ETIQUETA_INCENTIVO: Record<string, string> = {
   '': 'Sin definir',
   puntos: 'Puntos Apprecio',
+  beat: 'Apprecio Beat',
   viaje: 'Viaje',
   bono: 'Bono en efectivo',
   otro: 'Otro',
@@ -31,6 +32,11 @@ export const ETIQUETA_INCENTIVO: Record<string, string> = {
 export const UNIDAD_INCENTIVO: Record<string, { corta: string; larga: string; paso: number }> = {
   '':       { corta: 'USD',    larga: 'dólares',        paso: 100 },
   puntos:   { corta: 'puntos', larga: 'puntos Apprecio', paso: 1000 },
+  // Beat no se dimensiona en plata: lo que se le pide al área son beneficios de la propia
+  // app —horas libres, un día, un reconocimiento—, así que el monto de referencia cuenta
+  // beneficios por persona y no dólares. Pedirlo en USD obligaría a inventar una
+  // conversión que nadie usa.
+  beat:     { corta: 'beneficios', larga: 'beneficios de Apprecio Beat (horas libres, días, reconocimientos)', paso: 1 },
   viaje:    { corta: 'USD',    larga: 'dólares',        paso: 100 },
   bono:     { corta: 'USD',    larga: 'dólares',        paso: 100 },
   otro:     { corta: 'USD',    larga: 'dólares',        paso: 100 },

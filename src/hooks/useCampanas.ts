@@ -59,6 +59,12 @@ export interface Campana {
   base: BaseObjetivo | null;
   base_texto?: string;
   cuentas: CuentaBase[];
+  /**
+   * La campaña se agregó a pedido y no salió del análisis semanal de /campanas.
+   * Se marca en la vista para que se revise aparte: el resto se regenera cada semana y
+   * estas se mantienen a mano, así que conviene saber cuáles son antes de aprobarlas.
+   */
+  a_pedido?: boolean;
   origen: 'estructurado' | 'markdown';
 }
 

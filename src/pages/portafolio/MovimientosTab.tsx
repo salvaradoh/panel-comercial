@@ -694,17 +694,106 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
                               onCerrar={() => setVerComoSeCalcula(false)} />
         )}
       </AnimatePresence>
+      {/* Detalle por trimestre. Vive en esta card y no en una propia porque es la
+          misma tabla vista de otro lado —los mismos trimestres, abiertos por rama
+          y con la cartera— y separarlas dejaba media pantalla vacía. */}
+      <div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <h4 className="text-sm font-semibold text-slate-700">Detalle por trimestre</h4>
+          <button
+            onClick={() => setVerComoSeCalcula(true)}
+            className="text-[11px] font-semibold text-[#0097A7] hover:underline focus-visible:underline"
+          >
+            ¿Cómo se calcula?
+          </button>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-0.5 mb-2">
+          Toca un trimestre para ver y descargar sus empresas.
+        </p>
+        <div className="overflow-x-auto -mx-2 tabla-scroll">
+          <table className="w-full text-sm min-w-[420px] tabla-apilable">
+            <caption className="sr-only">Clientes en churn separados en recurrentes y estacionales, cartera y porcentaje</caption>
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th scope="col" className="text-left font-medium text-xs text-[#0097A7] pb-3 px-2">Trimestre</th>
+                <th scope="col" className={th}>Churn</th>
+                <th scope="col" className={th}>Rec.</th>
+                <th scope="col" className={th}>Est.</th>
+                <th scope="col" className={th}>Cartera</th>
+                <th scope="col" className={`${th} text-slate-500`}>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...serie].reverse().map(d => (
+                <Fragment key={d.trimestreId}>
+                <tr className={`border-b border-slate-100 transition-colors ${
+                      d.trimestreId === seleccion ? 'bg-slate-50' : 'hover:bg-slate-50/70'}`}>
+                  <th scope="row" className="text-left py-3 px-2 whitespace-nowrap">
+                    {onElegir ? (
+                      <button
+                        onClick={() => onElegir(d.trimestreId)}
+                        aria-pressed={d.trimestreId === seleccion}
+                        className={`text-[#0097A7] hover:underline focus-visible:underline ${
+                          d.trimestreId === seleccion ? 'font-semibold' : 'font-medium'}`}
+                      >
+                        {etiquetaQ(d.trimestreId)}
+                      </button>
+                    ) : (
+                      <span className="font-medium text-slate-600">{etiquetaQ(d.trimestreId)}</span>
+                    )}
+                    {d.coberturaParcial && (
+                      <span className="ml-1.5 text-[10px] text-amber-600">parcial</span>
+                    )}
+                    <button
+                          onClick={() => alternarDesglose(d.trimestreId)}
+                          aria-expanded={desglose === d.trimestreId}
+                          aria-label={`Ver de qué está hecho el churn de ${etiquetaQ(d.trimestreId)}`}
+                          className="ml-1.5 text-slate-300 hover:text-[#0097A7] transition-colors align-middle"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                               stroke="currentColor" strokeWidth="3" aria-hidden="true"
+                               className={`transition-transform ${desglose === d.trimestreId ? 'rotate-180' : ''}`}>
+                            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                  </th>
+                  <td data-label="Churn" className={`${td} font-semibold text-slate-800`}>{nf.format(d.churn)}</td>
+                  <td data-label="Rec." className={`${td} text-slate-500`}>{nf.format(d.churnRec)}</td>
+                  <td data-label="Est." className={`${td} text-slate-500`}>{nf.format(d.churnEst)}</td>
+                  <td data-label="Cartera" className={`${td} text-slate-500`}>{nf.format(d.cartera)}</td>
+                  <td data-label="%" className={`${td} font-medium`}>
+                    {d.pctChurn != null ? `${d.pctChurn.toFixed(1)}%` : '—'}
+                  </td>
+                </tr>
+                {desglose === d.trimestreId && (
+                  <tr className="border-b border-slate-100 bg-slate-50/60">
+                    <td colSpan={6} className="px-2 pb-2">
+                      <DesgloseQ p={puenteQ(d.trimestreId, clientes, movimientos)} lado="churn" />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {trimestresParciales.length > 0 && (
+          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">
+            <strong>{etiquetaQ(trimestresParciales[0])} a {etiquetaQ(trimestresParciales[trimestresParciales.length - 1])}
+            {' '}vienen marcados "parcial"</strong>: {paisesParciales.join(' y ')} todavía no
+            acumula{paisesParciales.length === 1 ? '' : 'n'} los meses de historial que pide la
+            ventana de referencia (hasta 15 meses atrás para clientes estacionales). El churn de
+            esos trimestres está subestimado para {paisesParciales.length === 1 ? 'ese país' : 'esos países'} y
+            no es comparable con el resto de la serie. La franja se acorta sola a medida que pasan
+            los trimestres.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-6 pt-5 border-t border-slate-100">
       <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold text-slate-700">Resumen por país</h3>
-            <button
-              onClick={() => setVerComoSeCalcula(true)}
-              className="text-[11px] font-semibold text-[#0097A7] hover:underline focus-visible:underline"
-            >
-              ¿Cómo se calcula?
-            </button>
-          </div>
+          <h3 className="text-sm font-semibold text-slate-700">Resumen por país</h3>
           <p className="text-[11px] text-slate-400 mt-0.5">
             Sobre la cartera de cada país congelada al cierre de cada trimestre.
           </p>
@@ -754,7 +843,9 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
               </td>
             </tr>
 
-            {trimestres.map(tid => (
+            {/* Del más reciente al más viejo, igual que las otras dos tablas de
+                la card: leerlas en sentidos distintos hace comparar mal. */}
+            {[...trimestres].reverse().map(tid => (
               <tr key={tid} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
                 <th scope="row" className="text-left py-3 px-2 whitespace-nowrap">
                   {onElegir ? (
@@ -820,6 +911,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
           </tbody>
         </table>
       </div>
+      </div>
 
       {/* Cómo se movió la base, trimestre a trimestre. El % cambia por dos
           motivos y el panel solo mostraba uno: se pierde más o menos gente
@@ -857,7 +949,10 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
             cambio:  cuenta('alta', true) - cuenta('baja', true),
             base:    baseDe(tid),
           };
-        }).filter(r => r.bajas > 0 || r.altas > 0 || r.cambio !== 0);
+        }).filter(r => r.bajas > 0 || r.altas > 0 || r.cambio !== 0)
+          // El cálculo se arma en orden cronológico —cada fila mira el trimestre
+          // anterior—, pero se muestra al revés, como las otras dos tablas.
+          .reverse();
         if (!filas.length) return null;
         const verCambio = rama !== 'todas';
         return (
@@ -970,94 +1065,6 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
           </div>
         );
       })()}
-
-      {/* Detalle por trimestre. Vive en esta card y no en una propia porque es la
-          misma tabla vista de otro lado —los mismos trimestres, abiertos por rama
-          y con la cartera— y separarlas dejaba media pantalla vacía. */}
-      <div className="mt-6 pt-5 border-t border-slate-100">
-        <h4 className="text-sm font-semibold text-slate-700">Detalle por trimestre</h4>
-        <p className="text-[11px] text-slate-400 mt-0.5 mb-2">
-          Toca un trimestre para ver y descargar sus empresas.
-        </p>
-        <div className="overflow-x-auto -mx-2 tabla-scroll">
-          <table className="w-full text-sm min-w-[420px] tabla-apilable">
-            <caption className="sr-only">Clientes en churn separados en recurrentes y estacionales, cartera y porcentaje</caption>
-            <thead>
-              <tr className="border-b border-slate-200">
-                <th scope="col" className="text-left font-medium text-xs text-[#0097A7] pb-3 px-2">Trimestre</th>
-                <th scope="col" className={th}>Churn</th>
-                <th scope="col" className={th}>Rec.</th>
-                <th scope="col" className={th}>Est.</th>
-                <th scope="col" className={th}>Cartera</th>
-                <th scope="col" className={`${th} text-slate-500`}>%</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...serie].reverse().map(d => (
-                <Fragment key={d.trimestreId}>
-                <tr className={`border-b border-slate-100 transition-colors ${
-                      d.trimestreId === seleccion ? 'bg-slate-50' : 'hover:bg-slate-50/70'}`}>
-                  <th scope="row" className="text-left py-3 px-2 whitespace-nowrap">
-                    {onElegir ? (
-                      <button
-                        onClick={() => onElegir(d.trimestreId)}
-                        aria-pressed={d.trimestreId === seleccion}
-                        className={`text-[#0097A7] hover:underline focus-visible:underline ${
-                          d.trimestreId === seleccion ? 'font-semibold' : 'font-medium'}`}
-                      >
-                        {etiquetaQ(d.trimestreId)}
-                      </button>
-                    ) : (
-                      <span className="font-medium text-slate-600">{etiquetaQ(d.trimestreId)}</span>
-                    )}
-                    {d.coberturaParcial && (
-                      <span className="ml-1.5 text-[10px] text-amber-600">parcial</span>
-                    )}
-                    <button
-                          onClick={() => alternarDesglose(d.trimestreId)}
-                          aria-expanded={desglose === d.trimestreId}
-                          aria-label={`Ver de qué está hecho el churn de ${etiquetaQ(d.trimestreId)}`}
-                          className="ml-1.5 text-slate-300 hover:text-[#0097A7] transition-colors align-middle"
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                               stroke="currentColor" strokeWidth="3" aria-hidden="true"
-                               className={`transition-transform ${desglose === d.trimestreId ? 'rotate-180' : ''}`}>
-                            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                  </th>
-                  <td data-label="Churn" className={`${td} font-semibold text-slate-800`}>{nf.format(d.churn)}</td>
-                  <td data-label="Rec." className={`${td} text-slate-500`}>{nf.format(d.churnRec)}</td>
-                  <td data-label="Est." className={`${td} text-slate-500`}>{nf.format(d.churnEst)}</td>
-                  <td data-label="Cartera" className={`${td} text-slate-500`}>{nf.format(d.cartera)}</td>
-                  <td data-label="%" className={`${td} font-medium`}>
-                    {d.pctChurn != null ? `${d.pctChurn.toFixed(1)}%` : '—'}
-                  </td>
-                </tr>
-                {desglose === d.trimestreId && (
-                  <tr className="border-b border-slate-100 bg-slate-50/60">
-                    <td colSpan={6} className="px-2 pb-2">
-                      <DesgloseQ p={puenteQ(d.trimestreId, clientes, movimientos)} lado="churn" />
-                    </td>
-                  </tr>
-                )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {trimestresParciales.length > 0 && (
-          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">
-            <strong>{etiquetaQ(trimestresParciales[0])} a {etiquetaQ(trimestresParciales[trimestresParciales.length - 1])}
-            {' '}vienen marcados "parcial"</strong>: {paisesParciales.join(' y ')} todavía no
-            acumula{paisesParciales.length === 1 ? '' : 'n'} los meses de historial que pide la
-            ventana de referencia (hasta 15 meses atrás para clientes estacionales). El churn de
-            esos trimestres está subestimado para {paisesParciales.length === 1 ? 'ese país' : 'esos países'} y
-            no es comparable con el resto de la serie. La franja se acorta sola a medida que pasan
-            los trimestres.
-          </p>
-        )}
-      </div>
 
       {enCurso && (
         <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">

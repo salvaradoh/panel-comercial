@@ -37,10 +37,16 @@ export function CampanaCard({ campana, indice, estado, avance, activa, onAbrir }
     <motion.article
       {...entrada}
       className={[
-        'group relative flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm',
+        'group relative flex flex-col overflow-hidden rounded-2xl border shadow-sm',
         'transition-[box-shadow,border-color] duration-200',
         'hover:shadow-md focus-within:shadow-md active:scale-[0.96]',
-        activa ? 'border-slate-300 shadow-md' : 'border-slate-200',
+        // Las campañas agregadas a pedido van sobre ámbar para separarlas de un vistazo
+        // de las que genera el análisis semanal. El fondo no es la única señal: abajo va
+        // también la etiqueta "A pedido", porque el color solo no se lee en escala de
+        // grises ni con daltonismo.
+        campana.a_pedido ? 'bg-amber-50' : 'bg-white',
+        activa ? 'border-slate-300 shadow-md'
+          : campana.a_pedido ? 'border-amber-200' : 'border-slate-200',
       ].join(' ')}
     >
       {/* Franja de tipo: el color es el identificador de la campaña en toda la vista. */}
@@ -56,6 +62,11 @@ export function CampanaCard({ campana, indice, estado, avance, activa, onAbrir }
             >
               {campana.prioridad}
             </span>
+            {campana.a_pedido && (
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                A pedido
+              </span>
+            )}
             <span
               className="rounded-md px-2 py-0.5 text-[11px] font-medium"
               style={{ background: tipo.fondo, color: tipo.color }}
