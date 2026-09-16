@@ -843,6 +843,23 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
               </td>
             </tr>
 
+            {enCurso && (
+              <tr className="border-b-2 border-slate-200">
+                <th scope="row" className="text-left font-normal text-xs text-slate-400 py-3 px-2 whitespace-nowrap">
+                  {etiquetaQ(enCurso.trimestreId)}
+                  <span className="block text-[10px]">en curso</span>
+                </th>
+                {paises.map(p => (
+                  <td key={p} data-label={p} className="text-right py-3 px-2 tabular-nums text-slate-400">
+                    {fmt(valor(buscar(enCurso.trimestreId, p)))}
+                  </td>
+                ))}
+                <td data-label="Total" className="text-right py-3 px-2 tabular-nums text-slate-500 font-semibold">
+                  {fmt(total(enCurso.trimestreId))}
+                </td>
+              </tr>
+            )}
+
             {/* Del más reciente al más viejo, igual que las otras dos tablas de
                 la card: leerlas en sentidos distintos hace comparar mal. */}
             {[...trimestres].reverse().map(tid => (
@@ -876,7 +893,7 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
               </tr>
             ))}
 
-            {anios.map(a => (
+            {[...anios].reverse().map(a => (
               <tr key={`prom-${a}`} className="border-b border-slate-100 bg-slate-50/50">
                 <th scope="row" className="text-left font-normal text-xs text-slate-500 py-2.5 px-2 whitespace-nowrap">
                   Promedio {a}
@@ -892,22 +909,6 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
               </tr>
             ))}
 
-            {enCurso && (
-              <tr className="border-t-2 border-slate-200">
-                <th scope="row" className="text-left font-normal text-xs text-slate-400 py-3 px-2 whitespace-nowrap">
-                  {etiquetaQ(enCurso.trimestreId)}
-                  <span className="block text-[10px]">en curso</span>
-                </th>
-                {paises.map(p => (
-                  <td key={p} data-label={p} className="text-right py-3 px-2 tabular-nums text-slate-400">
-                    {fmt(valor(buscar(enCurso.trimestreId, p)))}
-                  </td>
-                ))}
-                <td data-label="Total" className="text-right py-3 px-2 tabular-nums text-slate-500 font-semibold">
-                  {fmt(total(enCurso.trimestreId))}
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
