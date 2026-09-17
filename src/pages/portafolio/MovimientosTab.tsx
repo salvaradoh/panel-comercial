@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { Card } from '../../components/ui/Card';
 import { ComoSeCalculaChurn, EtiquetaCaso, CASOS, type CasoId } from './ComoSeCalculaChurn';
-import { puenteQ } from './churnPuente';
+import { puenteQ, tipoChurn } from './churnPuente';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import type {
   MovMes, MovAgregado, MovimientosResponse, ChurnQTrimestre, ClienteChurnQ, ChurnQPais, MovimientoBase,
@@ -1108,7 +1108,7 @@ function descargarMovimientosCsv(movs: MovimientoBase[], archivo: string) {
     ['Ejecutivo',   m => m.kam],
     ['Empresa',     m => m.nombre],
     ['ID panel',    m => m.panelId],
-    ['Tipo',        m => m.tipo],
+    ['Tipo',        m => tipoChurn(m.rama, m.tipo)],
     ['USD 12m',     m => Math.round(m.usd12m || 0)],
   ];
   const texto = [cols.map(c => c[0]).join(';')]
@@ -1483,7 +1483,9 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
                         </td>
                         <td data-label="País" className="text-slate-500 text-xs">{m.pais}</td>
                         <td data-label="Ejecutivo" className="text-slate-500 text-xs">{m.kam}</td>
-                        <td data-label="Tipo" className="text-slate-500 text-xs">{m.tipo}</td>
+                        <td data-label="Tipo" className="text-slate-500 text-xs">
+                          {tipoChurn(m.rama, m.tipo)}
+                        </td>
                         <td data-label="USD 12m" className="text-right tabular-nums text-slate-600">
                           {nf.format(Math.round(m.usd12m || 0))}
                         </td>

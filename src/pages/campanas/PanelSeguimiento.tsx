@@ -116,6 +116,37 @@ export function PanelSeguimiento({ campana: publicada, puedeEditar, onCerrar }: 
     [borrador, guardado],
   );
 
+  /**
+   * El avance lo calcula el backend sobre la base PUBLICADA, que no conoce las ediciones:
+   * esas viven en Firestore y las escribe el navegador. Sin recortarlo, el panel mostraba
+   * la misma campaña dos veces y en desacuerdo — arriba la base editada y abajo la lista
+   * completa, con las cuentas que se acababan de quitar todavía presentes y contadas.
+   *
+   * Se recortan las filas y se recalcula el resumen entero: dejar los totales del backend
+   * sobre una lista más corta daría porcentajes que no cierran con lo que se ve.
+   */
+  const avanceVisible = useMemo(() => {
+    if (!avance?.medible || !borrador.overrides.cuentas) return avance;
+    const enBase = new Set(campana.cuentas.map((c) => `${c.pais}||${c.panel_id}`));
+    const cuentas = avance.cuentas.filter((c) => enBase.has(`${c.pais}||${c.panel_id}`));
+    const cuenta = (f: (c: (typeof cuentas)[number]) => boolean) => cuentas.filter(f).length;
+    return {
+      ...avance,
+      total: cuentas.length,
+      cuentas,
+      resumen: {
+        logrados: cuenta((c) => c.logrado),
+        pendientes: cuenta((c) => !c.logrado && c.encontrada),
+        sin_dato: cuenta((c) => !c.encontrada),
+        mejoraron: cuenta((c) => c.movimiento === 'mejoro'),
+        empeoraron: cuenta((c) => c.movimiento === 'empeoro'),
+        compraron: cuenta((c) => Boolean(c.compro_desde_inicio)),
+        monto_antes_usd: cuentas.reduce((a, c) => a + (c.monto_antes_usd ?? 0), 0),
+        monto_ahora_usd: cuentas.reduce((a, c) => a + (c.monto_ahora_usd ?? 0), 0),
+      },
+    };
+  }, [avance, borrador.overrides.cuentas, campana.cuentas]);
+
   const aplicar = (parcial: Partial<Seguimiento>) => setBorrador((b) => ({ ...b, ...parcial }));
   const editarOverride = (campo: keyof NonNullable<Seguimiento['overrides']>, valor: string) =>
     setBorrador((b) => ({ ...b, overrides: { ...b.overrides, [campo]: valor } }));
@@ -372,7 +403,7 @@ export function PanelSeguimiento({ campana: publicada, puedeEditar, onCerrar }: 
         </Seccion>
 
         <Seccion titulo="Avance de la base">
-          <AvanceBase avance={avance} cargando={cargandoAvance} error={errorAvance as Error | null} acento={tipo.color} />
+          <AvanceBase avance={avanceVisible} cargando={cargandoAvance} error={errorAvance as Error | null} acento={tipo.color} />
         </Seccion>
 
         {/* ------------------------------------------------------- seguimiento */}
@@ -507,8 +538,20 @@ export function PanelSeguimiento({ campana: publicada, puedeEditar, onCerrar }: 
                           style={{ background: tipo.color, ['--tw-ring-color' as string]: tipo.color }}>
                     {guardar.isPending ? 'Guardando…' : 'Guardar'}
                   </button>
+                  {/* El error va en bloque y no como una línea al lado del botón: la pantalla
+                      muestra la edición apenas se hace —antes de guardar—, así que un guardado
+                      fallido se veía igual que uno exitoso y el trabajo se perdía al recargar
+                      sin que nadie se enterara. Acá dice explícitamente que NO quedó guardado. */}
                   {guardar.isError && (
-                    <span role="alert" className="text-[12px] text-rose-700">{(guardar.error as Error).message}</span>
+                    <div role="alert"
+                         className="w-full rounded-lg border border-rose-300 bg-rose-50 px-3 py-2">
+                      <p className="text-[12.5px] font-semibold text-rose-900">
+                        No se guardó. Los cambios de esta pantalla se van a perder si recargás.
+                      </p>
+                      <p className="mt-1 break-words text-[11.5px] text-rose-800">
+                        {(guardar.error as Error).message}
+                      </p>
+                    </div>
                   )}
                   {!sucio && borrador.actualizado_en > 0 && (
                     <span className="text-[11.5px] tabular-nums text-slate-500">

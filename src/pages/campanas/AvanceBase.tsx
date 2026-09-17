@@ -102,8 +102,9 @@ export function AvanceBase({
       </dl>
 
       <p className="mb-3 text-[12px] text-slate-600 [font-variant-numeric:tabular-nums]">
-        Facturación semestral de la base: {usd(r.monto_ahora_usd)} hoy contra{' '}
-        {usd(r.monto_antes_usd)} cuando se publicó la campaña.
+        Facturación de los últimos 6 meses: {usd(r.monto_ahora_usd)} hoy contra{' '}
+        {usd(r.monto_antes_usd)} cuando se publicó la campaña. Las dos cifras son ventanas de
+        6 meses; lo que cambia es desde cuándo se cuentan.
       </p>
 
       <div className="max-h-72 overflow-auto rounded-xl border border-slate-200">
@@ -113,9 +114,15 @@ export function AvanceBase({
               <tr className="text-left text-[10.5px] uppercase tracking-wide text-slate-600">
                 <th scope="col" className="px-3 py-2 font-medium">Cuenta</th>
                 <th scope="col" className="px-3 py-2 font-medium">Ejecutivo</th>
-                <th scope="col" className="px-3 py-2 text-right font-medium">
+                <th scope="col" className="px-3 py-2 text-right font-medium"
+                    title={esScore ? 'Score de salud de hoy' : 'Lo facturado en los últimos 6 meses, contados desde hoy'}>
                   {esScore ? 'Score' : 'Facturación 6m'}
                 </th>
+                {/* Los días sin comprar son la señal que decide a quién llamar primero en una
+                    campaña de recuperación: una cuenta grande y quieta pesa más que una
+                    chica y quieta, y eso no se ve mirando solo la facturación. */}
+                <th scope="col" className="px-3 py-2 text-right font-medium"
+                    title="Días desde la última compra registrada">Sin comprar</th>
                 <th scope="col" className="px-3 py-2 text-right font-medium">{avance.etiqueta_metrica}</th>
               </tr>
             </thead>
@@ -131,6 +138,9 @@ export function AvanceBase({
                     {!c.encontrada ? '—'
                       : esScore ? `${(c.score_antes ?? 0).toFixed(1)} → ${(c.score_ahora ?? 0).toFixed(1)}`
                       : usd(c.monto_ahora_usd)}
+                  </td>
+                  <td data-label="Sin comprar" className="px-3 py-1.5 text-right tabular-nums text-slate-700">
+                    {c.dias_sin_compra == null ? '—' : `${numero(c.dias_sin_compra)} d`}
                   </td>
                   <td data-label={avance.etiqueta_metrica} className="px-3 py-1.5 text-right">
                     {/* El texto dice el estado; el color solo lo acompaña. */}

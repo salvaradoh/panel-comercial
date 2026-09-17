@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { useBriefCampanas, useSeguimientos, type Campana, type EstadoCampana } from '../hooks/useCampanas';
+import {
+  aplicarOverrides, useBriefCampanas, useSeguimientos,
+  type Campana, type EstadoCampana,
+} from '../hooks/useCampanas';
 import { useTrack } from '../hooks/useTrack';
 import { Markdown } from './campanas/Markdown';
 import { CambiosCartera } from './campanas/CambiosCartera';
@@ -98,6 +101,10 @@ function VistaAdmin() {
   // Los estados llegan todos juntos en una sola lectura de la colección, así que la
   // grilla puede mostrar cuál ya se aprobó sin pedir un documento por tarjeta.
   const estadoDe = (c: Campana): EstadoCampana => seguimientos?.[c.slug]?.estado ?? 'propuesta';
+  // La tarjeta muestra la base con las ediciones aplicadas, igual que el panel. Sin esto,
+  // quitar cuentas dejaba la tarjeta con el conteo del brief y el panel con otro: la misma
+  // campaña decía dos números distintos según dónde se la mirara.
+  const conEdiciones = (c: Campana): Campana => aplicarOverrides(c, seguimientos?.[c.slug]?.overrides);
 
   const abrir = (c: Campana) => {
     setAbierta(c);
@@ -167,7 +174,7 @@ function VistaAdmin() {
                 {campanas.map((c, i) => (
                   <CampanaCard
                     key={c.slug}
-                    campana={c}
+                    campana={conEdiciones(c)}
                     indice={i}
                     estado={estadoDe(c)}
                     activa={abierta?.slug === c.slug}

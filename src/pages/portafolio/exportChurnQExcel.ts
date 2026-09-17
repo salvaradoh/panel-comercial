@@ -3,6 +3,7 @@ import type {
 } from '../../hooks/useMovimientos';
 import {
   indexarPuente, puenteDesdeIndice, casoDeChurn, casoDeBaja, llaveEmpresa,
+  tipoChurn,
 } from './churnPuente';
 import { CASOS } from './ComoSeCalculaChurn';
 
@@ -126,7 +127,7 @@ export async function descargarExcelChurnQ(
   clientes.forEach(c => {
     wsC.addRow([
       c.trimestreId ?? '', c.pais, c.kam, c.idTributario ?? c.panelId, c.nombre,
-      c.tipoRef || c.rama,
+      tipoChurn(c.rama, c.tipoRef),
       c.trimestreId
         ? ETIQUETA[casoDeChurn(ix, c.trimestreId, llaveEmpresa(c.pais, c.panelId))]
         : '',
@@ -144,8 +145,8 @@ export async function descargarExcelChurnQ(
   // ── Hoja 3: altas y bajas de la base ───────────────────────────────────────
   const wsM = wb.addWorksheet('Altas y bajas');
   wsM.addRow([
-    'Trimestre', 'Movimiento', 'Caso', 'Motivo', 'Tipo para el churn', 'País',
-    'Ejecutivo', 'Empresa', 'ID panel', 'Tipo en el panel', 'USD 12m',
+    'Trimestre', 'Movimiento', 'Caso', 'Motivo', 'Tipo', 'País',
+    'Ejecutivo', 'Empresa', 'ID panel', 'USD 12m',
   ]).font = { bold: true };
   movimientos
     .slice()
@@ -165,12 +166,13 @@ export async function descargarExcelChurnQ(
              ?? 'Sin figurar en el churn publicado')
           : '',
         m.motivo === 'reclasificacion' ? 'Cambió de tipo' : 'Movimiento de cartera',
-        m.rama ?? '', m.pais, m.kam, m.nombre, m.panelId, m.tipo,
+        tipoChurn(m.rama, m.tipo),
+        m.pais, m.kam, m.nombre, m.panelId,
         Math.round(m.usd12m || 0),
       ]);
     });
   wsM.columns.forEach((col, i) => {
-    col.width = [12, 12, 20, 22, 12, 11, 18, 46, 14, 13, 14][i] ?? 14;
+    col.width = [12, 12, 20, 22, 12, 11, 18, 46, 14, 14][i] ?? 14;
   });
 
   // ── Hoja 4: la misma base, abierta por rama ────────────────────────────────

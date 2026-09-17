@@ -93,3 +93,18 @@ export function puenteDesdeIndice(ix: Indice, tid: string) {
     bajaSinChurn: bajas.length - churnQueSalio - bajaYaContada,
   };
 }
+
+/**
+ * El tipo tal como existe en el churn: recurrente o estacional, y nada más.
+ *
+ * Los tipos del panel —primera_compra, perdido_historico— son de Salud del
+ * cliente y no viven acá: todo lo que no es recurrente se mide con el plazo
+ * estacional. Mostrarlos juntos hace pensar que el churn tiene cuatro
+ * categorías, y tiene dos.
+ *
+ * `rama` llega vacía en el payload anterior al desglose por tipo; ahí se deriva
+ * del tipo del panel, que es la misma regla.
+ */
+export function tipoChurn(rama?: string, tipoPanel?: string): 'Recurrente' | 'Estacional' {
+  return (rama || tipoPanel) === 'recurrente' ? 'Recurrente' : 'Estacional';
+}
