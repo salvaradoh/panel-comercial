@@ -523,7 +523,7 @@ function DesgloseQ({ p, lado }: {
       <p className="font-semibold text-slate-600 mb-1">
         {lado === 'churn'
           ? `Los ${nf.format(p.churn)} en churn`
-          : `Los ${nf.format(p.bajas)} que salieron`}
+          : `Los ${nf.format(p.bajas)} que salieron de la base`}
       </p>
       {lado === 'churn' ? (
         <>
@@ -1007,8 +1007,8 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
                   <tr className="text-[10px] text-slate-400 border-b border-slate-100 uppercase tracking-wide">
                     <th scope="col" className="text-left font-medium pb-1.5">Trimestre</th>
                     <th scope="col" className="text-right font-medium pb-1.5 px-2">Base anterior</th>
-                    <th scope="col" className="text-right font-medium pb-1.5 px-2">Salieron</th>
-                    <th scope="col" className="text-right font-medium pb-1.5 px-2">Entraron</th>
+                    <th scope="col" className="text-right font-medium pb-1.5 px-2">Salieron de la base</th>
+                    <th scope="col" className="text-right font-medium pb-1.5 px-2">Entraron a la base</th>
                     {verCambio && (
                       <th scope="col" className="text-right font-medium pb-1.5 px-2">Cambió de tipo</th>
                     )}
@@ -1041,8 +1041,8 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
                         </button>
                       </th>
                       <td data-label="Base anterior" className="py-2 px-2 text-right tabular-nums text-slate-400">{nf.format(r.baseAnt)}</td>
-                      <td data-label="Salieron" className="py-2 px-2 text-right tabular-nums text-red-500 font-medium">−{nf.format(r.bajas)}</td>
-                      <td data-label="Entraron" className="py-2 px-2 text-right tabular-nums text-emerald-600 font-medium">+{nf.format(r.altas)}</td>
+                      <td data-label="Salieron de la base" className="py-2 px-2 text-right tabular-nums text-red-500 font-medium">−{nf.format(r.bajas)}</td>
+                      <td data-label="Entraron a la base" className="py-2 px-2 text-right tabular-nums text-emerald-600 font-medium">+{nf.format(r.altas)}</td>
                       {verCambio && (
                         <td data-label="Cambió de tipo" className={`py-2 px-2 text-right tabular-nums font-medium ${
                           r.cambio > 0 ? 'text-emerald-600' : r.cambio < 0 ? 'text-red-500' : 'text-slate-300'}`}>

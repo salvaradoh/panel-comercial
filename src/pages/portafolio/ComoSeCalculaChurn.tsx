@@ -172,7 +172,7 @@ export function ComoSeCalculaChurn({ onCerrar, ejemplo, serie = [] }: {
             </p>
           </Seccion>
 
-          <Seccion titulo="3. Por qué el churn y «los que salieron» no dan igual">
+          <Seccion titulo="3. Por qué el churn y «los que salieron de la base» no dan igual">
             <p>
               Son dos preguntas distintas, no dos versiones de la misma:
             </p>
