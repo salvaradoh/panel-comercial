@@ -528,15 +528,27 @@ function DesgloseQ({ p, lado }: {
       {lado === 'churn' ? (
         <>
           {linea(p.churnQueSalio, 'perdidaNueva', 'son las mismas empresas que salieron de la base: cuentan en las dos cifras')}
-          {linea(p.churnQueSigue, 'sigueEnBase', 'cambiaron de tipo de cliente (de recurrente a estacional) y a un estacional se le mide con un plazo más largo, así que sus compras anteriores todavía cuentan')}
+          {p.churnQueSigue > 0 &&
+            linea(p.churnQueSigue, 'sigueEnBase', 'cambiaron de tipo de cliente al volver a comprar, y con el plazo más largo sus compras anteriores todavía cuentan')}
         </>
       ) : (
         <>
           {linea(p.churnQueSalio, 'perdidaNueva', 'son las mismas empresas que cuentan como churn de este trimestre: cuentan en las dos cifras')}
-          {linea(p.bajaYaContada, 'yaContada', 'ya se habían contado como perdidas en un trimestre anterior. Siguieron en la base porque también pasaron a estacional y el plazo largo todavía las alcanzaba; recién ahora quedan fuera. No se cuentan dos veces')}
+          {p.bajaYaContada > 0 &&
+            linea(p.bajaYaContada, 'yaContada', 'ya se habían contado como perdidas en un trimestre anterior y dejan la base recién ahora. No se cuentan dos veces')}
           {p.bajaSinChurn > 0 &&
             linea(p.bajaSinChurn, null, 'salieron sin figurar en el churn publicado: se perdieron antes del primer trimestre de la serie')}
         </>
+      )}
+      {/* Desde que el tipo se congela en la última compra, lo normal es que las
+          dos cifras coincidan. Decirlo es más útil que dejar el bloque con una
+          sola línea y que parezca que falta algo. */}
+      {p.churn === p.bajas && p.churnQueSalio === p.churn && (
+        <p className="text-slate-400 mt-1">
+          Las dos cifras son exactamente las mismas empresas. Coinciden porque un cliente
+          solo cambia de tipo cuando compra, así que su pérdida y su salida de la base
+          caen en el mismo trimestre.
+        </p>
       )}
     </div>
   );

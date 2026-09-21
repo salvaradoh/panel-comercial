@@ -152,10 +152,16 @@ export function ComoSeCalculaChurn({ onCerrar, ejemplo, serie = [] }: {
                 <span>— compra de vez en cuando. Le damos <strong>13 meses</strong>, para que alcance a repetir su temporada.</span>
               </li>
             </ul>
+            <p>
+              <strong>El tipo solo cambia cuando el cliente compra.</strong> Se le asigna
+              el que tenía en su última compra y se mantiene hasta la próxima. Un cliente
+              que deja de comprar no cambia de grupo por el solo paso del tiempo: sigue
+              medido con el plazo que le correspondía cuando todavía compraba.
+            </p>
             <p className="text-[11.5px] text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
               Esta separación en dos relojes existe <strong>solo para este cálculo</strong>.
               No cambia nada de Salud del cliente, ni de segmento, ni de la clasificación
-              que se ve en el resto del panel.
+              que se ve en el resto del panel — ahí el tipo sí se recalcula todos los meses.
             </p>
           </Seccion>
 
@@ -181,8 +187,14 @@ export function ComoSeCalculaChurn({ onCerrar, ejemplo, serie = [] }: {
               <li>· <strong>Salieron de la base</strong>: ¿quién ya no aparece en la base de este trimestre, comparada con la del anterior?</li>
             </ul>
             <p>
-              Casi todas las empresas contestan que sí a las dos. Pero hay dos grupos que
-              contestan a una sola, y son los que hacen que los números no coincidan:
+              Desde que el tipo se congela en la última compra, <strong>las dos preguntas
+              tienen la misma respuesta</strong>: quien deja de comprar entra al churn y
+              sale de la base en el mismo trimestre. Por eso los dos números coinciden.
+            </p>
+            <p>
+              Antes no era así, porque el tipo se recalculaba cada mes y podía cambiar sin
+              que el cliente hiciera nada. Los casos siguientes explican las diferencias
+              que puedan aparecer; si la tabla los muestra en cero, es que no hubo ninguna.
             </p>
 
             <div className="space-y-2 pt-1">
