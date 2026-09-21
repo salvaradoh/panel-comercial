@@ -842,8 +842,13 @@ function ResumenPorPais({ celdas, serie, enCurso, movimientos, clientes, onElegi
           </thead>
           <tbody>
             <tr className="border-b border-slate-100">
-              <th scope="row" className="text-left font-normal text-[11px] text-slate-400 py-2.5 px-2">
+              {/* La base es la del último trimestre CERRADO, no la del que está
+                  en curso —cuya base todavía se mueve—. Sin decir cuál, la fila
+                  queda pegada a la del trimestre en curso y se lee como si fuera
+                  su denominador. */}
+              <th scope="row" className="text-left font-normal text-[11px] text-slate-400 py-2.5 px-2 whitespace-nowrap">
                 Clientes en la base
+                {ultimo && <span className="text-slate-300"> · {etiquetaQ(ultimo)}</span>}
               </th>
               {base.map((n, i) => (
                 <td key={paises[i]} data-label={paises[i]} className="text-right py-2.5 px-2 tabular-nums text-[11px] text-slate-400">
