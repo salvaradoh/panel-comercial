@@ -165,7 +165,20 @@ export function ComoSeCalculaChurn({ onCerrar, ejemplo, serie = [] }: {
             </p>
           </Seccion>
 
-          <Seccion titulo="2. Contra qué se compara">
+          <Seccion titulo="2. Los clientes nuevos todavía no cuentan">
+            <p>
+              Un cliente es <strong>nuevo durante sus primeros 6 meses</strong>, contados
+              desde su primera compra. No importa si en ese tiempo compró una vez o veinte.
+            </p>
+            <p>
+              Mientras es nuevo <strong>no entra ni al churn ni a la base</strong>. Perder
+              a alguien que recién empezó no es lo mismo que perder a un cliente formado, y
+              tenerlo en el «de cuántos» abarataría el porcentaje sin que nadie hubiera
+              retenido a nadie. Al cumplir los 6 meses entra al cálculo como cualquier otro.
+            </p>
+          </Seccion>
+
+          <Seccion titulo="3. Contra qué se compara">
             <p>
               El porcentaje necesita un «de cuántos». Ese «de cuántos» es la{' '}
               <strong>base</strong>: las empresas que al cierre del trimestre{' '}
@@ -178,7 +191,7 @@ export function ComoSeCalculaChurn({ onCerrar, ejemplo, serie = [] }: {
             </p>
           </Seccion>
 
-          <Seccion titulo="3. Por qué el churn y «los que salieron de la base» no dan igual">
+          <Seccion titulo="4. Por qué el churn y «los que salieron de la base» no dan igual">
             <p>
               Son dos preguntas distintas, no dos versiones de la misma:
             </p>
@@ -228,7 +241,7 @@ export function ComoSeCalculaChurn({ onCerrar, ejemplo, serie = [] }: {
             </div>
           </Seccion>
 
-          <Seccion titulo="4. Por eso no se resta uno del otro">
+          <Seccion titulo="5. Por eso no se resta uno del otro">
             {ejemplo ? (
               <>
                 <p>
@@ -279,7 +292,7 @@ export function ComoSeCalculaChurn({ onCerrar, ejemplo, serie = [] }: {
           </Seccion>
 
           {serie.length > 0 && (
-            <Seccion titulo="5. La relación entre los dos números, trimestre a trimestre">
+            <Seccion titulo="6. La relación entre los dos números, trimestre a trimestre">
               <p>
                 Los dos números nunca coinciden por casualidad: su diferencia es
                 exactamente la de los dos grupos que no se superponen.

@@ -55,6 +55,9 @@ export async function descargarExcelChurnQ(
   // ── Hoja 1: resumen por trimestre ──────────────────────────────────────────
   const ws = wb.addWorksheet('Resumen por trimestre');
   ws.addRow(['Churn trimestral — resumen']).font = { bold: true, size: 14 };
+  ws.addRow(['Un cliente es recurrente (plazo de 4 meses) o estacional (13 meses), y ese tipo solo cambia cuando vuelve a comprar: no se mueve de grupo por el paso del tiempo.']);
+  ws.addRow(['Los clientes con menos de 6 meses desde su primera compra no entran ni al churn ni a la base: son nuevos y no se los evalúa todavía.']);
+  ws.addRow([]);
   ws.addRow([
     'El denominador son los clientes ACTIVOS en la ventana de silencio de su rama',
     '(recurrente 4 meses, estacional 14), no todos los que compraron alguna vez.',
@@ -183,6 +186,8 @@ export async function descargarExcelChurnQ(
   const wsR = wb.addWorksheet('Base por tipo');
   wsR.addRow(['Cómo se movió la base, separando recurrentes de estacionales'])
     .font = { bold: true, size: 14 };
+  wsR.addRow(['"Cambió de tipo" son empresas que pasaron de un grupo al otro AL VOLVER A COMPRAR. No salieron de la cartera: lo que un grupo suma, el otro lo resta.']);
+  wsR.addRow([]);
   wsR.addRow([]);
   wsR.addRow([
     'Trimestre', 'Tipo', 'Base anterior', 'Salieron', 'Entraron',
@@ -238,8 +243,8 @@ export async function descargarExcelChurnQ(
     ]);
   });
   wsP.addRow([]);
-  wsP.addRow(['Casi todas las empresas cuentan en los dos números a la vez: por eso la resta no da una cantidad de empresas.']);
-  wsP.addRow(['Y que la diferencia sea 0 no significa que sean las mismas: pueden ser dos grupos distintos del mismo tamaño que se cancelan.']);
+  wsP.addRow(['Desde que el tipo se congela en la última compra, las dos cifras son las mismas empresas y la diferencia es cero.']);
+  wsP.addRow(['Si alguna fila no da cero, las columnas del medio dicen por qué: son casos que el plazo de gracia o una recompra dejan desalineados.']);
   wsP.columns.forEach((col, i) => { col.width = [12, 10, 11, 12, 20, 27, 27, 29, 14][i] ?? 14; });
 
   const buffer = await wb.xlsx.writeBuffer();
