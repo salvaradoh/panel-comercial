@@ -65,6 +65,24 @@ export interface InteraccionIPC {
   segmentoVigente: string;
 }
 
+/** Una fila de `Consolidado tareas`. Es una TAREA, no un cliente: una empresa
+ *  puede tener varias en el mismo trimestre. */
+export interface TareaConsolidado {
+  semana: string;
+  kam: string;
+  kamCorreo: string;
+  segmento: string;
+  tipoCliente: string;
+  empresa: string;
+  tarea: string;
+  prioridad: string;
+  canal: string;
+  estado: string;
+  fechaCompletado: string;
+  esSaas: boolean;
+  pts: number;
+}
+
 export interface IPCResponse {
   trimestre: string;
   trimestreAnterior: string;
@@ -107,6 +125,9 @@ export interface IPCResponse {
   /** Frescura de la cartera: cuándo el GAS cargarCartera() leyó BigQuery. */
   cartera: { actualizada: string; universo: number };
   interacciones: InteraccionIPC[];
+  /** Tareas del trimestre (pestaña "Consolidado tareas"). Una fila por TAREA, no
+   *  por cliente: una empresa puede tener varias en el mismo trimestre. */
+  consolidadoTareas: TareaConsolidado[];
   alcance: {
     rol: string;
     global: boolean;

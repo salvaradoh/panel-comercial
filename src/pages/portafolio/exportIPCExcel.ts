@@ -10,12 +10,15 @@ export interface FiltrosIPC {
 }
 
 /**
- * Excel del Análisis IPC: tres hojas.
+ * Excel del Análisis IPC: cuatro hojas.
  *
  *   Resumen        la foto que está en pantalla (KPIs, semáforo, mix de canales)
  *   Clientes       una fila por cliente de la cartera —contactado o no—, con todas
  *                  las columnas del modelo más la probabilidad de fuga
  *   Interacciones  una fila por interacción — el detalle crudo de la hoja
+ *   Consolidado    una fila por TAREA del trimestre (pestaña "Consolidado tareas"
+ *                  del mismo spreadsheet) — completadas vs. pendientes por
+ *                  ejecutivo. Pedido explícito de negocio, 2026-09-28.
  *
  * Clientes e Interacciones van SIN los filtros de pantalla (chips de alerta,
  * checkbox de no atendidos) a propósito: es el mismo criterio ya acordado para
@@ -41,6 +44,13 @@ export async function descargarExcelIPC(data: IPCResponse, filtros: FiltrosIPC) 
   // si el navegador tiene la versión con el botón y Cloud Run todavía no devuelve
   // `interacciones`, la hoja sale vacía en vez de romper la descarga entera.
   const interacciones = (data.interacciones ?? []).filter((x) => enExport.has(`${x.pais}|${x.empresa}`));
+  // Consolidado tareas no tiene país por columna, así que se recorta por
+  // ejecutivo (mismo filtro que aplicó el usuario en pantalla) y no por empresa:
+  // una tarea de alguien fuera de la cartera exportada igual es relevante para su
+  // propio avance de tareas.
+  const tareas = filtros.ejecutivo
+    ? (data.consolidadoTareas ?? []).filter((t) => t.kam === filtros.ejecutivo)
+    : (data.consolidadoTareas ?? []);
   const alcance = data.pais ?? 'LATAM · todos los países';
   const pct = (n: number) => (resumen.interacciones ? n / resumen.interacciones : 0);
 
@@ -64,6 +74,7 @@ export async function descargarExcelIPC(data: IPCResponse, filtros: FiltrosIPC) 
   ws.addRow(['Filtro de alerta', filtros.alerta]);
   ws.addRow(['Incluye clientes sin contactar', filtros.incluyeSinContactar ? 'Sí' : 'No']);
   ws.addRow(['Clientes exportados', clientes.length]);
+  ws.addRow(['Tareas exportadas (Consolidado tareas)', tareas.length]);
   ws.addRow(['Cartera actualizada', data.cartera.actualizada || '(sin dato)']);
   ws.addRow(['Generado', new Date().toLocaleString('es-PE')]);
 
@@ -170,6 +181,26 @@ export async function descargarExcelIPC(data: IPCResponse, filtros: FiltrosIPC) 
     ]);
   });
   wsI.columns.forEach((col, i) => { col.width = [12, 14, 10, 44, 12, 26, 22, 18, 14, 30, 12, 8, 15, 12, 15, 15, 18, 10, 38][i] ?? 14; });
+
+  // ── Consolidado (tareas del trimestre) ────────────────────────────────────
+  // Granularidad distinta de las demás hojas: una fila por TAREA, no por cliente
+  // ni por interacción. Una empresa puede tener varias tareas en el trimestre.
+  const wsT = wb.addWorksheet('Consolidado');
+  wsT.addRow([
+    'Semana', 'Ejecutivo', 'Segmento', 'Tipo de cliente', 'Empresa', 'Tarea',
+    'Prioridad', 'Canal', 'Estado', 'Fecha completado', 'SaaS', 'Puntos',
+  ]).font = { bold: true };
+  wsT.views = [{ state: 'frozen', ySplit: 1 }];
+  wsT.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 12 } };
+
+  tareas.forEach((t) => {
+    wsT.addRow([
+      t.semana, t.kam, t.segmento, t.tipoCliente, t.empresa, t.tarea,
+      t.prioridad, t.canal, t.estado, t.fechaCompletado,
+      t.esSaas ? 'Sí' : 'No', t.pts,
+    ]);
+  });
+  wsT.columns.forEach((col, i) => { col.width = [11, 24, 9, 14, 44, 40, 11, 12, 13, 15, 6, 9][i] ?? 14; });
 
   const sufijoPais = data.pais ? `_${data.pais.normalize('NFD').replace(/[̀-ͯ]/g, '')}` : '';
   // El segmento va en el nombre: si no, bajar A+ y después B deja dos archivos con
