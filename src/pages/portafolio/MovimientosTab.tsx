@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -8,54 +8,31 @@ import { ComoSeCalculaChurn, EtiquetaCaso, CASOS, type CasoId } from './ComoSeCa
 import { puenteQ, tipoChurn } from './churnPuente';
 import { useMovimientos } from '../../hooks/useMovimientos';
 import type {
-  MovMes, MovAgregado, MovimientosResponse, ChurnQTrimestre, ClienteChurnQ, ChurnQPais, MovimientoBase,
+  MovimientosResponse, ChurnQTrimestre, ClienteChurnQ, ChurnQPais, MovimientoBase,
 } from '../../hooks/useMovimientos';
 import { useTrack } from '../../hooks/useTrack';
 import { descargarExcelChurnQ } from './exportChurnQExcel';
 
 /**
- * Movimientos de cartera. Dos vistas que responden preguntas distintas y NO son
- * el mismo número medido de dos formas:
+ * Churn de cartera, con la definición de negocio del PDF: ventana de silencio de
+ * 4 meses para recurrentes y 13 para estacionales, evaluada al cierre de cada
+ * trimestre.
  *
- *   Semáforo         días sin comprar (≤60 / 61-90 / >90), mes a mes. Es para
- *                    actuar hoy: a quién llamar esta semana.
- *   Churn trimestral definición del PDF de negocio: ventana de silencio de 4
- *                    meses para recurrentes y 13 para estacionales, evaluada al
- *                    cierre de cada trimestre. Es para reportar.
- *
- * Un cliente puede estar en >90 días del semáforo y todavía no ser churn
- * trimestral (si es estacional, faltan meses de silencio). Cada vista lleva al
- * pie qué criterio está mostrando, porque si no el que compara los dos números
- * concluye que uno está mal.
- *
- * SEMÁFORO: cuántos clientes llevan ≤60, 61-90 y más de 90 días
- * sin comprar, y quiénes se movieron de tramo respecto al mes anterior.
+ * Hasta el 2026-09-29 esta vista convivía con un SEMÁFORO de días sin comprar
+ * (≤60 / 61-90 / >90), que respondía otra pregunta —a quién llamar esta semana—
+ * y se sacó por pedido de Samuel para dejar una sola lectura. Los dos números no
+ * coincidían por diseño (un estacional podía llevar 200 días de silencio y
+ * todavía no ser churn), y tenerlos al lado hacía que quien los comparara
+ * concluyera que uno estaba mal.
  *
  * El universo son los clientes con segmento real (estacional/recurrente), el
  * mismo del Comparador.
- *
- * Paleta de estado validada con el script de dataviz. Rojo↔verde queda en ΔE 8.1
- * (deutan), justo en el piso, así que cada tramo lleva SIEMPRE su etiqueta en días
- * y su número: el color nunca es el único portador de la información.
  */
-const C_60    = '#10b981';
-const C_90    = '#f59e0b';
-const C_90MAS = '#ef4444';
 
-// `subirEsMalo` existe porque el signo del delta no significa lo mismo en los
-// tres tramos: que crezca ≤60 es bueno y que crezca >90 es malo. Sin esto, un
-// "+13 al día" se pintaba de rojo.
-const TRAMOS = [
-  { key: 't60'    as const, label: '≤ 60 días',    color: C_60,    nota: 'al día',     subirEsMalo: false },
-  { key: 't90'    as const, label: '61 - 90 días', color: C_90,    nota: 'a vigilar',  subirEsMalo: true },
-  { key: 't90mas' as const, label: '> 90 días',    color: C_90MAS, nota: 'inactivos',  subirEsMalo: true },
-];
-
-const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-                      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
-function etiquetaMes(mes: string) {
-  return MESES_CORTOS[Number(mes.slice(5, 7)) - 1] ?? mes;
+interface Props {
+  pais?: string;
+  /** Nombre del ejecutivo. Presente = vista propia: solo su cartera. */
+  kam?: string;
 }
 
 const nf = new Intl.NumberFormat('es-CL');
@@ -65,305 +42,6 @@ function fmtUsd(v: number) {
   if (Math.abs(v) >= 1_000)     return `$${Math.round(v / 1_000)}K`;
   return `$${Math.round(v)}`;
 }
-
-/** Tarjeta de tramo: color + etiqueta en días + conteo + % de la cartera. */
-function TramoCard({ label, nota, color, n, pct, delta, subirEsMalo }: {
-  label: string; nota: string; color: string;
-  n: number; pct: number | null; delta: number | null; subirEsMalo: boolean;
-}) {
-  const malo = delta != null && (subirEsMalo ? delta > 0 : delta < 0);
-  return (
-    <div className="flex-1 min-w-[150px] rounded-xl border border-slate-200 bg-white px-4 py-3">
-      <div className="flex items-center gap-1.5">
-        <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: color }} />
-        <span className="text-[11px] font-semibold text-slate-600">{label}</span>
-      </div>
-      <div className="mt-1.5 flex items-baseline gap-2">
-        <span className="text-2xl font-semibold tabular-nums text-slate-800">{nf.format(n)}</span>
-        {pct != null && <span className="text-xs text-slate-400 tabular-nums">{pct.toFixed(1)}%</span>}
-      </div>
-      <div className="mt-0.5 flex items-center gap-2 text-[11px]">
-        <span className="text-slate-400">{nota}</span>
-        {delta != null && delta !== 0 && (
-          <span className={`tabular-nums font-medium ${malo ? 'text-red-500' : 'text-emerald-600'}`}>
-            {delta > 0 ? '+' : ''}{nf.format(delta)} vs. mes ant.
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-type FilaChart = MovMes & { total: number };
-
-function TooltipTramos({ active, payload }: { active?: boolean; payload?: { payload: FilaChart }[] }) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0].payload;
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-lg text-xs">
-      <div className="font-semibold text-slate-700 mb-1.5">
-        {etiquetaMes(d.mes)} {d.mes.slice(0, 4)}
-        {d.esParcial && <span className="ml-1.5 font-normal text-amber-600">· mes en curso</span>}
-      </div>
-      {TRAMOS.map(t => (
-        <div key={t.key} className="flex items-center gap-2 py-0.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: t.color }} />
-          <span className="text-slate-500 flex-1">{t.label}</span>
-          <span className="font-medium text-slate-700 tabular-nums">{nf.format(d[t.key])}</span>
-        </div>
-      ))}
-      <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex justify-between gap-4">
-        <span className="text-slate-500">Cartera</span>
-        <span className="font-semibold text-slate-700 tabular-nums">{nf.format(d.cartera)}</span>
-      </div>
-    </div>
-  );
-}
-
-interface Props {
-  pais?: string;
-  /** Nombre del ejecutivo. Presente = vista propia: solo su cartera. */
-  kam?: string;
-}
-
-function VistaSemaforo({ data, kam }: { data: MovimientosResponse; kam?: string }) {
-  const [verTabla, setVerTabla] = useState(false);
-
-  const serie = useMemo<FilaChart[]>(
-    () => (data?.meses ?? []).map(m => ({ ...m, total: m.cartera })),
-    [data],
-  );
-
-  // Delta del semáforo: cuánto cambió el stock de cada tramo contra el mes previo.
-  const delta = useMemo(() => {
-    if (serie.length < 2) return null;
-    const hoy = serie[serie.length - 1], ant = serie[serie.length - 2];
-    return { t60: hoy.t60 - ant.t60, t90: hoy.t90 - ant.t90, t90mas: hoy.t90mas - ant.t90mas };
-  }, [serie]);
-
-  if (serie.length === 0) {
-    return <div className="py-16 text-center text-sm text-slate-400">Sin datos mensuales.</div>;
-  }
-
-  const t: MovAgregado = data.total;
-  const propio = Boolean(kam);
-  const ultimo = serie[serie.length - 1];
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-base font-semibold text-slate-800">
-            {propio ? 'Mi cartera' : 'Semáforo de inactividad'} · {etiquetaMes(ultimo.mes)} {ultimo.mes.slice(0, 4)}
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Días sin comprar sobre {nf.format(t.cartera)} clientes con segmento.
-            {ultimo.esParcial && <span className="text-amber-600"> El mes está en curso.</span>}
-          </p>
-        </div>
-        <button
-          onClick={() => setVerTabla(v => !v)}
-          className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-[#0097A7] hover:text-[#0097A7] transition-colors"
-          aria-pressed={verTabla}
-        >
-          {verTabla ? 'Ocultar tabla' : 'Ver tabla'}
-        </button>
-      </div>
-
-      <div className="flex gap-3 flex-wrap">
-        {TRAMOS.map(tr => (
-          <TramoCard key={tr.key} label={tr.label} nota={tr.nota} color={tr.color}
-                     n={t[tr.key]}
-                     pct={tr.key === 't60' ? t.pct60 : tr.key === 't90' ? t.pct90 : t.pct90mas}
-                     delta={delta ? delta[tr.key] : null} subirEsMalo={tr.subirEsMalo} />
-        ))}
-        <div className="flex-1 min-w-[150px] rounded-xl border border-slate-200 bg-white px-4 py-3">
-          <div className="text-[11px] font-semibold text-slate-600">Facturación en riesgo</div>
-          <div className="mt-1.5 text-2xl font-semibold tabular-nums text-slate-800">
-            {fmtUsd(t.usdT90mas)}
-          </div>
-          <div className="mt-0.5 text-[11px] text-slate-400">
-            12m de los inactivos · {t.usdCartera > 0 ? `${Math.round(100 * t.usdT90mas / t.usdCartera)}% de la cartera` : '—'}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h3 className="text-sm font-semibold text-slate-700">Cómo evolucionó mes a mes</h3>
-            <div className="flex items-center gap-3 text-xs text-slate-500">
-              {TRAMOS.map(tr => (
-                <span key={tr.key} className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: tr.color }} />
-                  {tr.label}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div style={{ width: '100%', height: 240 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={serie} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="mes" tickFormatter={etiquetaMes} tick={{ fontSize: 11, fill: '#94a3b8' }}
-                       axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false}
-                       width={40} tickFormatter={(v: number) => nf.format(v)} />
-                <Tooltip content={<TooltipTramos />} cursor={{ fill: '#f8fafc' }} />
-                {TRAMOS.map((tr, i) => (
-                  <Bar key={tr.key} dataKey={tr.key} stackId="a" fill={tr.color}
-                       radius={i === TRAMOS.length - 1 ? [3, 3, 0, 0] : undefined}
-                       isAnimationActive={false}>
-                    {serie.map((m, j) => <Cell key={j} fillOpacity={m.esParcial ? 0.45 : 1} />)}
-                  </Bar>
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="mt-2 text-[11px] text-slate-400">
-            Cartera completa apilada. La barra translúcida es el mes en curso: aún no termina.
-          </p>
-        </Card>
-
-        <Card>
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">Movimientos del mes</h3>
-          <p className="text-[11px] text-slate-400 mb-3">Cambios de tramo respecto al mes anterior.</p>
-
-          <div className="flex gap-3 mb-3">
-            <div className="flex-1 rounded-lg bg-red-50 border border-red-100 px-3 py-2">
-              <div className="text-[11px] text-red-700 font-semibold">Empeoraron</div>
-              <div className="text-xl font-semibold tabular-nums text-red-600">{nf.format(t.empeoraron)}</div>
-              <div className="text-[10px] text-red-400">{fmtUsd(t.usdEmpeoraron)} en juego</div>
-            </div>
-            <div className="flex-1 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2">
-              <div className="text-[11px] text-emerald-700 font-semibold">Mejoraron</div>
-              <div className="text-xl font-semibold tabular-nums text-emerald-600">{nf.format(t.mejoraron)}</div>
-              <div className="text-[10px] text-emerald-500">volvieron a comprar</div>
-            </div>
-          </div>
-
-          <dl className="space-y-1 text-xs">
-            {([
-              ['≤60 → 61-90',   t.de60a90,    'malo'],
-              ['61-90 → >90',   t.de90a90mas, 'malo'],
-              ['≤60 → >90',     t.de60a90mas, 'malo'],
-              ['61-90 → ≤60',   t.de90a60,    'bueno'],
-              ['>90 → ≤60',     t.de90masa60, 'bueno'],
-              ['>90 → 61-90',   t.de90masa90, 'bueno'],
-            ] as const).filter(([, v]) => v > 0).map(([label, v, tono]) => (
-              <div key={label} className="flex items-center justify-between gap-2 py-0.5">
-                <dt className="text-slate-500 tabular-nums">{label}</dt>
-                <dd className={`tabular-nums font-medium ${tono === 'malo' ? 'text-red-500' : 'text-emerald-600'}`}>
-                  {nf.format(v)}
-                </dd>
-              </div>
-            ))}
-          </dl>
-
-          {(t.entraron > 0 || t.salieron > 0) && (
-            <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-400 space-y-0.5">
-              <div className="flex justify-between">
-                <span>Entraron a la cartera</span>
-                <span className="tabular-nums">{nf.format(t.entraron)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Salieron (cambio de tipo)</span>
-                <span className="tabular-nums">{nf.format(t.salieron)}</span>
-              </div>
-              <p className="pt-1">No cuentan como cambio de tramo: son otra cosa.</p>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {verTabla && (
-        <Card>
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Detalle mensual</h3>
-          <div className="overflow-x-auto tabla-scroll">
-            <table className="w-full text-sm tabla-apilable-vp">
-              <caption className="sr-only">
-                Clientes por tramo de días sin comprar y movimientos entre tramos, por mes
-              </caption>
-              <thead>
-                <tr className="text-slate-400 border-b border-slate-200 text-xs">
-                  <th scope="col" className="text-left font-medium py-2">Mes</th>
-                  <th scope="col" className="text-right font-medium">≤60</th>
-                  <th scope="col" className="text-right font-medium">61-90</th>
-                  <th scope="col" className="text-right font-medium">&gt;90</th>
-                  <th scope="col" className="text-right font-medium">Cartera</th>
-                  <th scope="col" className="text-right font-medium">Empeoraron</th>
-                  <th scope="col" className="text-right font-medium">Mejoraron</th>
-                </tr>
-              </thead>
-              <tbody>
-                {serie.map(m => (
-                  <tr key={m.mes} className="border-b border-slate-100">
-                    <td data-titular className="py-2 text-slate-700">
-                      {etiquetaMes(m.mes)}
-                      {m.esParcial && <span className="ml-1.5 text-[11px] text-amber-600">en curso</span>}
-                    </td>
-                    <td data-label="≤60" className="text-right tabular-nums text-slate-700">{nf.format(m.t60)}</td>
-                    <td data-label="61-90" className="text-right tabular-nums text-slate-700">{nf.format(m.t90)}</td>
-                    <td data-label=">90" className="text-right tabular-nums text-slate-700">{nf.format(m.t90mas)}</td>
-                    <td data-label="Cartera" className="text-right tabular-nums text-slate-500">{nf.format(m.cartera)}</td>
-                    <td data-label="Empeoraron" className="text-right tabular-nums text-red-500">{nf.format(m.empeoraron)}</td>
-                    <td data-label="Mejoraron" className="text-right tabular-nums text-emerald-600">{nf.format(m.mejoraron)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {!propio && data.kams.length > 1 && (
-        <Card>
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">Por ejecutivo</h3>
-          <p className="text-[11px] text-slate-400 mb-3">
-            Foto de {etiquetaMes(ultimo.mes)}, ordenada por inactivos.
-          </p>
-          <div className="overflow-x-auto tabla-scroll">
-            <table className="w-full text-sm tabla-apilable-vp">
-              <thead>
-                <tr className="text-slate-400 border-b border-slate-200 text-xs">
-                  <th scope="col" className="text-left font-medium py-2">Ejecutivo</th>
-                  <th scope="col" className="text-left font-medium">País</th>
-                  <th scope="col" className="text-right font-medium">≤60</th>
-                  <th scope="col" className="text-right font-medium">61-90</th>
-                  <th scope="col" className="text-right font-medium">&gt;90</th>
-                  <th scope="col" className="text-right font-medium">% &gt;90</th>
-                  <th scope="col" className="text-right font-medium">Empeoraron</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.kams.map(k => (
-                  <tr key={`${k.pais}|${k.nombre}`} className="border-b border-slate-100">
-                    <td data-titular className="py-2 text-slate-700">{k.nombre}</td>
-                    <td data-label="País" className="text-slate-500 text-xs">{k.pais}</td>
-                    <td data-label="≤60" className="text-right tabular-nums text-slate-700">{nf.format(k.t60)}</td>
-                    <td data-label="61-90" className="text-right tabular-nums text-slate-700">{nf.format(k.t90)}</td>
-                    <td data-label=">90" className="text-right tabular-nums text-slate-700">{nf.format(k.t90mas)}</td>
-                    <td data-label="% >90" className="text-right tabular-nums font-medium text-slate-700">
-                      {k.pct90mas != null ? `${k.pct90mas.toFixed(0)}%` : '—'}
-                    </td>
-                    <td data-label="Empeoraron" className="text-right tabular-nums text-red-500">{nf.format(k.empeoraron)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      <p className="text-[11px] text-slate-400">
-        Criterio: <span className="font-medium text-slate-500">días sin comprar</span>, umbral
-        igual para todos. No es el mismo número que el churn trimestral, que espera
-        4 meses de silencio a un recurrente y 13 a un estacional.
-      </p>
-    </div>
-  );
-}
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VISTA TRIMESTRAL — definición del PDF "Cómo se calcula el churn"
@@ -1572,19 +1250,9 @@ function VistaChurnQ({ data, kam }: { data: MovimientosResponse; kam?: string })
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Churn trimestral va primero y es la vista por defecto: es la definición de
-// negocio del PDF y la que se reporta al C-level. El semáforo es la lectura
-// operativa del día a día y queda segundo.
-const VISTAS = [
-  { id: 'churnq'   as const, label: 'Churn trimestral' },
-  { id: 'semaforo' as const, label: 'Semáforo' },
-];
-
 export function MovimientosTab({ pais, kam }: Props) {
   const anio = new Date().getFullYear();
   const { data, isLoading, error } = useMovimientos(anio, pais, kam);
-  const [vista, setVista] = useState<'semaforo' | 'churnq'>('churnq');
-  const { track } = useTrack();
 
   if (isLoading) {
     return <div className="py-16 text-center text-sm text-slate-400">Cargando movimientos…</div>;
@@ -1600,31 +1268,5 @@ export function MovimientosTab({ pais, kam }: Props) {
     return <div className="py-16 text-center text-sm text-slate-400">Sin datos para {anio}.</div>;
   }
 
-  return (
-    <div className="space-y-4">
-      <div role="tablist" aria-label="Vista de movimientos"
-           className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-        {VISTAS.map(v => (
-          <button key={v.id} role="tab" aria-selected={vista === v.id}
-                  onClick={() => {
-                    setVista(v.id);
-                    track(v.id === 'churnq'
-                      ? 'analisis:movimientos:churn-trimestral'
-                      : 'analisis:movimientos:semaforo');
-                  }}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    vista === v.id
-                      ? 'bg-white text-[#0097A7] shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}>
-            {v.label}
-          </button>
-        ))}
-      </div>
-
-      {vista === 'semaforo'
-        ? <VistaSemaforo data={data} kam={kam} />
-        : <VistaChurnQ  data={data} kam={kam} />}
-    </div>
-  );
+  return <VistaChurnQ data={data} kam={kam} />;
 }

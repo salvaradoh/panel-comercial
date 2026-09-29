@@ -1,6 +1,7 @@
-// El id 'cuentas-clave' se conserva a propósito aunque la etiqueta ahora diga
-// "Priorización": alimenta los eventos de analítica (`analisis:cuentas-clave:*`)
-// ya registrados en Firestore, y renombrarlo partiría la serie histórica.
+// Los ids 'cuentas-clave' y 'movimientos' se conservan a propósito aunque las
+// etiquetas digan "Priorización" y "Churn": alimentan los eventos de analítica
+// (`analisis:cuentas-clave:*`, `analisis:movimientos`) ya registrados en
+// Firestore, y renombrarlos partiría la serie histórica.
 export type ClientesSubTab = 'overview' | 'salud' | 'segmentacion' | 'ipc' | 'cuentas-clave' | 'movimientos' | 'industria';
 
 const TABS: { id: ClientesSubTab; label: string }[] = [
@@ -10,15 +11,15 @@ const TABS: { id: ClientesSubTab; label: string }[] = [
   { id: 'ipc',           label: 'Análisis IPC' },
   { id: 'cuentas-clave', label: 'Priorización' },
   { id: 'industria',     label: 'Industria por País' },
-  { id: 'movimientos',   label: 'Movimientos' },
+  { id: 'movimientos',   label: 'Churn' },
 ];
 
 interface ClientesSubNavProps {
   active: ClientesSubTab;
   onChange: (t: ClientesSubTab) => void;
   /**
-   * Ejecutivo (o admin impersonando uno): no ve Movimientos ni Industria por
-   * País. Movimientos mide la cartera completa del país y se lee en clave de
+   * Ejecutivo (o admin impersonando uno): no ve Churn ni Industria por
+   * País. Churn mide la cartera completa del país y se lee en clave de
    * gestión —cuánta cartera se está enfriando, qué ejecutivo tiene más— así
    * que es una vista de Country Manager, C-level y Admin (mismo criterio que
    * el ABC en Priorización). Industria por País compara entre países, y el
