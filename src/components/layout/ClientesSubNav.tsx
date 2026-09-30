@@ -17,19 +17,23 @@ const TABS: { id: ClientesSubTab; label: string }[] = [
 interface ClientesSubNavProps {
   active: ClientesSubTab;
   onChange: (t: ClientesSubTab) => void;
-  /**
-   * Ejecutivo (o admin impersonando uno): no ve Churn ni Industria por
-   * País. Churn mide la cartera completa del país y se lee en clave de
-   * gestión —cuánta cartera se está enfriando, qué ejecutivo tiene más— así
-   * que es una vista de Country Manager, C-level y Admin (mismo criterio que
-   * el ABC en Priorización). Industria por País compara entre países, y el
-   * ejecutivo está acotado a uno solo: no hay comparación que hacer.
-   */
-  esEjecutivo?: boolean;
 }
 
-export function ClientesSubNav({ active, onChange, esEjecutivo }: ClientesSubNavProps) {
-  const tabs = esEjecutivo ? TABS.filter(t => t.id !== 'movimientos') : TABS;
+/**
+ * Ningún sub-tab se filtra por rol (2026-09-30, pedido de Samuel).
+ *
+ * Churn lo veía solo gestión —Country Manager, C-level y Admin— con el
+ * argumento de que mide la cartera completa del país. Pero el ejecutivo ya ve
+ * todo su país en el resto de las vistas, así que esconderlo solo le tapaba el
+ * número por el que se lo mide. Industria por País se había abierto antes por la
+ * misma razón.
+ *
+ * Y en cualquier caso, ocultar un tab NO es control de acceso: las hojas Cache_*
+ * se leen con el token del propio usuario. Si algún dato de acá fuera sensible,
+ * habría que exigirlo en el backend, no esconder el botón.
+ */
+export function ClientesSubNav({ active, onChange }: ClientesSubNavProps) {
+  const tabs = TABS;
 
   return (
     <div className="flex gap-0 border-b border-slate-200">

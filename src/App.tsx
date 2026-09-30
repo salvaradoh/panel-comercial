@@ -278,7 +278,6 @@ function Dashboard() {
                 <CarteraPage
                   filterPais={filterPais}
                   filterKam={filterKam}
-                  esEjecutivo={effectiveRole?.rol === 'Ejecutivo'}
                   // El detalle vive en el tab Clientes, que no existe para los
                   // ejecutivos: sin él, el enlace no se ofrece.
                   onVerCambios={visibleTabs.includes('segmentacion')

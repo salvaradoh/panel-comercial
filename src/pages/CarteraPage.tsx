@@ -15,13 +15,11 @@ import { useTrack } from '../hooks/useTrack';
 interface CarteraPageProps {
   filterPais?: string;
   filterKam?: string;
-  /** Ejecutivo (o admin impersonando uno): no ve Movimientos. */
-  esEjecutivo?: boolean;
   /** Salta al tab Clientes con el filtro de cambios de status aplicado. */
   onVerCambios?: (dir: 'mejoraron' | 'empeoraron' | 'cualquiera') => void;
 }
 
-export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }: CarteraPageProps = {}) {
+export function CarteraPage({ filterPais, filterKam, onVerCambios }: CarteraPageProps = {}) {
   const [portafolioTab, setPortafolioTab] = useState<PortafolioTab>('estacionales');
   const [subTab, setSubTab] = useState<ClientesSubTab>('overview');
   const anio = new Date().getFullYear();
@@ -35,13 +33,9 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
   // El id 'cuentas-clave' del tab se conserva por compatibilidad, aunque la
   // entrada ya no se registra: el único evento de Priorización es 'comparar'.
 
-  // Movimientos es vista de gestión (Country Manager, C-level, Admin): mide la
-  // cartera completa del país y ordena a los ejecutivos por cartera enfriándose.
-  // Para el ejecutivo el tab ni se dibuja; esto cubre el caso de que el rol se
-  // resuelva DESPUÉS de un clic, que si no dejaría el área en blanco.
-  // Industria por País, en cambio, es visible para todos sin restricción de rol.
-  const subActivo: ClientesSubTab =
-    esEjecutivo && subTab === 'movimientos' ? 'overview' : subTab;
+  // Ningún sub-tab se filtra por rol: Churn se abrió a todos el 2026-09-30, así
+  // que ya no hace falta redirigir a nadie a Overview.
+  const subActivo: ClientesSubTab = subTab;
 
   function handlePortafolioTab(t: PortafolioTab) {
     setPortafolioTab(t);
@@ -73,7 +67,7 @@ export function CarteraPage({ filterPais, filterKam, esEjecutivo, onVerCambios }
           Estacionales/Recurrentes se insertaba encima y solo en dos de las cuatro
           pestañas, así que al cambiar de pestaña la barra de tabs saltaba ~40px y
           parecía que "Cuentas Clave" estaba duplicada en dos lugares distintos. */}
-      <ClientesSubNav active={subActivo} onChange={handleSubTab} esEjecutivo={esEjecutivo} />
+      <ClientesSubNav active={subActivo} onChange={handleSubTab} />
 
       {/* Movimientos queda fuera del selector Estacionales/Recurrentes: mide entradas
           y salidas de la cartera completa, y filtrarlo por tipo daría una serie que
