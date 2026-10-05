@@ -549,13 +549,6 @@ function fmtSemanaCorta(semana: string): string {
   return `${mes}-Sem${m[3]}`;
 }
 
-/** "YYYY-MM" de la semana, hace `meses` meses — mismo tramo de 6M que el resto de la ficha. */
-function cortePor6Meses(): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - 6);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
 /**
  * Mezcla de producto por año, en barras horizontales apiladas.
  *
@@ -804,11 +797,10 @@ function DetailPanel({ c, historial, scores, buscarSegmento, onClose }: {
   // Historial en 753 de 1.706 clientes (Perú y Colombia usan un correlativo
   // distinto del RUC): al 56% restante le salía "Sin historial semanal aún"
   // teniéndolo. La clave real es (pais, panelId).
-  // Se acota a los últimos 6 meses, el mismo tramo que "Vol. 6M Actual": con
-  // el historial completo el gráfico arrancaba en 2024 y se leía apretado.
-  const corte = cortePor6Meses();
-  const hist = (historial?.get(histKey(c.pais, c.panelId)) ?? [])
-    .filter(h => h.semana.slice(0, 7) >= corte);
+  // Se acota a las últimas 8 semanas: con el historial completo el gráfico
+  // arrancaba en 2024 y se leía apretado. `hist` viene ascendente (más vieja
+  // primero), así que las últimas 8 son las 8 más recientes.
+  const hist = (historial?.get(histKey(c.pais, c.panelId)) ?? []).slice(-8);
   const scoreHistory = hist.map(h => h.score);
   const semanaLabels = hist.map(h => fmtSemanaCorta(h.semana));
   const desgloseSeg = buscarSegmento(c.pais, c.panelId, c.nombre, esEstacional);
