@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# El workflow de publicación se agrega desde la web de GitHub:
+# el token local no tiene permiso para crear archivos en .github/workflows.
