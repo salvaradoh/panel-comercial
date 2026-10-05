@@ -47,6 +47,12 @@ export interface ClienteChurn {
   score: number;
   segmento: 'A+' | 'A' | 'B' | 'C';
   catPrincipal?: string;
+  // Desglose del score de SEGMENTACIÓN (no confundir con scoreVNT, de salud).
+  segVol?: number;
+  segFVol?: number;
+  segFProd?: number;
+  segFMeses?: number;
+  segFMargen?: number;
   scoreVNT?: number;
   fE?: number;
   fN?: number;
@@ -77,7 +83,7 @@ export interface KamEstacional {
     primera_compra: { base: number; ret: number; churn: number; volumen: number; factPerd: number };
   };
   clientesChurn: ClienteChurn[];
-  clientesRetenidos: { empresa: string; volumen: number; subSeg: string; score: number; segmento: string; scoreVNT?: number; ultimaCompra?: string; diasSinCompra?: number; fE?: number; fN?: number; fT?: number; npsRaw?: number | null; caida?: number | null; señalesEng?: string[]; ctxE?: string; dot?: number }[];
+  clientesRetenidos: { empresa: string; volumen: number; subSeg: string; score: number; segmento: string; scoreVNT?: number; ultimaCompra?: string; diasSinCompra?: number; fE?: number; fN?: number; fT?: number; npsRaw?: number | null; caida?: number | null; señalesEng?: string[]; ctxE?: string; dot?: number; segVol?: number; segFVol?: number; segFProd?: number; segFMeses?: number; segFMargen?: number }[];
 }
 
 export interface PaisEstacional {
@@ -191,7 +197,7 @@ export interface PaisSegmentacion {
 
 export interface SegmentacionResponse {
   clientes: {
-    cliente: string; kam: string; pais: string;
+    cliente: string; kam: string; pais: string; panelId?: string;
     segmento: 'A+' | 'A' | 'B' | 'C'; score: number; vol: number;
     ptVol?: number; ptMeses?: number; ptUsrInc?: number; ptFee?: number;
   }[];

@@ -13,6 +13,8 @@ import { useTransacciones } from '../hooks/useTransacciones';
 import { useTrack } from '../hooks/useTrack';
 import { useContactos } from '../hooks/useContactos';
 import { useActividad } from '../hooks/useActividad';
+import { useSegmentoDesglose } from '../hooks/useSegmentoDesglose';
+import type { DesgloseSegmento } from '../hooks/useSegmentoDesglose';
 import { ChipIndustria } from '../components/ClienteIndustriaChip';
 
 const POR_PAGINA = 50;
@@ -524,6 +526,35 @@ function wColorDim(v: number) {
 const MESES_INI = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 const MESES_NOM = ['enero','febrero','marzo','abril','mayo','junio',
                    'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MESES_ABR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+// Glosario del tooltip de "Segmento ⓘ" — mismos factores y pesos que
+// useSegmentoDesglose.ts (FACTORES_REC/FACTORES_EST), en una sola línea cada uno.
+const FACTORES_SEG_REC_DESC =
+  '💰 Volumen (50%): Pareto por país\n' +
+  '📅 Meses con compra (20%)\n' +
+  '👥 Usuarios incorporados (20%)\n' +
+  '💼 Fee/SaaS (10%)';
+const FACTORES_SEG_EST_DESC =
+  '💰 Volumen (50%): Pareto por país\n' +
+  '🛍️ Producto dominante (25%)\n' +
+  '📅 Meses con compra (12.5%)\n' +
+  '📊 Margen de mix (12.5%)';
+
+/** "2026-08-W3" → "Ago-Sem3". Si no matchea el formato esperado, se devuelve tal cual. */
+function fmtSemanaCorta(semana: string): string {
+  const m = /^(\d{4})-(\d{2})-W(\d)$/.exec(semana);
+  if (!m) return semana;
+  const mes = MESES_ABR[Number(m[2]) - 1] ?? m[2];
+  return `${mes}-Sem${m[3]}`;
+}
+
+/** "YYYY-MM" de la semana, hace `meses` meses — mismo tramo de 6M que el resto de la ficha. */
+function cortePor6Meses(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 6);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 /**
  * Mezcla de producto por año, en barras horizontales apiladas.
@@ -761,16 +792,26 @@ function MapaCalor({ c }: { c: ClienteTabla }) {
   );
 }
 
-function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; historial: HistorialMap | undefined; scores?: ScoresChurnMap; onClose: () => void }) {
+function DetailPanel({ c, historial, scores, buscarSegmento, onClose }: {
+  c: ClienteTabla; historial: HistorialMap | undefined; scores?: ScoresChurnMap;
+  buscarSegmento: (pais: string, panelId: string | undefined, nombre: string, esEstacional: boolean) => DesgloseSegmento | null;
+  onClose: () => void;
+}) {
   const cc = FLAG_CC[c.pais];
   const color = SEG_COLOR[c.segmento] || '#9ca3af';
+  const esEstacional = c.tipo === 'estacional' || c.tipo === 'primera_compra';
   // Antes buscaba por idTributario, que solo coincide con la col "Panel ID" de
   // Historial en 753 de 1.706 clientes (Perú y Colombia usan un correlativo
   // distinto del RUC): al 56% restante le salía "Sin historial semanal aún"
   // teniéndolo. La clave real es (pais, panelId).
-  const hist = historial?.get(histKey(c.pais, c.panelId)) ?? [];
+  // Se acota a los últimos 6 meses, el mismo tramo que "Vol. 6M Actual": con
+  // el historial completo el gráfico arrancaba en 2024 y se leía apretado.
+  const corte = cortePor6Meses();
+  const hist = (historial?.get(histKey(c.pais, c.panelId)) ?? [])
+    .filter(h => h.semana.slice(0, 7) >= corte);
   const scoreHistory = hist.map(h => h.score);
-  const semanaLabels = hist.map(h => h.semana.replace(/^\d{4}-/, ''));
+  const semanaLabels = hist.map(h => fmtSemanaCorta(h.semana));
+  const desgloseSeg = buscarSegmento(c.pais, c.panelId, c.nombre, esEstacional);
 
   return (
     <div className="flex flex-col h-full">
@@ -965,20 +1006,25 @@ function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; histo
         // otras partes del proyecto y deja la E de Engagement fuera de la sigla.
         const modelo = est ? 'VENT' : 'RENT';
         return (
-          <div className="px-5 py-3">
+          <div className="px-5 py-3 space-y-2">
+            {/* Salud (antes "RENT ⓘ" / "VENT ⓘ" a secas): es el cálculo de cuán
+                en riesgo está el cliente. Va con su par de abajo, Segmento, que es
+                un cálculo DISTINTO (cuánto vale) — separarlos en dos filas con el
+                mismo formato deja ver ambos sin confundirlos. */}
             <div className="flex items-center justify-between gap-3">
               <span
                 className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 cursor-help"
                 // El acrónimo lleva N por eNgagement, pero el chip dice E. Sin
                 // explicarlo, la sigla y las letras de al lado no se corresponden.
-                title={(est
-                  ? 'VENT = Vigencia + ENgagement + Tendencia — el score de los estacionales.\n'
-                  : 'RENT = REcencia + ENgagement + Tendencia — el score de los recurrentes.\n')
+                title={`Salud (${modelo}): qué tan en riesgo está el cliente.\n\n`
+                  + (est
+                    ? 'VENT = Vigencia + ENgagement + Tendencia — el score de los estacionales.\n'
+                    : 'RENT = REcencia + ENgagement + Tendencia — el score de los recurrentes.\n')
                   + glosario
                   + '\n\nCada una va de 1 (mal) a 4 (bien).'
                   + (est ? '\nUsa Vigencia en lugar de Recencia, así que difiere del score del encabezado.' : '')}
               >
-                {modelo} ⓘ
+                Salud ⓘ
               </span>
               <div className="flex items-center gap-2">
                 {/* Las tres SIEMPRE se dibujan. Antes se filtraban las que valían 0
@@ -1003,6 +1049,42 @@ function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; histo
                 )}
               </div>
             </div>
+
+            {/* Segmento: cálculo de cuánto vale el cliente (A+/A/B/C), distinto del
+                de Salud de arriba. Mismo formato de fila para que se lean como un
+                par. Sin desglose disponible (pasa con primera_compra, y con parte
+                de Chile mientras el cruce por panel_id no matchea ni por nombre)
+                se muestra solo la letra, sin chips inventados. */}
+            <div className="flex items-center justify-between gap-3">
+              <span
+                className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 cursor-help"
+                title={'Segmento: cuánto vale el cliente, por volumen y actividad — no es un cálculo de riesgo.\n\n'
+                  + (est
+                    ? FACTORES_SEG_EST_DESC
+                    : FACTORES_SEG_REC_DESC)
+                  + '\n\nCada factor va de 1 (bajo) a 4 (alto), ponderado por su peso.'}
+              >
+                Segmento ⓘ
+              </span>
+              <div className="flex items-center gap-2">
+                {desgloseSeg
+                  ? desgloseSeg.factores.map(f => (
+                      <span key={f.campo}
+                            title={`${f.label} — peso ${f.pct}\n${f.val.toFixed(1)} de 4`}
+                            className="inline-flex items-baseline gap-1 rounded-md bg-slate-100 px-1.5 py-0.5">
+                        <span className="text-[9px]">{f.icon}</span>
+                        <span className="text-[11px] font-bold tabular-nums" style={{ color: wColorDim(f.val) }}>
+                          {f.val.toFixed(1)}
+                        </span>
+                      </span>
+                    ))
+                  : <span className="text-[11px] font-bold text-slate-300">—</span>}
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-extrabold ml-1"
+                      style={{ background: `${color}22`, color }}>
+                  {c.segmento}
+                </span>
+              </div>
+            </div>
           </div>
         );
       })()}
@@ -1018,7 +1100,7 @@ function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; histo
             data={scoreHistory}
             labels={semanaLabels}
             color={color}
-            title="Evolución del score"
+            title="Evolución de salud del cliente"
           />
           {hist.length > 0 && (
             <div className="mt-3">
@@ -1037,7 +1119,7 @@ function DetailPanel({ c, historial, scores, onClose }: { c: ClienteTabla; histo
                   <tbody>
                     {[...hist].reverse().map((h, i) => (
                       <tr key={i} className="border-b border-slate-50 last:border-0">
-                        <td data-titular className="py-1 text-slate-400">{h.semana.replace(/^\d{4}-/, '')}</td>
+                        <td data-titular className="py-1 text-slate-400">{fmtSemanaCorta(h.semana)}</td>
                         <td data-label="Score" className="py-1 text-right font-bold tabular-nums" style={{ color }}>{h.score.toFixed(2)}</td>
                         <td data-label="Rec" className="py-1 text-right tabular-nums text-slate-500">{h.fRec.toFixed(1)}</td>
                         <td data-label="Eng" className="py-1 text-right tabular-nums text-slate-500">{h.fEng.toFixed(1)}</td>
@@ -1161,6 +1243,7 @@ export function SegmentacionPage({ filterKam, filterPais, embedded, presetCambio
   const { data, isLoading, isError, error } = useTablaClientes();
   const { data: historialMap } = useHistorial();
   const { data: scoresChurn } = useScoresChurn();
+  const { buscar: buscarSegmento } = useSegmentoDesglose();
 
   const [busquedaNombre, setBusquedaNombre]   = useState('');
   const [busquedaKam, setBusquedaKam]         = useState(filterKam ?? '');
@@ -1726,7 +1809,7 @@ export function SegmentacionPage({ filterKam, filterPais, embedded, presetCambio
                        shadow-[0_10px_40px_-8px_rgba(15,23,42,0.35)]
                        flex flex-col overflow-hidden"
           >
-            <DetailPanel c={selected!} historial={historialMap} scores={scoresChurn} onClose={() => setSelected(null)} />
+            <DetailPanel c={selected!} historial={historialMap} scores={scoresChurn} buscarSegmento={buscarSegmento} onClose={() => setSelected(null)} />
           </aside>
         )}
       </div>
