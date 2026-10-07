@@ -1,31 +1,17 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useCodigosVendedores, useKamNombres } from './useEquipo';
 import { useAuth } from '../auth/AuthContext';
 
 const REUNIONES_SPREADSHEET_ID = '1Xpe_rp35H-h0ppN1aPpyPYQOA3ztD4bza82YDtZyJP4';
 
-// Copia de KAM_NOMBRES_DASH del GAS — mapea kamId → nombre completo
-const KAM_NOMBRES: Record<string, string> = {
-  MS: 'Magda Sernaque',    JG: 'Joao Guerra',       DD: 'Diana Duran',
-  CT: 'Colombina Trujillo',GO: 'Giovanny Olvera',   Roberto: 'Roberto Molina',
-  RM: 'Roberto Molina',    SC: 'Santiago Cuellar',  Sharon: 'Sharon Hernandez',
-  CF: 'Camilo Figueroa',   BC: 'Benjamin Castro',   BG: 'Benjamin González',
-  Aura: 'Aura M. Ávila',  LJ: 'Lorenzo Jamasmie',  Felipe: 'Felipe Ospina',
-  Ander: 'Anderson León',  JC: 'Johanna Calzada',   PM: 'Paula Montoya',
-  AA: 'Alvaro Agliati',    DA: 'Darling Allendes',  LG: 'Laura Galindo',
-};
-
-// Fallback: deriva "msernaque" → "MS" desde los nombres conocidos
-// Patrón: primera_letra_nombre + apellido  (ej. Magda Sernaque → msernaque)
+// Fallback: deriva el prefijo de correo "jperez" desde el nombre "José Pérez".
+// Patrón: primera_letra_nombre + apellido.
 function nameToPrefix(nombre: string): string {
-  const norm = nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const norm = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const parts = norm.split(/\s+/).filter(p => p.length > 2 && !p.endsWith('.'));
   if (parts.length < 2) return '';
   return parts[0][0] + parts[parts.length - 1];
-}
-const PREFIX_FALLBACK: Record<string, string> = {};
-for (const [kamId, nombre] of Object.entries(KAM_NOMBRES)) {
-  const prefix = nameToPrefix(nombre);
-  if (prefix && !PREFIX_FALLBACK[prefix]) PREFIX_FALLBACK[prefix] = kamId;
 }
 
 export interface SellerReuniones {
@@ -47,10 +33,15 @@ async function fetchSheet(spreadsheetId: string, range: string, token: string): 
   return values;
 }
 
+/** Fila agregada antes de ponerle nombre: el nombre se resuelve con la hoja de códigos. */
+type SellerSinNombre = Omit<SellerReuniones, 'nombre'> & { kamId: string };
+
 export function useReuniones(anio: number, mes: number) {
   const { token } = useAuth();
+  const { data: codigos } = useCodigosVendedores();
+  const nombres = useKamNombres();
 
-  return useQuery<SellerReuniones[]>({
+  const q = useQuery<SellerSinNombre[]>({
     queryKey: ['reuniones-direct', anio, mes],
     queryFn: async () => {
       // Leer ambas hojas en paralelo
@@ -95,14 +86,10 @@ export function useReuniones(anio: number, mes: number) {
       }
 
       return Object.entries(agg).map(([sellerEmail, c]) => {
-        const info   = emailMap[sellerEmail];
-        // Fallback: si no está en Jerarquias, derivar kamId desde el prefix del email
-        const prefix = sellerEmail.split('@')[0];
-        const kamId  = info?.kamId ?? PREFIX_FALLBACK[prefix] ?? '';
-        const nombre = KAM_NOMBRES[kamId] ?? (kamId || prefix);
+        const info = emailMap[sellerEmail];
         return {
           sellerEmail,
-          nombre,
+          kamId: info?.kamId ?? '',
           rol:  info?.rol ?? 'KAM',
           mes:  c.mes,
           sem1: c.s1,
@@ -117,4 +104,25 @@ export function useReuniones(anio: number, mes: number) {
     gcTime:    15 * 60 * 1000,
     retry: 1,
   });
+
+  // Nombre de cada vendedor, en este orden: su correo en la hoja de códigos; su código
+  // de Jerarquias; el prefijo del correo derivado de los nombres de la hoja; el prefijo.
+  const data = useMemo<SellerReuniones[] | undefined>(() => {
+    if (!q.data) return undefined;
+    const porLocal: Record<string, string> = {};
+    const porPrefijo: Record<string, string> = {};
+    for (const f of codigos ?? []) {
+      const local = f.email.split('@')[0];
+      if (local) porLocal[local] = f.nombre;
+      const pref = nameToPrefix(f.nombre);
+      if (pref && !porPrefijo[pref]) porPrefijo[pref] = f.nombre;
+    }
+    return q.data.map(({ kamId, ...r }) => {
+      const prefix = r.sellerEmail.split('@')[0];
+      const nombre = porLocal[prefix] ?? nombres[kamId] ?? porPrefijo[prefix] ?? (kamId || prefix);
+      return { ...r, nombre };
+    });
+  }, [q.data, codigos, nombres]);
+
+  return { ...q, data };
 }

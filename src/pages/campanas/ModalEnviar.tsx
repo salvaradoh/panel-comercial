@@ -247,7 +247,7 @@ export function ModalEnviar({ campana, seguimiento, onCerrar, onEnviado }: Props
                       value={nuevo}
                       onChange={(e) => { setNuevo(e.target.value); setErrorNuevo(''); }}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregar(); } }}
-                      placeholder="persona@apprecio.com"
+                      placeholder="nombre@apprecio.com"
                       aria-invalid={Boolean(errorNuevo)}
                       aria-describedby={errorNuevo ? 'error-correo' : undefined}
                       className="min-h-[40px] flex-1 rounded-lg border border-slate-300 px-2.5 text-[13px] text-slate-800 transition-colors placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"

@@ -1,33 +1,34 @@
-export const KAM_NOMBRES: Record<string, string> = {
-  'MS': 'Magda Sernaque',
-  'JG': 'Joao Guerra',
-  'DD': 'Diana Duran',
-  'CT': 'Colombina Trujillo',
-  'GO': 'Giovanny Olvera',
-  'Roberto': 'Roberto Molina',
-  'SC': 'Santiago Cuellar',
-  'Sharon': 'Sharon Hernandez',
-  'CF': 'Camilo Figueroa',
-  'BC': 'Benjamin Castro',
-  'BG': 'Benjamin González',
-  'Aura': 'Aura M. Ávila',
-  'LJ': 'Lorenzo Jamasmie',
-  'Felipe': 'Felipe Ospina',
-  'Ander': 'Anderson León',
-  'JC': 'Johanna Calzada',
-  'PM': 'Paula Montoya',
-  'DA': 'Darling Allendes',
-  'LG': 'Laura Galindo',
-  'Joao': 'Joao Guerra',       // Perú — nombre completo en BQ
-  'Magda': 'Magda Sernaque',   // Perú — nombre completo en BQ
-  'Santiago': 'Santiago Cuellar', // Colombia — nombre completo en BQ
-  'Paula': 'Paula Montoya',    // Colombia — nombre completo en BQ
-  'AA': 'Otros',             // Álvaro Agliati agrupado como Otros
-  'EC': 'Otros',             // Otros Chile
-};
+/**
+ * Traducción de lo que trae `Cache_Reporte` en la columna de KAM a un nombre de persona.
+ *
+ * Los nombres salen de la hoja `Codigos Vendedores` (`useKamNombres`), no de una lista en
+ * el código: esa lista se publicaba en el JavaScript del sitio (hallazgo 3.2 del informe de
+ * seguridad del 2026-10-05).
+ */
 
-export function resolverNombreKam(abrev: string): string {
-  return KAM_NOMBRES[abrev] ?? abrev;
+/** Códigos que no son personas: `Cache_Reporte` agrupa ahí la venta sin ejecutivo asignado. */
+const ALIAS_OTROS = new Set(['AA', 'EC']);
+
+function sinAcento(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+/**
+ * Código de KAM → nombre. `Cache_Reporte` a veces trae el primer nombre en lugar del código
+ * (así viene de BigQuery para algunos ejecutivos de Perú y Colombia): si no es un código, se
+ * busca por primer nombre en la hoja y se acepta solo si hay una única coincidencia.
+ */
+export function resolverNombreKam(abrev: string, nombres: Record<string, string>): string {
+  if (ALIAS_OTROS.has(abrev)) return 'Otros';
+  if (nombres[abrev]) return nombres[abrev];
+  const k = sinAcento(abrev);
+  const hits = Object.values(nombres).filter((n) => sinAcento(n.split(' ')[0]) === k);
+  return hits.length === 1 ? hits[0] : abrev;
+}
+
+/** Firma estable del mapa de nombres, para usarla en las query keys. */
+export function firmaNombres(nombres: Record<string, string>): string {
+  return Object.keys(nombres).sort().join(',');
 }
 
 export function inicialesKam(nombre: string): string {

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { PresenceBar } from '../ui/PresenceBar';
-import { EXEC_LIST } from '../../hooks/useUserRole';
+import { useEjecutivos } from '../../hooks/useEquipo';
 import type { UserRoleData } from '../../hooks/useUserRole';
 
 const FLAG_CC: Record<string, string> = {
@@ -38,6 +38,7 @@ function useCierreDeMenu(abierto: boolean, cerrar: () => void) {
 
 export function TopNav({ onLogout, isAdmin, viewAs, onViewAs, tickerVisible, onTickerVisible }: TopNavProps) {
   const { user } = useAuth();
+  const ejecutivos = useEjecutivos();
   const [open, setOpen] = useState(false);
   const [perfilAbierto, setPerfilAbierto] = useState(false);
   const cerrarPerfil = useRef(() => setPerfilAbierto(false)).current;
@@ -121,7 +122,7 @@ export function TopNav({ onLogout, isAdmin, viewAs, onViewAs, tickerVisible, onT
                     </div>
                     <div className="overflow-y-auto max-h-80">
                       {PAISES.map(pais => {
-                        const execs = EXEC_LIST.filter(e => e.pais === pais);
+                        const execs = ejecutivos.filter(e => e.pais === pais);
                         if (!execs.length) return null;
                         return (
                           <div key={pais}>

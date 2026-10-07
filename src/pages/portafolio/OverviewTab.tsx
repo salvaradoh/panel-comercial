@@ -4,7 +4,7 @@ import { useOverview } from '../../hooks/useOverview';
 import type { OverviewProbFuga, OverviewProductoMix } from '../../hooks/useOverview';
 import { useReuniones } from '../../hooks/useReuniones';
 import { useTablaClientes } from '../../hooks/useTablaClientes';
-import { EXEC_BY_PAIS } from '../../hooks/useUserRole';
+import { useEjecutivos } from '../../hooks/useEquipo';
 import { Card } from '../../components/ui/Card';
 import { mismoPais } from '../../lib/paises';
 
@@ -422,6 +422,7 @@ export function OverviewTab({ pais: filterPais, onVerCambios }: {
   const { data: clientesTabla } = useTablaClientes();
   const now = new Date();
   const { data: reuniones } = useReuniones(now.getFullYear(), now.getMonth() + 1);
+  const ejecutivos = useEjecutivos();
 
   // Mix de Industria: directo de la hoja maestra (useTablaClientes), no del
   // caché de overview — así no depende de que el backend/GAS lo publiquen.
@@ -499,11 +500,13 @@ export function OverviewTab({ pais: filterPais, onVerCambios }: {
   // Si hay filtro de país, solo se cuentan los KAMs de ese país
   const cobertura = useMemo(() => {
     if (!reuniones || !total) return null;
-    const paisKams = filterPais ? new Set(EXEC_BY_PAIS[filterPais] ?? []) : null;
+    const paisKams = filterPais
+      ? new Set(ejecutivos.filter(e => e.pais === filterPais).map(e => e.nombre))
+      : null;
     const filtered = paisKams ? reuniones.filter(r => paisKams.has(r.nombre)) : reuniones;
     const conReunion = filtered.reduce((s, r) => s + r.mes, 0);
     return { conReunion, pct: total > 0 ? (conReunion / total) * 100 : 0 };
-  }, [reuniones, total, filterPais]);
+  }, [reuniones, total, filterPais, ejecutivos]);
 
   const isLoading = churnLoading || overviewLoading;
 

@@ -441,7 +441,7 @@ export function PanelSeguimiento({ campana: publicada, puedeEditar, onCerrar }: 
                 </Campo>
                 <Campo etiqueta="Contacto del área" ayuda="Recibe el correo junto con los ejecutivos.">
                   <input className={INPUT} type="email" value={borrador.incentivo_contacto} disabled={!puedeEditar}
-                         placeholder="persona@apprecio.com"
+                         placeholder="nombre@apprecio.com"
                          onChange={(e) => aplicar({ incentivo_contacto: e.target.value })} />
                 </Campo>
               </div>

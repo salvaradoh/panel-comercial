@@ -1,6 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthContext';
-import { resolverNombreKam } from '../lib/kams';
+import { resolverNombreKam, firmaNombres } from '../lib/kams';
+import { useKamNombres } from './useEquipo';
 
 const SPREADSHEET_ID = import.meta.env.VITE_DASHBOARD_SPREADSHEET_ID as string;
 
@@ -39,28 +40,28 @@ export function normPais(p: string) {
   return p.trim().replace(/^Mexico$/i, 'México').replace(/^Peru$/i, 'Perú');
 }
 
-// "BACK" es un alias que cambia según el país
+// "BACK" es un alias que cambia según el país: apunta al código de KAM de quien cubre
+// el back office ahí, y el nombre sale de la hoja como cualquier otro código.
 const BACK_POR_PAIS: Record<string, string> = {
-  'chile': 'Johanna Calzada',
-  // "Diana Duran", sin D final. Estaba escrito "Durand" solo acá: la hoja de
-  // roles, KAM_NOMBRES y la hoja de Forecast usan "Duran", así que su avance
-  // mensual no matcheaba y la vista "Yo" le mostraba $0 teniendo $308K.
-  'perú':  'Diana Duran',
-  'peru':  'Diana Duran',
+  'chile': 'JC',
+  'perú':  'DD',
+  'peru':  'DD',
 };
 
-export function resolverAbrev(abrev: string, pais: string): string {
+export function resolverAbrev(abrev: string, pais: string, nombres: Record<string, string>): string {
   if (abrev.toLowerCase() === 'back') {
-    return BACK_POR_PAIS[pais.toLowerCase()] ?? abrev;
+    const codigo = BACK_POR_PAIS[pais.toLowerCase()];
+    return codigo ? resolverNombreKam(codigo, nombres) : abrev;
   }
-  return resolverNombreKam(abrev);
+  return resolverNombreKam(abrev, nombres);
 }
 
 export function useKamsReporte(anio: number, mes: number, semana: number) {
   const { data: allRows, isLoading } = useCacheReporteRows();
+  const nombres = useKamNombres();
 
   return useQuery<KamReporte[]>({
-    queryKey: ['kams-reporte', anio, mes, semana],
+    queryKey: ['kams-reporte', anio, mes, semana, firmaNombres(nombres)],
     queryFn: () => {
       const kamRows = (allRows ?? []).filter(row =>
         row[3] === 'kam' &&
@@ -82,7 +83,7 @@ export function useKamsReporte(anio: number, mes: number, semana: number) {
             const pais   = normPais(row[4] ?? '');
             return {
               pais,
-              nombre:       resolverAbrev(abrev, pais),
+              nombre:       resolverAbrev(abrev, pais, nombres),
               meta, avance, proy, ant, pct,
               varYoY:       avance - ant,
               consistencia: pct >= 0.8 ? 1 : 0,
@@ -126,7 +127,7 @@ export function useKamsReporte(anio: number, mes: number, semana: number) {
         const pais   = normPais(row[4] ?? '');
         const abrev  = String(row[5] ?? '').trim();
         if (!abrev) continue;
-        const nombre = resolverAbrev(abrev, pais);
+        const nombre = resolverAbrev(abrev, pais, nombres);
         const key    = `${pais}||${nombre}`;
         const meta   = Number(row[6]) || 0;
         const avance = Number(row[7]) || 0;
@@ -180,9 +181,10 @@ const SEM_DAY: Record<string, number> = {
 
 export function useKamSerie(nombre: string, anio: number) {
   const { data: allRows, isLoading } = useCacheReporteRows();
+  const nombres = useKamNombres();
 
   return useQuery<{ time: string; value: number }[]>({
-    queryKey: ['kam-serie', nombre, anio],
+    queryKey: ['kam-serie', nombre, anio, firmaNombres(nombres)],
     queryFn: () => {
       // Lookup mes→day→avance desde Cache_Reporte
       const lookup = new Map<string, number>();
@@ -194,7 +196,7 @@ export function useKamSerie(nombre: string, anio: number) {
         const pais = normPais(row[4] ?? '');
         const abrev = String(row[5] ?? '').trim();
         if (!abrev) continue;
-        if (resolverAbrev(abrev, pais) !== nombre) continue;
+        if (resolverAbrev(abrev, pais, nombres) !== nombre) continue;
         const mes = Number(row[1]);
         lookup.set(`${mes}-${day}`, Number(row[7]) || 0);
       }
@@ -206,7 +208,7 @@ export function useKamSerie(nombre: string, anio: number) {
         if (!SEM_DAY[row[2] ?? '']) continue;
         const pais = normPais(row[4] ?? '');
         const abrev = String(row[5] ?? '').trim();
-        if (!abrev || resolverAbrev(abrev, pais) !== nombre) continue;
+        if (!abrev || resolverAbrev(abrev, pais, nombres) !== nombre) continue;
         const mes = Number(row[1]);
         if (!firstMes || mes < firstMes) firstMes = mes;
       }

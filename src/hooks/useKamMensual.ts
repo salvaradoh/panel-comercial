@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCacheReporteRows } from './useCacheReporteRows';
 import { normPais, resolverAbrev } from './useKamsReporte';
+import { useKamNombres } from './useEquipo';
+import { firmaNombres } from '../lib/kams';
 import { mismoEjecutivo } from '../lib/forecastSheet';
 
 export interface KamMensual {
@@ -22,9 +24,10 @@ export interface KamMensual {
  */
 export function useKamMensual(nombre: string | undefined, anio: number) {
   const { data: allRows, isLoading } = useCacheReporteRows();
+  const nombres = useKamNombres();
 
   return useQuery<KamMensual>({
-    queryKey: ['kam-mensual', nombre ?? '', anio],
+    queryKey: ['kam-mensual', nombre ?? '', anio, firmaNombres(nombres)],
     queryFn: () => {
       const avanceByMes: Record<number, number> = {};
       const prevByMes:   Record<number, number> = {};
@@ -38,11 +41,11 @@ export function useKamMensual(nombre: string | undefined, anio: number) {
         const abrev = String(row[5] ?? '').trim();
         if (!abrev) continue;
         const pais = normPais(row[4] ?? '');
-        // Comparación tolerante, no `!==`: resolverAbrev devuelve los nombres
-        // canónicos de KAM_NOMBRES ("Benjamin Castro", "Aura M. Ávila") y el
-        // roster los escribe distinto ("Benjamín Castro", "Aura María Ávila").
-        // Con igualdad exacta esos dos ejecutivos verían un avance de 0.
-        if (!mismoEjecutivo(resolverAbrev(abrev, pais), nombre!)) continue;
+        // Comparación tolerante, no `!==`: resolverAbrev devuelve el nombre de la
+        // hoja de códigos y el roster a veces lo escribe distinto (con o sin
+        // tilde, segundo nombre completo). Con igualdad exacta, algunos
+        // ejecutivos verían un avance de 0.
+        if (!mismoEjecutivo(resolverAbrev(abrev, pais, nombres), nombre!)) continue;
 
         avanceByMes[mes] += Number(row[7]) || 0;
         prevByMes[mes]   += Number(row[10]) || 0;

@@ -11,7 +11,8 @@ import { useMetas, usePaisesAvanceMensual } from '../hooks/useMetas';
 import { RegionPanel } from '../components/charts/RegionSparkCard';
 import { MonthlyForecastChart } from '../components/charts/MonthlyForecastChart';
 import { SegmentacionPage } from './SegmentacionPage';
-import { EXEC_LIST } from '../hooks/useUserRole';
+import { useEjecutivos } from '../hooks/useEquipo';
+import { normPais } from '../hooks/useKamsReporte';
 import type { UserRoleData } from '../hooks/useUserRole';
 import type { KamReporte } from '../hooks/useKamsReporte';
 
@@ -65,6 +66,7 @@ function EjecutivoView({
 
   const { data: summaryData } = useKamsSummary(anio);
   const { data: reuniones }   = useReuniones(anio, mes);
+  const ejecutivos            = useEjecutivos();
   const { data: photos }      = useKamPhotos();
   const { data: rankingData } = useRanking(anio);
   const { data: paisesSeries }  = usePaisesSeries(anio, 1);
@@ -151,14 +153,15 @@ function EjecutivoView({
     return { avance: totalAvance, meta: totalMeta, pct: totalMeta > 0 ? totalAvance / totalMeta : 0 };
   }, [metasData, kamsData, kamsDataPrevMes, userRole.pais]);
 
-  // Reuniones del país usando EXEC_LIST (no depende de los KAMs con datos ese mes)
+  // Reuniones del país según la hoja de ejecutivos (no depende de los KAMs con datos ese mes).
+  // La hoja escribe "Peru"/"Mexico" y la lista viene con tilde: se comparan normalizados.
   const countryReuniones = useMemo(() => {
     if (!reuniones) return 0;
     const countryNames = new Set(
-      EXEC_LIST.filter(e => e.pais === userRole.pais).map(e => e.nombre)
+      ejecutivos.filter(e => e.pais === normPais(userRole.pais)).map(e => e.nombre)
     );
     return reuniones.filter(r => countryNames.has(r.nombre)).reduce((s, r) => s + r.mes, 0);
-  }, [reuniones, userRole.pais]);
+  }, [reuniones, userRole.pais, ejecutivos]);
 
   const execRow = useMemo(() => {
     const varYoYPct = kamReporte && kamReporte.ant > 0

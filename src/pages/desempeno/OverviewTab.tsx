@@ -12,9 +12,9 @@ import { usePaisesSeriesMes } from '../../hooks/usePaisesSeriesMes';
 import { useCanjes } from '../../hooks/useCanjes';
 import { useMetas, usePaisesAvanceMensual, usePaisesMensual } from '../../hooks/useMetas';
 import type { MetasResponse, PaisData } from '../../hooks/types';
-import { METAS_PAIS_USD } from '../../lib/metas';
+import { useMetasPais } from '../../hooks/useMetasPais';
 
-// Normaliza nombre de país eliminando tildes para el lookup en METAS_PAIS_USD.
+// Normaliza nombre de país eliminando tildes para el lookup de metas por país.
 function normPais(p: string): string {
   return p.normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
@@ -61,6 +61,7 @@ export function OverviewTab({ metas, anio, mes, onSelectPais }: OverviewTabProps
   const { data: metasTabla, isFetching: tablaLoading } = useMetas(anio, mes, semanaParam);
   // KPI "Cumplimiento del Mes" siempre usa datos mensuales (semana=0), independiente del selector de periodo
   const { data: metasMensual } = useMetas(anio, mes, 0);
+  const metasPais = useMetasPais();
 
   const { data: seriesAnterior } = useSeries(anio - 1, 'mes');
   const { data: seriesMesActual, isLoading: seriesMesLoading } = useSeries(anio, 'mes');
@@ -113,7 +114,7 @@ export function OverviewTab({ metas, anio, mes, onSelectPais }: OverviewTabProps
   ];
 
   // Vista anual: avance y YoY acotados al mes seleccionado.
-  // metaAnual viene de METAS_PAIS_USD (frontend), independiente de asignación por ejecutivo.
+  // metaAnual viene de las metas por país del backend, independiente de asignación por ejecutivo.
   // avance se suma desde la serie mensual del año actual hasta el mes seleccionado,
   // para que al filtrar por junio se vea el cumplimiento solo de enero–junio.
   const paisesAnuales: PaisData[] = (rankingData?.paises ?? []).map(p => {
@@ -143,7 +144,7 @@ export function OverviewTab({ metas, anio, mes, onSelectPais }: OverviewTabProps
     const varYoY = avance - avanceYoY;
     const varYoYPct = avanceYoY > 0 ? (varYoY / avanceYoY) * 100 : undefined;
 
-    const metasArr = METAS_PAIS_USD[normPais(p.nombre)] ?? [];
+    const metasArr = metasPais[normPais(p.nombre)] ?? [];
     const metaYTD = metasArr.length > 0
       ? metasArr.slice(0, mes).reduce((s, v) => s + v, 0)
       : p.metaAnualUSD * mes / 12;
@@ -228,7 +229,7 @@ export function OverviewTab({ metas, anio, mes, onSelectPais }: OverviewTabProps
               const varYoYPct = avanceAnt > 0
                 ? ((p.avanceAnualUSD - avanceAnt) / avanceAnt) * 100
                 : null;
-              const metasArr = METAS_PAIS_USD[normPais(p.nombre)] ?? [];
+              const metasArr = metasPais[normPais(p.nombre)] ?? [];
               const metaAnual = metasArr.length > 0
                 ? metasArr.reduce((s, v) => s + v, 0)
                 : p.metaAnualUSD;
