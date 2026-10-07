@@ -139,9 +139,9 @@ function soloAlnum(s: string) {
 
 /**
  * El ID panel no tiene una forma única entre países: Chile y México usan el
- * RUT/NIT con guion (`11111111-1`) y Perú y Colombia enteros correlativos
- * (`3`, `19`). Por eso se compara normalizado y por prefijo, así "11111111"
- * encuentra a "11111111-1".
+ * identificador tributario con guion, y Perú y Colombia números correlativos.
+ * Por eso se compara normalizado y por prefijo, así un identificador escrito
+ * sin el dígito verificador encuentra al que lo trae.
  *
  * Excepción para los correlativos cortos: un término de 1–3 dígitos exige
  * coincidencia EXACTA. Con prefijo, teclear "3" traería todos los IDs que
