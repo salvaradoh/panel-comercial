@@ -5,7 +5,6 @@ import { useAuth } from './AuthContext';
 const ALLOWED_DOMAINS = ['apprecio.com', 'dcanje.com'];
 const SHEETS_SCOPE    = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const DATASTORE_SCOPE = 'https://www.googleapis.com/auth/datastore';
-const DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.readonly';
 
 // ── DOT MAP ──────────────────────────────────────────────────────────────────
 // Normalized coords: x = (lon + 120) / 86, y = (32 − lat) / 87
@@ -142,7 +141,7 @@ export function LoginPage() {
 
   const googleLogin = useGoogleLogin({
     flow: 'implicit',
-    scope: `openid email profile ${SHEETS_SCOPE} ${DATASTORE_SCOPE} ${DRIVE_SCOPE}`,
+    scope: `openid email profile ${SHEETS_SCOPE} ${DATASTORE_SCOPE}`,
     onSuccess: async (tokenResponse) => {
       setLoading(true);
       setError(null);

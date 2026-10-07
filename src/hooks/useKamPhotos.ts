@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthContext';
+import { apiBlob, API_URL } from '../api/client';
 
-const FOLDER_ID = '1tNNer0VxkQmKqrWTgU6sVOgW7tSYahVI';
+// Las fotos las sirve el backend (/api/kam-photos) desde la carpeta de Drive: el
+// navegador ya no necesita permiso sobre el Drive del usuario.
 const RESIZE_PX  = 200;
 const SKIP_RESIZE_BYTES = 40_000; // blobs < 40 KB ya son pequeños, saltar resize
 
@@ -95,28 +97,16 @@ export function useKamPhotos() {
   return useQuery<Record<string, string>>({
     queryKey: ['kam-photos'],
     queryFn: async () => {
-      const q = encodeURIComponent(`'${FOLDER_ID}' in parents and trashed = false`);
-      const fields = encodeURIComponent('files(id,name,mimeType)');
-      const listRes = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=100`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!listRes.ok) throw new Error(`Drive list: ${listRes.status}`);
-      const { files = [] } = await listRes.json() as {
-        files: { id: string; name: string; mimeType: string }[];
-      };
-
-      const imageFiles = files.filter(f => f.mimeType.startsWith('image/'));
+      const listRes = await fetch(`${API_URL}/api/kam-photos`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!listRes.ok) throw new Error(`Fotos KAM lista: ${listRes.status}`);
+      const imageFiles = await listRes.json() as { id: string; name: string }[];
 
       const entries = await withConcurrency(
         imageFiles.map(file => async () => {
           try {
-            const res = await fetch(
-              `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (!res.ok) return null;
-            const blob = await res.blob();
+            const blob = await apiBlob(`/api/kam-photos/${file.id}`, token!);
             // Skip canvas resize for small blobs — already display-sized
             const dataUrl = blob.size < SKIP_RESIZE_BYTES
               ? URL.createObjectURL(blob)

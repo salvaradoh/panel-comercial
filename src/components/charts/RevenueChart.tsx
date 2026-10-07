@@ -3,6 +3,10 @@ import { createChart, ColorType, LineStyle, AreaSeries, LineSeries } from 'light
 import { Card } from '../ui/Card';
 import type { SeriePoint, Granularidad } from '../../hooks/useSeries';
 
+// Los textos del tooltip se arman con innerHTML; el país viene de una planilla.
+const escHtml = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
 const OPCIONES: { key: Granularidad; label: string }[] = [
   { key: 'semana', label: 'Semana' },
   { key: 'mes', label: 'Mes' },
@@ -139,13 +143,13 @@ export function RevenueChart({ data, granularidad, onGranularidadChange, isLoadi
 
         const rankingHTML = sorted.map((p, i) =>
           `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px">
-            <span style="color:#94a3b8;font-size:10px">${i + 1}. ${p.pais}</span>
+            <span style="color:#94a3b8;font-size:10px">${i + 1}. ${escHtml(p.pais)}</span>
             <span style="font-size:10px;font-weight:600;color:${p.pct >= 1 ? '#10b981' : p.pct >= 0.8 ? '#f59e0b' : '#ef4444'}">${(p.pct * 100).toFixed(1)}%</span>
           </div>`
         ).join('');
 
         tooltipEl.innerHTML = `
-          <div style="font-size:10px;color:#94a3b8;margin-bottom:6px;font-weight:600">${timeLabel}</div>
+          <div style="font-size:10px;color:#94a3b8;margin-bottom:6px;font-weight:600">${escHtml(timeLabel)}</div>
           <div style="display:flex;align-items:baseline;gap:6px">
             <span style="font-size:16px;font-weight:700;color:#0f172a">${fmtUSD(areaData.value)}</span>
             <span style="font-size:10px;color:#0097A7">Revenue</span>
