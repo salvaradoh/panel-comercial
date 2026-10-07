@@ -39,7 +39,7 @@ export function useRolesPorLocal() {
 
 /**
  * Rol del usuario conectado, según la hoja `Codigos Vendedores` y nada más: quien no
- * figura ahí devuelve `null` (decisión de Samuel, 2026-10-08; antes había una lista de
+ * figura ahí devuelve `null` (decisión de Samuel, 2026-10-07; antes había una lista de
  * respaldo en el código, que exponía correos y roles en el JavaScript publicado).
  *
  * Se compara por la PARTE LOCAL del correo, no por el correo completo: apprecio.com y

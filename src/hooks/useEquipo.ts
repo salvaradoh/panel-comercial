@@ -11,7 +11,7 @@ import type { AccessRole, UserRoleData } from './useUserRole';
  * Antes había listas fijas en el código (roles con correos, tres copias de código → nombre)
  * que se publicaban en el JavaScript del sitio — hallazgo 3.2 del informe de seguridad del
  * 2026-10-05 —. Ya no hay respaldo: quien no está en la hoja no tiene rol (decisión de
- * Samuel, 2026-10-08).
+ * Samuel, 2026-10-07).
  */
 
 const CODIGOS_ID = '1w3lOhP4m-uPX49E-cyaZJgFXFxaT3Hhf4izCfsyFmho';
