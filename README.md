@@ -14,9 +14,9 @@ npm run dev
 y el proyecto está en React 19; sin ese flag falla con ERESOLVE y parece que el
 repo está roto.
 
-Falta un archivo: **`.env.local`**, que no está versionado porque lleva el token
-del Apps Script. Pedíselo a Samuel. El resto de las variables ya están en
-`.env.production`.
+Falta un archivo: **`.env.local`**, que no está versionado porque lleva una
+credencial local. Pídelo al responsable del panel. El resto de las variables ya
+están en `.env.production`.
 
 ## Publicar
 
@@ -63,6 +63,6 @@ así que sale con exit 0 aunque el código no compile.
 
 ## De dónde sale este repo
 
-El código vive también en `dashboard-v2/frontend` del repo `automatizador-ia`, y
-se sincroniza con `git subtree`. Si tocás algo acá, avisá para que se traiga del
-otro lado antes de que las dos copias se separen.
+El código se sincroniza desde el repositorio de origen del panel, que es privado.
+Si cambias algo aquí, avisa para que se traiga del otro lado antes de que las dos
+copias se separen.
