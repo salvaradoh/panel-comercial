@@ -16,7 +16,7 @@ import { useAuth } from '../auth/AuthContext';
  * pedido.
  *
  * LA LLAVE ES EL ID TRIBUTARIO y las dos fuentes lo escriben distinto: el
- * dashboard usa '77125285-0' y HubSpot '771252850' sin separadores. Por eso se
+ * dashboard usa '11111111-1' y HubSpot '111111111' sin separadores. Por eso se
  * normaliza a solo alfanuméricos — sin eso el cruce da CERO.
  *
  * Un cliente puede tener VARIOS contactos (129 de 300 los tienen, uno llega a 18),
@@ -41,7 +41,7 @@ export interface Contacto {
   area: string;
 }
 
-/** Solo alfanuméricos y en mayúscula: '77.125.285-0' → '771252850'. */
+/** Solo alfanuméricos y en mayúscula: '11.111.111-1' → '111111111'. */
 export function claveIdTrib(v: string | undefined | null): string {
   return String(v ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
 }

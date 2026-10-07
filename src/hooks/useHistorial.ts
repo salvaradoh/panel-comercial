@@ -19,8 +19,8 @@ export type HistorialMap = Map<string, HistorialEntry[]>;
 
 /**
  * `Panel ID` NO es único entre países: Perú y Colombia usan enteros
- * correlativos y colisionan (el ID 19 es "TAI LOY S.A." en Perú y
- * "CONTENUR COLOMBIA SAS" en Colombia — 138 choques en total). Indexar solo
+ * correlativos y colisionan (el ID 19 es un cliente de Perú y
+ * otro de Colombia — 138 choques en total). Indexar solo
  * por panelId mezclaba la serie de dos empresas distintas en un mismo gráfico.
  */
 export function histKey(pais: string, panelId: string) {

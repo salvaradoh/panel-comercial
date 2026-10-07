@@ -124,8 +124,8 @@ function ScoreChip({ score }: { score: number }) {
 
 /**
  * `Panel ID` no es único entre países — Perú y Colombia usan enteros
- * correlativos y chocan en 138 casos (el 19 es "TAI LOY S.A." en Perú y
- * "CONTENUR COLOMBIA SAS" en Colombia). La identidad de un cliente es
+ * correlativos y chocan en 138 casos (el 19 es un cliente de Perú y
+ * otro de Colombia). La identidad de un cliente es
  * (pais, panelId).
  */
 function keyDe(c: ClienteTabla) {
@@ -139,9 +139,9 @@ function soloAlnum(s: string) {
 
 /**
  * El ID panel no tiene una forma única entre países: Chile y México usan el
- * RUT/NIT con guion (`96719620-7`) y Perú y Colombia enteros correlativos
- * (`3`, `19`). Por eso se compara normalizado y por prefijo, así "96719620"
- * encuentra a "96719620-7".
+ * RUT/NIT con guion (`11111111-1`) y Perú y Colombia enteros correlativos
+ * (`3`, `19`). Por eso se compara normalizado y por prefijo, así "11111111"
+ * encuentra a "11111111-1".
  *
  * Excepción para los correlativos cortos: un término de 1–3 dígitos exige
  * coincidencia EXACTA. Con prefijo, teclear "3" traería todos los IDs que
@@ -179,7 +179,7 @@ function terminoUtil(term: string, termAlnum: string): boolean {
 
 /**
  * Las series de los gráficos se indexan por slot ("s0"/"s1"/"s2"), no por
- * nombre: hay 15 nombres repetidos en la cartera (dos "PREMIUM DATA S.A.C."
+ * nombre: hay 15 nombres repetidos en la cartera (dos clientes con el mismo nombre
  * distintas en Perú, tres "VIVO TECH" en tres países) y usar el nombre como
  * dataKey colapsaba las dos series en una sola.
  */

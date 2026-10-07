@@ -584,8 +584,8 @@ export const FUENTE_KAM_META: Record<FuenteKam, { label: string; confiable: bool
  *
  *   Colombia   correlativo numérico  ("890")        1.363 de 1.391
  *   Perú       correlativo numérico  ("72")           713 de   783
- *   Chile      el RUT                ("76670860-9")     0 de 1.083 numéricos
- *   México     el RFC                ("GRE851219528")   2 de   217 numéricos
+ *   Chile      el RUT                ("11111111-1")     0 de 1.083 numéricos
+ *   México     el RFC                ("XAXX010101000")   2 de   217 numéricos
  *
  * Los RUT vienen con puntos en unas hojas y sin puntos en otras, así que se
  * sacan; para los correlativos numéricos esto no cambia nada.
